@@ -12,6 +12,7 @@
 //! - [`Problem::from_file`] loads a statement; its file stem names its memory.
 //! - [`Harness::start`] boots the runtime; [`Harness::solve`] works one
 //!   problem and returns a [`Report`].
+//! - [`Toolkit`] is the set of host tools the solver agent gets.
 //! - [`Memory`] is the `CortexDB` client, usable on its own.
 //!
 //! # Example
@@ -42,13 +43,16 @@ mod error;
 mod harness;
 mod memory;
 mod problem;
+mod toolkit;
 mod verdict;
 
 pub use config::{
-    Config, DEFAULT_API_BASE_URL, DEFAULT_CORTEX_URL, DEFAULT_SCOPE_ROOT, DEFAULT_WORKSPACE,
+    Config, DEFAULT_CORTEX_URL, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LADDER_URL, DEFAULT_MODEL, DEFAULT_SCOPE_ROOT, DEFAULT_WORKSPACE,
 };
 pub use error::{Error, Result};
 pub use harness::{Harness, Report};
 pub use memory::{Memory, WRITE_BARRIER, reached_barrier, render_pack};
 pub use problem::{Problem, slugify};
+pub use toolkit::{FACTOR_LIMIT, RECALL_TOOL, Toolkit, factorize, gcd};
 pub use verdict::{Reason, VERDICT_PREFIX, Verdict};

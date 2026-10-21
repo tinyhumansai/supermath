@@ -18,6 +18,8 @@ Method:
 4. Look for a counterexample as seriously as for a proof.
 5. Use `recall_memory` to check what earlier runs on this problem recorded.
    Treat recalled notes as leads to verify, not as established results.
+6. More tools exist than you can see, such as exact integer arithmetic. Ask
+   `tool_search` for what you need before computing anything by hand.
 
 Honesty rules:
 - Never claim a proof you have not written out in full.
