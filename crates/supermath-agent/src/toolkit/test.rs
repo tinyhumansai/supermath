@@ -88,7 +88,8 @@ async fn factor_integer_reports_primality_and_divisor_count() {
     assert_eq!(parsed["divisor_count"], 24);
 
     let output = call("factor_integer", json!({ "n": 97 })).await;
-    assert!(output.contains("\"is_prime\":true"), "{output}");
+    let parsed: Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(parsed["is_prime"], true);
 }
 
 #[tokio::test]
@@ -123,7 +124,8 @@ async fn gcd_lcm_answers_exactly_without_overflow() {
     );
 
     let output = call("gcd_lcm", json!({ "a": 0, "b": 0 })).await;
-    assert!(output.contains("\"lcm\":\"0\""), "{output}");
+    let parsed: Value = serde_json::from_str(&output).unwrap();
+    assert_eq!(parsed["lcm"], "0");
 }
 
 #[tokio::test]
