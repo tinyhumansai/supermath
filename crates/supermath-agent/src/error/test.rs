@@ -12,6 +12,13 @@ fn messages_are_lowercase_and_name_the_failing_piece() {
             "required setting `SUPERMATH_MODEL` is not set",
         ),
         (
+            Error::InvalidConfig {
+                name: "SUPERMATH_EMBEDDING_DIMS",
+                value: "wide".into(),
+            },
+            "setting `SUPERMATH_EMBEDDING_DIMS` has an invalid value `wide`",
+        ),
+        (
             Error::EmptyProblem("collatz".into()),
             "problem `collatz` has an empty statement",
         ),
