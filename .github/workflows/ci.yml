@@ -28,6 +28,13 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      # OpenHuman links these even in a headless build.
+      - name: Install OpenHuman build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake pkg-config \
+            libssl-dev libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev clang
+
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -42,45 +49,10 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Build
-        run: cargo build --all-targets --all-features
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --all-features
-
-      - name: Test default features
-        run: cargo test
-
-      # `cargo build --all-targets` only *compiles* an example. `AGENTS.md`
-      # promises `cargo run -p template --example basic` works, and a compiled
-      # example can still fail on its first line.
-      - name: Run the bundled example
-        run: cargo run -p template --example basic
-
-      # `crates/template-bus` exists so a host can name the payload types
-      # without compiling the module. That promise is invisible in a diff,
-      # because a forbidden dependency arrives transitively through a feature
-      # someone enabled one crate away — so it is asserted rather than
-      # documented.
-      #
-      # The FORWARD form is required. `cargo tree -i <crate> -p template-bus`
-      # discards the `-p` scope, prints the whole-workspace inverse tree, and
-      # exits 0 looking clean even when this crate is the one at fault.
-      - name: Assert the contract crate stays transport-free
-        run: |
-          set -euo pipefail
-          forbidden="$(cargo tree -p template-bus -e normal,build --prefix none \
-            | grep -Ei 'tinybus|tokio|reqwest|ureq|hyper|rusqlite|git2' || true)"
-          if [ -n "$forbidden" ]; then
-            echo "template-bus pulled in a dependency its manifest forbids:" >&2
-            echo "$forbidden" >&2
-            echo >&2
-            echo "The contract is what a host compiles against. It must stay free" >&2
-            echo "of transports, async runtimes, HTTP clients and native libraries." >&2
-            exit 1
-          fi
+        run: cargo test --locked
 
       - name: Require 90% line coverage in every source file
         run: .github/scripts/check-file-coverage.sh 90 coverage.json
@@ -102,6 +74,12 @@ jobs:
           persist-credentials: false
           submodules: recursive
 
+      - name: Install OpenHuman build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake pkg-config \
+            libssl-dev libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev clang
+
       - uses: dtolnay/rust-toolchain@stable
 
       - uses: Swatinem/rust-cache@v2
@@ -109,81 +87,17 @@ jobs:
       - name: Build documentation
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --no-deps --all-features
+        run: cargo doc --locked --no-deps -p supermath-agent
 
-  msrv:
-    name: Minimum supported Rust version
+  compose:
+    name: Compose file
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-          submodules: recursive
 
-      # `rust-version` is inherited from `[workspace.package]`, so every member
-      # reports the same value. Read it off the package the module ships as
-      # rather than off `packages[0]`, whose order cargo does not promise.
-      - name: Read rust-version from Cargo.toml
-        id: msrv
-        run: |
-          set -euo pipefail
-          msrv="$(cargo metadata --format-version 1 --no-deps \
-            | jq -r '.packages[] | select(.name == "template") | .rust_version')"
-          if [[ -z "$msrv" || "$msrv" == "null" ]]; then
-            echo "workspace.package.rust-version is not set in Cargo.toml" >&2
-            exit 1
-          fi
-          echo "version=$msrv" >> "$GITHUB_OUTPUT"
-
-      - uses: dtolnay/rust-toolchain@master
-        with:
-          toolchain: ${{ steps.msrv.outputs.version }}
-
-      - uses: Swatinem/rust-cache@v2
-
-      - name: Build with the declared MSRV
-        run: cargo build --all-targets --all-features
-
-  # `crates/supermath-agent` is its own Cargo workspace (see
-  # docs/adr/0002-separate-agent-workspace.md), so none of the root steps above
-  # build it. It compiles all of OpenHuman, which is why it is a separate job.
-  agent:
-    name: Solving harness
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: crates/supermath-agent
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          submodules: recursive
-
-      # OpenHuman links these even in a headless build.
-      - name: Install OpenHuman build dependencies
-        working-directory: .
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake pkg-config \
-            libssl-dev libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev clang
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: crates/supermath-agent
-
-      - name: Check formatting
-        run: cargo fmt -- --check
-
-      - name: Clippy
-        run: cargo clippy --locked --all-targets -- -D warnings
-
-      - name: Test
-        run: cargo test --locked
-
+      # The ladder config is bind-mounted from the operator's machine; any
+      # file stands in for it when only the file's shape is being checked.
       - name: Validate the compose file
-        working-directory: .
-        run: SUPERMATH_API_KEY=ci SUPERMATH_MODEL=ci docker compose config --quiet
+        run: LADDER_CONFIG_PATH=README.md docker compose config --quiet
