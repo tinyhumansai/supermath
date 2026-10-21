@@ -115,7 +115,7 @@ Those four checks are exactly what CI runs. Optional extras:
 
 ```sh
 cargo doc --no-deps --all-features   # CI builds this with RUSTDOCFLAGS="-D warnings"
-cargo deny check all                 # supply-chain check; see deny.toml
+cargo deny check all                 # supply-chain check, local only; see deny.toml
 cargo install cargo-llvm-cov         # once, before running the coverage gate
 .github/scripts/check-file-coverage.sh 90 coverage.json
 ```
