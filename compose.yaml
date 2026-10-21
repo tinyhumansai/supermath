@@ -39,9 +39,10 @@ services:
       RUST_LOG: ${LADDER_LOG:-info}
     # The image ships `config.example.toml` (ladders `flash`, `reasoning`,
     # `max-reasoning`, `vectors`, ...) as its configuration. Mount your own
-    # over `/etc/ladder/config.toml` to change the ladders.
+    # over `/etc/ladder/config.toml` to change the ladders. Published on 6970 so
+    # it does not collide with a shared ladder already on 6969.
     ports:
-      - "127.0.0.1:${LADDER_PORT:-6969}:6969"
+      - "127.0.0.1:${LADDER_PORT:-6970}:6969"
     mem_limit: 512m
     read_only: true
     tmpfs:
