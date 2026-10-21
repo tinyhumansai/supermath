@@ -56,7 +56,10 @@ fn provider() -> support::Handler {
                 completion("Induction on n: 1 = 1^2, and n^2 + (2n+1) = (n+1)^2.\nVERDICT: proved"),
             )
         } else {
-            (200, tool_call("recall_memory", &json!({ "query": "odd sums" })))
+            (
+                200,
+                tool_call("recall_memory", &json!({ "query": "odd sums" })),
+            )
         }
     })
 }
@@ -111,7 +114,10 @@ async fn solves_a_problem_through_the_stack_and_stores_the_verdict() {
     let output = run(&["solve", problem.to_str().unwrap()], env, home.path()).await;
     let (stdout, stderr) = (text(&output.stdout), text(&output.stderr));
 
-    assert!(output.status.success(), "stdout: {stdout}\nstderr: {stderr}");
+    assert!(
+        output.status.success(),
+        "stdout: {stdout}\nstderr: {stderr}"
+    );
     assert!(stdout.contains("verdict: proved"), "{stdout}");
     assert!(stderr.contains("tool calls: recall_memory"), "{stderr}");
     assert!(stderr.contains("stored in memory as evt-stub"), "{stderr}");
@@ -130,7 +136,10 @@ async fn solves_a_problem_through_the_stack_and_stores_the_verdict() {
         .filter(|seen| seen.path.starts_with("/v1/experience"))
         .collect();
     assert_eq!(writes.len(), 1);
-    assert_eq!(writes[0].body["scope"], "ws:supermath/project:odd-sums/app:brain");
+    assert_eq!(
+        writes[0].body["scope"],
+        "ws:supermath/project:odd-sums/app:brain"
+    );
     assert_eq!(writes[0].body["context"]["labels"][0], "verdict:proved");
 
     // The ladder served the turn, with the default `reasoning` ladder, and the
