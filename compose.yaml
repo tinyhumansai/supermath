@@ -1,15 +1,15 @@
-# supermath: the solving harness, its model router, and its memory.
+# supermath: the agent runner, its model router, and its memory.
 #
-#   cp .env.example .env            # set OPENROUTER_API_KEY (and SURPLUS_API_KEY)
+#   cp .env.example .env            # ladder key, OpenRouter, Surplus, Venice
 #   git submodule update --init --recursive
-#   docker compose up --build       # solves problems/${PROBLEM:-sum-of-odd-numbers}.md
-#   docker compose run --rm agent solve /problems/my-problem.md
+#   docker compose up --build       # ladder + CortexDB, then `supermath-agent check`
 #
 # Three services:
 #
 #   ladder     the LLM ladder router: every chat completion and embedding
 #   cortexdb   the memory server, one per deployment, data in a named volume
-#   agent      `crates/supermath-agent`, embedding OpenHuman; one run per start
+#   agent      `crates/supermath-agent`, embedding OpenHuman; `check` boots it
+#              and reports whether the stack is ready
 #
 # The ladder holds the marketplace credentials. Everything else reaches it with
 # one shared key, `LADDER_API_KEY`. The agent also calls OpenRouter directly,
@@ -143,7 +143,7 @@ services:
       CORTEX_SCOPE_ROOT: ${CORTEX_SCOPE_ROOT:-ws:supermath}
       SUPERMATH_WORKSPACE: /data/openhuman
       RUST_LOG: ${RUST_LOG:-warn}
-    command: ["solve", "/problems/${PROBLEM:-sum-of-odd-numbers}.md"]
+    command: ["check", "${PROJECT:-scratch}"]
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=256m
@@ -152,7 +152,6 @@ services:
     security_opt:
       - no-new-privileges:true
     volumes:
-      - ./problems:/problems:ro
       - agent-data:/data
 
 volumes:

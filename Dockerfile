@@ -1,4 +1,4 @@
-# The supermath solving harness: `crates/supermath-agent` with the OpenHuman
+# The supermath agent runner: `crates/supermath-agent` with the OpenHuman
 # runtime embedded, built from the `vendor/openhuman` submodule.
 #
 #   docker compose build agent
@@ -64,7 +64,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN groupadd --gid 10001 supermath \
  && useradd --uid 10001 --gid 10001 --create-home --shell /bin/bash supermath \
- && mkdir -p /data /problems \
+ && mkdir -p /data \
  && chown supermath:supermath /data
 
 COPY --from=builder /usr/local/bin/supermath-agent /usr/local/bin/supermath-agent
