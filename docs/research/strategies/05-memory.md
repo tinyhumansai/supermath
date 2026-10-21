@@ -87,8 +87,8 @@ the evidence, and leave justification to a separate process
 way at the level of problems, generating the neighbourhood of each solved one
 (`mathematicians/02`§A5, `[INFERRED]`).
 
-> The move as the source states it: "separate generation from justification,
-> and resource them differently." (`mathematicians/07`§B1)
+The source notes state the move as "separate generation from justification,
+and resource them differently" (`mathematicians/07`§B1).
 
 **In supermath.** *Memory*, later *role*. Conjectures a run forms along the way
 (from patterns, from repaired refutations, from variants in
