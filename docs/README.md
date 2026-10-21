@@ -25,6 +25,9 @@ docs/
   [`adr/0001-record-architecture-decisions.md`](adr/0001-record-architecture-decisions.md)
   as the template. An accepted ADR is not edited; it is superseded by a later
   one.
+- **[`research/`](research/README.md)** — notes on outside repositories,
+  papers, and techniques, pinned to a revision. Research informs specs and
+  ADRs but does not replace them.
 
 Complex modules also carry a module-level `README.md` inside `src/<module>/`
 covering their design, public surface, and important constraints.
