@@ -38,7 +38,7 @@ template-specific value.
 | --- | --- |
 | Layout | A cargo workspace under `crates/`, split into a dependency-light wire contract and the module that implements it; directory modules with `mod.rs` / `types.rs` / `test.rs`, a crate-wide error type, integration tests, and a runnable example |
 | Lints | `unsafe_code` forbidden, `missing_docs`, clippy `all` + `pedantic`, no `unwrap`/`expect`/`panic`/`todo` in library code — all declared once in `[workspace.lints]` so every crate, local run, and CI run agree |
-| CI | Format, clippy, build, test (default and all features), a run of the bundled example, an assertion that the contract crate stays transport-free, at least 90% line coverage in every source file, rustdoc with `-D warnings`, an MSRV build, and a `cargo-deny` supply-chain check |
+| CI | Format, clippy, build, test (default and all features), a run of the bundled example, an assertion that the contract crate stays transport-free, at least 90% line coverage in every source file, rustdoc with `-D warnings`, and an MSRV build |
 | Release | Manual `workflow_dispatch` bump that validates, versions, tags, and creates installable native module packages for every supported platform |
 | Community | Issue and pull request templates, Dependabot, contributing, security, support, and code of conduct docs |
 | Agents | [`AGENTS.md`](AGENTS.md) as the single source of truth, symlinked as `CLAUDE.md`, plus a `.claude/settings.json` allowlist for the standard commands |
