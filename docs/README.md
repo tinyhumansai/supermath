@@ -12,7 +12,8 @@ docs/
 ├── README.md      # this index
 ├── specs/         # behavior and architecture specifications
 ├── plans/         # implementation plans derived from approved specs
-└── adr/           # architecture decision records, numbered and immutable
+├── adr/           # architecture decision records, numbered and immutable
+└── research/      # notes on outside work that informs the design
 ```
 
 - **[`specs/`](specs/README.md)** — one file per feature, module, or subsystem,
