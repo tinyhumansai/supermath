@@ -1,65 +1,25 @@
 [workspace]
 resolver = "3"
-# Every crate in this repository lives under `crates/`, one directory per
-# package, each directory named for the package it holds. There is no root
-# package: the crate a host loads is `crates/template`, the same as any other
-# member. Keeping the root virtual is what makes that uniform — a root package
-# would make one crate structurally different from the rest for no reason other
-# than history, and it is the arrangement this template moved away from.
+# Every crate lives under `crates/`, one directory per package.
 members = ["crates/*"]
-# `vendor/` holds the pinned TinyBus submodule, which is its own workspace with
-# its own lockfile. `worktrees/` holds `git worktree` checkouts of this same
-# repository; each contains a full copy of this manifest and every crate under
-# it, so without this entry cargo walks into them and reports duplicate
-# packages.
-#
-# `crates/supermath-agent` is its own workspace: it embeds OpenHuman, whose
-# dependency graph only resolves under OpenHuman's `[patch]` table and whose
-# TinyBus copy would collide with `vendor/tinybus` in one lockfile.
-# `docs/adr/0002-separate-agent-workspace.md` records why.
-exclude = ["vendor", "worktrees", "crates/supermath-agent"]
+# `vendor/` holds the OpenHuman submodule, its own workspace with its own
+# lockfile. `worktrees/` holds `git worktree` checkouts of this repository,
+# which would otherwise be walked as duplicate packages.
+exclude = ["vendor", "worktrees"]
 
 # Shared package metadata. A member inherits a field with `field.workspace =
-# true`, so the version the release workflow bumps is written in exactly one
-# place and every crate moves together.
+# true`.
 [workspace.package]
-version = "0.2.1"
+version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+# OpenHuman needs Rust 1.96 (rusqlite and libsqlite3-sys use `cfg_select!`),
+# and every crate here compiles it.
+rust-version = "1.96"
 license = "GPL-3.0-only"
-repository = "https://github.com/tinyhumansai/rust-template"
+repository = "https://github.com/tinyhumansai/supermath"
 
-[workspace.dependencies]
-# The wire contract. `crates/template` depends on it and re-exports it, so a
-# host that only makes calls takes this crate alone.
-# No `version` requirement on purpose: the workspace version moves on every
-# release, and a pinned requirement here would stop resolving the moment it did.
-# Nothing in this workspace is published, so the path is the whole address.
-template-bus = { path = "crates/template-bus" }
-# TinyBus defines the message types, interface macro, and frozen module ABI
-# used by the generated integration. Socket and CLI features are unnecessary
-# here.
-tinybus = { path = "vendor/tinybus/crates/tinybus", version = "0.1.0", default-features = false, features = [
-    "macros",
-    "modules",
-] }
-# The module-side SDK owns the isolated runtime and exports the ABI entrypoints
-# required by TinyBus's dynamic loader.
-tinybus-module = { path = "vendor/tinybus/crates/tinybus-module", version = "0.1.0" }
-# Derive macros for the crate-wide error type in `crates/template/src/error/`.
-# Every dependency entry should carry a comment like this one saying why it is
-# here.
-thiserror = "2"
-# The bus payload types are serialized into TinyBus frames.
-serde = { version = "1", features = ["derive"] }
-# Positional argument arrays and the module configuration blob.
-serde_json = "1"
-# Module integration tests exercise the real asynchronous in-memory TinyBus.
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
-
-# Lints apply to every member that opts in with `[lints] workspace = true`, and
-# to every target of that member. CI runs clippy with `-D warnings`, so anything
-# set to "warn" here fails the build in CI.
+# Lints apply to every member that opts in with `[lints] workspace = true`. CI
+# runs clippy with `-D warnings`, so anything set to "warn" fails the build.
 [workspace.lints.rust]
 unsafe_code = "forbid"
 missing_docs = "warn"
@@ -79,17 +39,66 @@ unimplemented = "warn"
 # Public fallible/panicking APIs must document their failure modes.
 missing_errors_doc = "warn"
 missing_panics_doc = "warn"
-# Documentation hygiene.
 doc_markdown = "warn"
-# `#[must_use]` on pure public functions.
 must_use_candidate = "warn"
 
 [workspace.lints.rustdoc]
 broken_intra_doc_links = "warn"
 private_intra_doc_links = "warn"
 
+# OpenHuman's own patch table, with every path re-rooted at `vendor/openhuman`.
+# Without it the graph holds two `tinytools` (so MCP tools fail the harness's
+# `Tool` trait), two `tinybus`, and git copies of crates OpenHuman vendors.
+# Entries this graph never uses are left out, because Cargo warns on an unused
+# patch. Keep it in step with `vendor/openhuman/Cargo.toml` when the gitlink
+# moves.
+[patch."https://github.com/tinyhumansai/tinytools"]
+tinytools = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+tinytools-std = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools-std" }
+tinytools-agent = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
+
+[patch."https://github.com/tinyhumansai/tinybus"]
+tinybus = { path = "vendor/openhuman/vendor/tinybus/crates/tinybus" }
+tinybus-macros = { path = "vendor/openhuman/vendor/tinybus/crates/tinybus-macros" }
+tinybus-module = { path = "vendor/openhuman/vendor/tinybus/crates/tinybus-module" }
+
+[patch."https://github.com/tinyhumansai/tinystoragedrivers"]
+tinystoragedrivers = { path = "vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers" }
+tinystoragedrivers-bus = { path = "vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-bus" }
+tinystoragedrivers-busproxy = { path = "vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-busproxy" }
+tinystoragedrivers-client = { path = "vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-client" }
+tinystoragedrivers-core = { path = "vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-core" }
+tinystoragedrivers-file = { path = "vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-file" }
+tinystoragedrivers-secrets = { path = "vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-secrets" }
+tinystoragedrivers-sqlite = { path = "vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-sqlite" }
+
+[patch."https://github.com/tinyhumansai/tinyinference"]
+tinyinference-decisions = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-decisions" }
+tinyinference-core = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinyinference-local = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinyinference-providers = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
+
+[patch.crates-io]
+tinyagents-harness = { path = "vendor/openhuman/vendor/tinyagents/crates/tinyagents-harness" }
+tinyagents-hooks = { path = "vendor/openhuman/vendor/tinyagents/crates/tinyagents-hooks" }
+tinytools = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+tinybus = { path = "vendor/openhuman/vendor/tinybus/crates/tinybus" }
+tinybus-macros = { path = "vendor/openhuman/vendor/tinybus/crates/tinybus-macros" }
+tinybus-module = { path = "vendor/openhuman/vendor/tinybus/crates/tinybus-module" }
+tinyinference-core = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinyinference-local = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinyinference-providers = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
+tiny-artifacts = { path = "vendor/openhuman/vendor/tiny-artifacts/crates/tiny-artifacts" }
+
 [profile.release]
-# Cross-crate optimization and smaller, faster binaries for release builds.
+# OpenHuman's release settings: thin LTO with 16 codegen units (one unit
+# roughly doubles its build time) and stripped debug info.
 lto = "thin"
-codegen-units = 1
+codegen-units = 16
 strip = "debuginfo"
