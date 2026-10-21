@@ -1,4 +1,4 @@
-//! The `recall_memory` host tool.
+//! `recall_memory`: what earlier runs recorded about the current problem.
 //!
 //! The tool is built for one problem and holds that problem's scope. Its only
 //! argument is the query; nothing the model sends can change which memory it
@@ -11,7 +11,7 @@ use crate::memory::Memory;
 use crate::problem::Problem;
 
 /// The name the model calls the tool by.
-pub(crate) const RECALL_TOOL: &str = "recall_memory";
+pub const RECALL_TOOL: &str = "recall_memory";
 
 /// Recalls what memory holds for one problem.
 #[derive(Debug, Clone)]
@@ -23,26 +23,6 @@ pub(crate) struct RecallTool {
 impl RecallTool {
     pub(crate) fn new(memory: Memory, problem: Problem) -> Self {
         Self { memory, problem }
-    }
-
-    /// Runs one recall and phrases the outcome for the model.
-    ///
-    /// A failed recall is a tool error the model can read, not a failed
-    /// turn: the run can go on without memory, but must be told it has none.
-    pub(crate) async fn answer(&self, arguments: &Value) -> ToolResult {
-        let Some(query) = arguments
-            .get("query")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|query| !query.is_empty())
-        else {
-            return ToolResult::error("`query` must be a non-empty string");
-        };
-        match self.memory.recall(&self.problem, query).await {
-            Ok(Some(notes)) => ToolResult::success(notes),
-            Ok(None) => ToolResult::success("Memory holds nothing matching that query."),
-            Err(error) => ToolResult::error(format!("memory is unavailable: {error}")),
-        }
     }
 }
 
@@ -72,7 +52,21 @@ impl Tool for RecallTool {
         ToolPolicy::read_only()
     }
 
+    /// A failed recall is a tool error the model can read, not a failed
+    /// turn: the run can go on without memory, but must be told it has none.
     async fn execute(&self, arguments: Value) -> anyhow::Result<ToolResult> {
-        Ok(self.answer(&arguments).await)
+        let Some(query) = arguments
+            .get("query")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|query| !query.is_empty())
+        else {
+            return Ok(ToolResult::error("`query` must be a non-empty string"));
+        };
+        Ok(match self.memory.recall(&self.problem, query).await {
+            Ok(Some(notes)) => ToolResult::success(notes),
+            Ok(None) => ToolResult::success("Memory holds nothing matching that query."),
+            Err(error) => ToolResult::error(format!("memory is unavailable: {error}")),
+        })
     }
 }
