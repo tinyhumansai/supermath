@@ -2,11 +2,18 @@
 //! `CortexDB` recall before and a write-back after.
 //!
 //! [`Harness::start`] boots the embedded `OpenHuman` runtime once per
-//! process. [`Harness::solve`] then, for one [`Problem`]:
+//! process, wired to two endpoints:
+//!
+//! - the **LLM ladder** is the runtime's provider, so every turn runs on a
+//!   ladder such as `reasoning`;
+//! - **Jev**, reached through OpenRouter, ranks `tool_search`, with the
+//!   ladder's `vectors` model as its retriever.
+//!
+//! [`Harness::solve`] then, for one [`Problem`]:
 //!
 //! 1. recalls what memory holds for the problem;
-//! 2. registers a solver agent that sees only the `recall_memory` host tool,
-//!    bound to this problem's scope, and runs one turn;
+//! 2. registers a solver agent whose only tools are the [`Toolkit`], bound to
+//!    this problem, and runs one turn;
 //! 3. reads the [`Verdict`] from the reply;
 //! 4. writes the verdict and the reply back to memory.
 //!
@@ -15,20 +22,22 @@
 //! updated; it is never swallowed.
 
 mod prompt;
-mod tool;
+
+use std::sync::Arc;
 
 use openhuman_embed::{
-    AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, RuntimeConfig, ToolScopeSpec,
-    Workspace,
+    AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, RuntimeConfig,
+    ToolScopeSpec, Workspace,
 };
+use openhuman_tinyhumans::jev::TinyHumansJevRanker;
+use tinyinference_embeddings::openai::OpenAiEmbeddingModel;
 
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::memory::Memory;
 use crate::problem::Problem;
+use crate::toolkit::Toolkit;
 use crate::verdict::Verdict;
-
-use tool::RecallTool;
 
 /// The most tool-loop iterations one solving turn may take.
 const MAX_ITERATIONS: usize = 24;
@@ -55,6 +64,41 @@ pub struct Harness {
     memory: Memory,
 }
 
+/// The `OpenHuman` config this harness runs under.
+fn runtime_config() -> RuntimeConfig {
+    let mut config = RuntimeConfig::default();
+    // No local model runtime: every inference goes to the ladder.
+    config.local_ai.runtime_enabled = false;
+    // Jev decides `tool_search`, through OpenRouter and nothing else. The
+    // route is an operator decision, so it is named rather than left `auto`.
+    config.agent.tool_search.ranker = "jev".into();
+    config.agent.tool_search.jev_route = "openrouter".into();
+    config
+}
+
+/// The Jev ranker: OpenRouter for decisions, the ladder for retrieval.
+fn jev_ranker(config: &Config, runtime_config: RuntimeConfig) -> Arc<TinyHumansJevRanker> {
+    let openrouter_key = config.openrouter_api_key.clone();
+    let embedder = OpenAiEmbeddingModel::new(config.ladder_api_key.clone())
+        .with_base_url(config.ladder_url.clone())
+        .with_model(config.embedding_model.clone())
+        .with_dimensions(config.embedding_dims);
+    let embedder: Arc<dyn tinyinference_embeddings::EmbeddingModel> = Arc::new(embedder);
+    Arc::new(
+        TinyHumansJevRanker::new()
+            // The ranker otherwise reads the process config from disk, which
+            // would not carry the route set above.
+            .with_config_loader(Arc::new(move || {
+                let config = runtime_config.clone();
+                Box::pin(async move { Ok(config) })
+            }))
+            .with_env_loader(Arc::new(move |name| {
+                (name == "OPENROUTER_API_KEY").then(|| openrouter_key.clone())
+            }))
+            .with_embedder_factory(Arc::new(move |_, _| embedder.clone())),
+    )
+}
+
 impl Harness {
     /// Boots the `OpenHuman` runtime described by `config`.
     ///
@@ -62,16 +106,14 @@ impl Harness {
     ///
     /// Returns [`Error::Runtime`] when the runtime fails to build.
     pub async fn start(config: &Config) -> Result<Self> {
-        let mut runtime_config = RuntimeConfig::default();
-        // No local model runtime: every inference goes to the configured
-        // OpenAI-compatible route.
-        runtime_config.local_ai.runtime_enabled = false;
-        let provider =
-            Provider::openai_compatible(&config.api_base_url, &config.api_key).model(&config.model);
+        let runtime_config = runtime_config();
+        let provider = Provider::openai_compatible(&config.ladder_url, &config.ladder_api_key)
+            .model(&config.model);
         let mut builder = Runtime::builder()
-            .config(runtime_config)
+            .config(runtime_config.clone())
             .workspace(Workspace::Dir(config.workspace.clone()))
-            .provider(provider);
+            .provider(provider)
+            .tool_ranker(jev_ranker(config, runtime_config));
         if let Some(url) = &config.backend_url {
             builder = builder.backend_url(url);
         }
@@ -95,13 +137,13 @@ impl Harness {
     /// and [`Error::Turn`] when the turn itself fails. Memory failures are
     /// reported on the [`Report`], not as errors.
     pub async fn solve(&self, problem: &Problem) -> Result<Report> {
-        let (recalled, recall_error) = match self.memory.recall(problem, problem.statement()).await
-        {
-            Ok(notes) => (notes, None),
-            Err(error) => (None, Some(error.to_string())),
-        };
+        let (recalled, recall_error) =
+            match self.memory.recall(problem, problem.statement()).await {
+                Ok(notes) => (notes, None),
+                Err(error) => (None, Some(error.to_string())),
+            };
 
-        let recall_tool = RecallTool::new(self.memory.clone(), problem.clone());
+        let toolkit = Toolkit::new(self.memory.clone(), problem.clone());
         let agent = self
             .runtime
             .agent(
@@ -112,7 +154,7 @@ impl Harness {
                             .tools(ToolScopeSpec::HostOnly)
                             .max_iterations(MAX_ITERATIONS),
                     )
-                    .tools(move |_| HostTurnTools::advertised(vec![Box::new(recall_tool.clone())])),
+                    .tools(move |_| HostTurnTools::advertised(toolkit.tools())),
             )
             .map_err(|error| Error::Runtime(error.to_string()))?;
 
@@ -124,14 +166,11 @@ impl Harness {
 
         let note = prompt::memory_note(&verdict, &outcome.reply);
         let label = format!("verdict:{}", verdict.label());
-        let (memory_event, memory_error) = match self
-            .memory
-            .remember(problem, &note, &[label.as_str()])
-            .await
-        {
-            Ok(event) => (Some(event), None),
-            Err(error) => (None, Some(error.to_string())),
-        };
+        let (memory_event, memory_error) =
+            match self.memory.remember(problem, &note, &[label.as_str()]).await {
+                Ok(event) => (Some(event), None),
+                Err(error) => (None, Some(error.to_string())),
+            };
 
         Ok(Report {
             verdict,
