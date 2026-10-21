@@ -4,7 +4,10 @@
 
 use std::collections::HashMap;
 
-use super::{Config, DEFAULT_API_BASE_URL, DEFAULT_CORTEX_URL, DEFAULT_SCOPE_ROOT};
+use super::{
+    Config, DEFAULT_CORTEX_URL, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LADDER_URL, DEFAULT_MODEL, DEFAULT_SCOPE_ROOT,
+};
 use crate::error::Error;
 
 fn lookup(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
@@ -16,24 +19,34 @@ fn lookup(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
 }
 
 const REQUIRED: [(&str, &str); 3] = [
-    ("SUPERMATH_API_KEY", "sk-test"),
-    ("SUPERMATH_MODEL", "some/model"),
+    ("LADDER_API_KEY", "ladder-key"),
+    ("OPENROUTER_API_KEY", "sk-or-test"),
     ("CORTEX_API_KEY", "cortex-key"),
 ];
+
+fn with(extra: &[(&'static str, &'static str)]) -> Vec<(&'static str, &'static str)> {
+    let mut pairs = REQUIRED.to_vec();
+    pairs.retain(|(name, _)| !extra.iter().any(|(e, _)| e == name));
+    pairs.extend_from_slice(extra);
+    pairs
+}
 
 #[test]
 fn fills_defaults_when_only_required_settings_are_given() {
     let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
-    assert_eq!(config.api_base_url, DEFAULT_API_BASE_URL);
+    assert_eq!(config.ladder_url, DEFAULT_LADDER_URL);
+    assert_eq!(config.model, DEFAULT_MODEL);
+    assert_eq!(config.embedding_model, DEFAULT_EMBEDDING_MODEL);
+    assert_eq!(config.embedding_dims, DEFAULT_EMBEDDING_DIMS);
     assert_eq!(config.cortex_url, DEFAULT_CORTEX_URL);
     assert_eq!(config.scope_root, DEFAULT_SCOPE_ROOT);
     assert_eq!(config.backend_url, None);
-    assert_eq!(config.model, "some/model");
+    assert_eq!(config.openrouter_api_key, "sk-or-test");
 }
 
 #[test]
 fn names_each_missing_required_setting() {
-    for missing in ["SUPERMATH_API_KEY", "SUPERMATH_MODEL", "CORTEX_API_KEY"] {
+    for (missing, _) in REQUIRED {
         let pairs: Vec<_> = REQUIRED
             .iter()
             .copied()
@@ -49,30 +62,47 @@ fn names_each_missing_required_setting() {
 
 #[test]
 fn treats_a_blank_value_as_unset() {
-    let mut pairs = REQUIRED.to_vec();
-    pairs.retain(|(name, _)| *name != "SUPERMATH_MODEL");
-    pairs.push(("SUPERMATH_MODEL", "   "));
-    let error = Config::from_lookup(lookup(&pairs)).unwrap_err();
-    assert!(matches!(error, Error::MissingConfig("SUPERMATH_MODEL")));
+    let error = Config::from_lookup(lookup(&with(&[("LADDER_API_KEY", "   ")]))).unwrap_err();
+    assert!(matches!(error, Error::MissingConfig("LADDER_API_KEY")));
 }
 
 #[test]
-fn strips_a_trailing_slash_from_the_cortex_url() {
-    let mut pairs = REQUIRED.to_vec();
-    pairs.push(("CORTEX_API_URL", "http://cortexdb:3141/"));
-    pairs.push(("CORTEX_SCOPE_ROOT", "ws:test"));
-    pairs.push(("SUPERMATH_BACKEND_URL", "http://backend"));
-    let config = Config::from_lookup(lookup(&pairs)).unwrap();
+fn reads_overrides_and_strips_trailing_slashes() {
+    let config = Config::from_lookup(lookup(&with(&[
+        ("LADDER_URL", "http://ladder:6969/v1/"),
+        ("CORTEX_API_URL", "http://cortexdb:3141/"),
+        ("CORTEX_SCOPE_ROOT", "ws:test"),
+        ("SUPERMATH_BACKEND_URL", "http://backend"),
+        ("SUPERMATH_MODEL", "flash"),
+        ("SUPERMATH_EMBEDDING_DIMS", "1536"),
+    ])))
+    .unwrap();
+    assert_eq!(config.ladder_url, "http://ladder:6969/v1");
     assert_eq!(config.cortex_url, "http://cortexdb:3141");
     assert_eq!(config.scope_root, "ws:test");
     assert_eq!(config.backend_url.as_deref(), Some("http://backend"));
+    assert_eq!(config.model, "flash");
+    assert_eq!(config.embedding_dims, 1536);
+}
+
+#[test]
+fn rejects_embedding_dims_that_are_not_a_positive_integer() {
+    for raw in ["0", "-1", "wide"] {
+        let error = Config::from_lookup(lookup(&with(&[("SUPERMATH_EMBEDDING_DIMS", raw)])))
+            .unwrap_err();
+        assert!(
+            matches!(&error, Error::InvalidConfig { name: "SUPERMATH_EMBEDDING_DIMS", value } if value == raw),
+            "{raw}: {error}"
+        );
+    }
 }
 
 #[test]
 fn debug_output_never_shows_credentials() {
     let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
     let rendered = format!("{config:?}");
-    assert!(!rendered.contains("sk-test"));
-    assert!(!rendered.contains("cortex-key"));
-    assert!(rendered.contains("some/model"));
+    for secret in ["ladder-key", "sk-or-test", "cortex-key"] {
+        assert!(!rendered.contains(secret), "{secret}");
+    }
+    assert!(rendered.contains(DEFAULT_MODEL));
 }
