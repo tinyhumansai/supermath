@@ -12,6 +12,15 @@ pub enum Error {
     #[error("required setting `{0}` is not set")]
     MissingConfig(&'static str),
 
+    /// A setting was present but not a valid value.
+    #[error("setting `{name}` has an invalid value `{value}`")]
+    InvalidConfig {
+        /// The variable that was read.
+        name: &'static str,
+        /// The value it held.
+        value: String,
+    },
+
     /// The problem file could not be read.
     #[error("cannot read problem file `{path}`: {source}")]
     ProblemFile {
