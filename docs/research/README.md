@@ -17,6 +17,10 @@ link back here.
   [senamakel/math-superagent](https://github.com/senamakel/math-superagent),
   copied verbatim: how Tao and ten other mathematicians attack problems, and
   proofatlas.ai read as a harness.
+- **[`strategies/`](strategies/README.md)**: the strategies from
+  `math-superagent/` we want supermath's solver to adopt, each traced to its
+  source and staged against the current harness, plus the side we take where
+  the mathematicians disagree.
 
 ## Conventions
 
