@@ -262,7 +262,8 @@ Write documentation for the reader who has never seen the code.
 ## Git Workflow
 
 - Never commit directly to `main`. Branch first, one branch per logical change.
-- Do feature work in a git worktree so the main checkout stays clean.
+- Do not use git worktrees in this repository. Work on a branch in the main
+  checkout.
 - Commit subjects are concise and imperative: `Add retry policy to the client`.
   Keep the subject specific to the change and under ~72 characters.
 - Make small, focused commits. Each commit should cover one logical change,
