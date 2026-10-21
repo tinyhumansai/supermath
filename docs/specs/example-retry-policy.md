@@ -56,7 +56,7 @@ retry.
 - Boundary checks cover attempts `0`, `1`, `max_attempts`, and
   `max_attempts + 1` when representable.
 - Integration tests prove the policy and its error are available to consumers.
-- Formatting, Clippy, build, tests, rustdoc, and cargo-deny pass.
+- Formatting, Clippy, build, tests, and rustdoc pass.
 
 ## Open questions
 
