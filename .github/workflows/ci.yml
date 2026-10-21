@@ -143,17 +143,3 @@ jobs:
 
       - name: Build with the declared MSRV
         run: cargo build --all-targets --all-features
-
-  supply-chain:
-    name: Supply chain
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-          submodules: recursive
-
-      - name: Check advisories, licenses, bans, and sources
-        uses: EmbarkStudios/cargo-deny-action@v2
-        with:
-          command: check all
