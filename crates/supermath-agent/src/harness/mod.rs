@@ -93,7 +93,16 @@ fn runtime_config() -> RuntimeConfig {
 }
 
 /// The Jev ranker: `OpenRouter` for decisions, the ladder for retrieval.
-fn jev_ranker(config: &Config, runtime_config: RuntimeConfig) -> Arc<TinyHumansJevRanker> {
+fn jev_ranker(config: &Config, mut runtime_config: RuntimeConfig) -> Arc<TinyHumansJevRanker> {
+    // The same paths `Workspace::Dir` gives the runtime. Left at the defaults,
+    // the ranker's embedding cache would open the operator's own
+    // `~/.openhuman` storage.
+    runtime_config.workspace_dir.clone_from(&config.workspace);
+    runtime_config.config_path = config
+        .workspace
+        .parent()
+        .unwrap_or(&config.workspace)
+        .join("config.toml");
     let openrouter_key = config.openrouter_api_key.clone();
     let embedder = OpenAiEmbeddingModel::new(config.ladder_api_key.clone())
         .with_base_url(config.ladder_url.clone())
