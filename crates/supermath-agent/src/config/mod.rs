@@ -10,7 +10,7 @@
 //!
 //! [`Config::from_env`] reads the process environment;
 //! [`Config::from_lookup`] takes any lookup function, so tests never touch
-//! the real environment. `docs/specs/solving-harness.md` lists every
+//! the real environment. `docs/specs/agent-runner.md` lists every
 //! variable.
 
 use std::path::PathBuf;

@@ -2,78 +2,22 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use serde_json::{Value, json};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use serde_json::json;
 use tokio::net::TcpListener;
 
-use super::{Memory, idempotency_key, pack, reached_barrier, render_pack};
+use super::stub::stub;
+use super::{Memory, Project, idempotency_key, pack, reached_barrier, render_pack, slugify};
 use crate::error::Error;
-use crate::problem::Problem;
 
-/// One request the stub received.
-#[derive(Debug)]
-struct Seen {
-    head: String,
-    body: Value,
-}
-
-/// Serves exactly one HTTP request with `status` and `body`, then hands back
-/// what it received.
-async fn stub(status: u16, body: &str) -> (String, tokio::task::JoinHandle<Seen>) {
-    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
-    let url = format!("http://{}", listener.local_addr().unwrap());
-    let body = body.to_string();
-    let handle = tokio::spawn(async move {
-        let (mut socket, _) = listener.accept().await.unwrap();
-        let mut buffer = Vec::new();
-        let mut chunk = [0u8; 4096];
-        let (head, length) = loop {
-            let read = socket.read(&mut chunk).await.unwrap();
-            buffer.extend_from_slice(&chunk[..read]);
-            if let Some(end) = buffer.windows(4).position(|w| w == b"\r\n\r\n") {
-                let head = String::from_utf8_lossy(&buffer[..end]).to_string();
-                let length = head
-                    .lines()
-                    .find_map(|line| {
-                        let (name, value) = line.split_once(':')?;
-                        name.eq_ignore_ascii_case("content-length")
-                            .then(|| value.trim().parse::<usize>().unwrap())
-                    })
-                    .unwrap_or(0);
-                buffer.drain(..end + 4);
-                break (head, length);
-            }
-        };
-        while buffer.len() < length {
-            let read = socket.read(&mut chunk).await.unwrap();
-            buffer.extend_from_slice(&chunk[..read]);
-        }
-        let response = format!(
-            "HTTP/1.1 {status} STUB\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
-            body.len()
-        );
-        socket.write_all(response.as_bytes()).await.unwrap();
-        Seen {
-            head,
-            body: serde_json::from_slice(&buffer).unwrap_or(Value::Null),
-        }
-    });
-    (url, handle)
-}
-
-fn problem() -> Problem {
-    Problem::new(
-        "odd-sums",
-        "Show the sum of the first n odd numbers is n^2.",
-    )
-    .unwrap()
+fn project() -> Project {
+    Project::new("odd-sums").unwrap()
 }
 
 #[test]
 fn scope_is_built_from_the_root_and_the_slug_only() {
     let memory = Memory::new("http://x/", "k", "ws:supermath");
     assert_eq!(
-        memory.scope(&problem()),
+        memory.scope(&project()),
         "ws:supermath/project:odd-sums/app:brain"
     );
 }
@@ -83,7 +27,7 @@ async fn recall_posts_the_scope_and_renders_the_pack() {
     let pack = json!({ "layers": { "events": [{ "content": { "text": "n=1..5 checked" } }] } });
     let (url, seen) = stub(200, &pack.to_string()).await;
     let memory = Memory::new(format!("{url}/"), "secret", "ws:t");
-    let recalled = memory.recall(&problem(), "odd sums").await.unwrap();
+    let recalled = memory.recall(&project(), "odd sums").await.unwrap();
     assert_eq!(
         recalled.as_deref(),
         Some("### Notes recorded\n\n1. n=1..5 checked")
@@ -104,14 +48,14 @@ async fn recall_posts_the_scope_and_renders_the_pack() {
 async fn recall_of_an_unknown_scope_is_nothing_recorded() {
     let (url, _seen) = stub(404, r#"{"error_code":"NOT_FOUND"}"#).await;
     let memory = Memory::new(url, "k", "ws:t");
-    assert_eq!(memory.recall(&problem(), "q").await.unwrap(), None);
+    assert_eq!(memory.recall(&project(), "q").await.unwrap(), None);
 }
 
 #[tokio::test]
 async fn a_refusal_names_the_server_error_code() {
     let (url, _seen) = stub(403, r#"{"error_code":"POLICY_DENIED","message":"no"}"#).await;
     let memory = Memory::new(url, "k", "ws:t");
-    let error = memory.recall(&problem(), "q").await.unwrap_err();
+    let error = memory.recall(&project(), "q").await.unwrap_err();
     assert!(
         matches!(&error, Error::MemoryRefused { operation: "recall", status: 403, detail } if detail == "POLICY_DENIED: no"),
         "{error}"
@@ -122,7 +66,7 @@ async fn a_refusal_names_the_server_error_code() {
 async fn invalid_json_is_a_transport_error() {
     let (url, _seen) = stub(200, "not json").await;
     let memory = Memory::new(url, "k", "ws:t");
-    let error = memory.recall(&problem(), "q").await.unwrap_err();
+    let error = memory.recall(&project(), "q").await.unwrap_err();
     assert!(matches!(
         error,
         Error::MemoryTransport {
@@ -138,7 +82,7 @@ async fn an_unreachable_server_is_a_transport_error() {
     let url = format!("http://{}", listener.local_addr().unwrap());
     drop(listener);
     let memory = Memory::new(url, "k", "ws:t");
-    let error = memory.remember(&problem(), "note", &[]).await.unwrap_err();
+    let error = memory.remember(&project(), "note", &[]).await.unwrap_err();
     assert!(matches!(
         error,
         Error::MemoryTransport {
@@ -154,7 +98,7 @@ async fn remember_waits_for_the_index_and_returns_the_event_id() {
     let (url, seen) = stub(200, &answer.to_string()).await;
     let memory = Memory::new(url, "k", "ws:t");
     let id = memory
-        .remember(&problem(), "VERDICT: proved", &["verdict:proved"])
+        .remember(&project(), "VERDICT: proved", &["verdict:proved"])
         .await
         .unwrap();
     assert_eq!(id, "ev-1");
@@ -170,7 +114,7 @@ async fn remember_refuses_a_write_that_was_not_indexed() {
     let answer = json!({ "event_id": "ev-1", "stages_completed": ["stored"] });
     let (url, _seen) = stub(200, &answer.to_string()).await;
     let memory = Memory::new(url, "k", "ws:t");
-    let error = memory.remember(&problem(), "n", &[]).await.unwrap_err();
+    let error = memory.remember(&project(), "n", &[]).await.unwrap_err();
     assert!(matches!(error, Error::MemoryNotIndexed { completed } if completed == "stored"));
 }
 
@@ -233,4 +177,85 @@ fn idempotency_keys_are_stable_and_content_addressed() {
     assert_ne!(a, idempotency_key("s", "note2"));
     assert_ne!(a, idempotency_key("s2", "note"));
     assert_eq!(a.len(), 64);
+}
+
+#[test]
+fn slugify_keeps_lowercase_letters_digits_and_single_dashes() {
+    assert_eq!(
+        slugify("Sum of Odd Numbers").as_deref(),
+        Some("sum-of-odd-numbers")
+    );
+    assert_eq!(
+        slugify("erdos_gyarfas--2").as_deref(),
+        Some("erdos-gyarfas-2")
+    );
+    assert_eq!(slugify("  ../Collatz!  ").as_deref(), Some("collatz"));
+    assert_eq!(slugify("--//--"), None);
+    assert_eq!(slugify("∑∏"), None);
+}
+
+#[test]
+fn project_names_are_normalised_or_refused() {
+    let project = Project::new("Twin Primes").unwrap();
+    assert_eq!(project.slug(), "twin-primes");
+    assert_eq!(project.to_string(), "twin-primes");
+    let error = Project::new("!!").unwrap_err();
+    assert!(matches!(error, Error::InvalidProject(name) if name == "!!"));
+}
+
+#[tokio::test]
+async fn ready_accepts_a_ready_server() {
+    let (url, seen) = stub(200, r#"{"ready":true,"degraded":false}"#).await;
+    Memory::new(url, "k", "ws:t").ready().await.unwrap();
+    assert!(seen.await.unwrap().head.starts_with("GET /v1/admin/ready "));
+}
+
+#[tokio::test]
+async fn ready_names_the_failing_checks_of_an_unready_server() {
+    let body = r#"{"ready":false,"checks":{"embeddings":{"ok":false,"detail":"no key"},"wal":{"ok":true}}}"#;
+    let (url, _seen) = stub(503, body).await;
+    let error = Memory::new(url, "k", "ws:t").ready().await.unwrap_err();
+    assert!(
+        matches!(&error, Error::MemoryNotReady(detail) if detail == "embeddings: no key"),
+        "{error}"
+    );
+}
+
+#[tokio::test]
+async fn ready_refuses_a_server_on_mock_embeddings() {
+    let (url, _seen) = stub(
+        200,
+        r#"{"ready":true,"degraded":true,"embedding_provider":"mock"}"#,
+    )
+    .await;
+    let error = Memory::new(url, "k", "ws:t").ready().await.unwrap_err();
+    assert!(
+        matches!(&error, Error::MemoryNotReady(detail) if detail.contains("degraded")),
+        "{error}"
+    );
+}
+
+#[tokio::test]
+async fn ready_reports_an_unreachable_server_and_a_garbled_answer() {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    drop(listener);
+    let error = Memory::new(url, "k", "ws:t").ready().await.unwrap_err();
+    assert!(matches!(
+        error,
+        Error::MemoryTransport {
+            operation: "ready",
+            ..
+        }
+    ));
+
+    let (url, _seen) = stub(200, "not json").await;
+    let error = Memory::new(url, "k", "ws:t").ready().await.unwrap_err();
+    assert!(matches!(
+        error,
+        Error::MemoryTransport {
+            operation: "ready",
+            ..
+        }
+    ));
 }

@@ -125,3 +125,37 @@ pub(super) fn refusal_detail(body: &str) -> String {
         _ => clip(body.trim(), 300),
     }
 }
+
+/// Reads a `/v1/admin/ready` report: `Ok` when ready and not degraded,
+/// otherwise the failing checks as `name: detail`.
+pub(super) fn readiness(report: &Value) -> std::result::Result<(), String> {
+    if report.get("ready").and_then(Value::as_bool) == Some(false) {
+        let failing: Vec<String> = report
+            .get("checks")
+            .and_then(Value::as_object)
+            .into_iter()
+            .flatten()
+            .filter(|(_, check)| check.get("ok").and_then(Value::as_bool) == Some(false))
+            .map(|(name, check)| {
+                let detail = check
+                    .get("detail")
+                    .and_then(Value::as_str)
+                    .unwrap_or("failed");
+                format!("{name}: {detail}")
+            })
+            .collect();
+        return Err(if failing.is_empty() {
+            "not ready".to_string()
+        } else {
+            failing.join("; ")
+        });
+    }
+    if report.get("degraded").and_then(Value::as_bool) == Some(true) {
+        let provider = report
+            .get("embedding_provider")
+            .and_then(Value::as_str)
+            .unwrap_or("unknown");
+        return Err(format!("degraded (embedding provider `{provider}`)"));
+    }
+    Ok(())
+}

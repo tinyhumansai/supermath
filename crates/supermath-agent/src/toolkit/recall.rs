@@ -1,28 +1,27 @@
-//! `recall_memory`: what earlier runs recorded about the current problem.
+//! `recall_memory`: what earlier runs recorded about the current project.
 //!
-//! The tool is built for one problem and holds that problem's scope. Its only
+//! The tool is built for one project and holds that project's scope. Its only
 //! argument is the query; nothing the model sends can change which memory it
 //! reads.
 
 use openhuman_embed::{Tool, ToolPolicy, ToolResult};
 use serde_json::{Value, json};
 
-use crate::memory::Memory;
-use crate::problem::Problem;
+use crate::memory::{Memory, Project};
 
 /// The name the model calls the tool by.
 pub const RECALL_TOOL: &str = "recall_memory";
 
-/// Recalls what memory holds for one problem.
+/// Recalls what memory holds for one project.
 #[derive(Debug, Clone)]
 pub(crate) struct RecallTool {
     memory: Memory,
-    problem: Problem,
+    project: Project,
 }
 
 impl RecallTool {
-    pub(crate) fn new(memory: Memory, problem: Problem) -> Self {
-        Self { memory, problem }
+    pub(crate) fn new(memory: Memory, project: Project) -> Self {
+        Self { memory, project }
     }
 }
 
@@ -33,7 +32,7 @@ impl Tool for RecallTool {
     }
 
     fn description(&self) -> &'static str {
-        "Search what earlier runs recorded about the current problem. \
+        "Search what earlier runs recorded about the current project. \
          Returns notes, extracted facts, and beliefs, or says nothing matched."
     }
 
@@ -63,7 +62,7 @@ impl Tool for RecallTool {
         else {
             return Ok(ToolResult::error("`query` must be a non-empty string"));
         };
-        Ok(match self.memory.recall(&self.problem, query).await {
+        Ok(match self.memory.recall(&self.project, query).await {
             Ok(Some(notes)) => ToolResult::success(notes),
             Ok(None) => ToolResult::success("Memory holds nothing matching that query."),
             Err(error) => ToolResult::error(format!("memory is unavailable: {error}")),

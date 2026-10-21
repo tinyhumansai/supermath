@@ -21,22 +21,9 @@ pub enum Error {
         value: String,
     },
 
-    /// The problem file could not be read.
-    #[error("cannot read problem file `{path}`: {source}")]
-    ProblemFile {
-        /// The path that was read.
-        path: String,
-        /// The underlying I/O error.
-        source: std::io::Error,
-    },
-
-    /// The problem file held no statement.
-    #[error("problem `{0}` has an empty statement")]
-    EmptyProblem(String),
-
-    /// The problem file name produced no usable slug.
-    #[error("problem file `{0}` has no usable name")]
-    UnnamedProblem(String),
+    /// A project name had no usable characters.
+    #[error("project name `{0}` has no usable characters")]
+    InvalidProject(String),
 
     /// `CortexDB` could not be reached, or did not answer in time.
     #[error("memory request `{operation}` failed: {detail}")]
@@ -58,6 +45,10 @@ pub enum Error {
         detail: String,
     },
 
+    /// `CortexDB` reported itself not ready to store recallable memories.
+    #[error("memory is not ready: {0}")]
+    MemoryNotReady(String),
+
     /// `CortexDB` stored a write without indexing it, so it cannot be recalled.
     #[error("memory stored the note but did not index it (completed: {completed})")]
     MemoryNotIndexed {
@@ -68,10 +59,6 @@ pub enum Error {
     /// The `OpenHuman` runtime failed to boot or to register the agent.
     #[error("openhuman runtime failed: {0}")]
     Runtime(String),
-
-    /// The `OpenHuman` agent turn failed.
-    #[error("agent turn failed: {0}")]
-    Turn(String),
 }
 
 /// The crate's standard result type.

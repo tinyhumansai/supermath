@@ -1,16 +1,16 @@
-//! Durable memory in `CortexDB`, scoped per problem.
+//! Durable memory in `CortexDB`, scoped per project.
 //!
-//! One `CortexDB` server holds every problem this deployment works on. Each
-//! problem's notes live at
+//! One `CortexDB` server holds every project this deployment works on. Each
+//! project's notes live at
 //!
 //! ```text
 //! {scope_root}/project:{slug}/app:brain
 //! ```
 //!
-//! and the scope is built here from configuration and the problem slug only.
+//! and the scope is built here from configuration and the project slug only.
 //! No model output and no tool argument reaches a scope, so an agent cannot
-//! read or write another problem's memory by naming it. The self-hosted
-//! server cannot mint per-problem tokens, so this file is the boundary;
+//! read or write another project's memory by naming it. The self-hosted
+//! server cannot mint per-project tokens, so this file is the boundary;
 //! math-superagent's `src/orchestrator/cortex.rs` records the same trade-off.
 //!
 //! A write waits for the `indexed` barrier and checks the server reached it.
@@ -19,20 +19,23 @@
 //! run would report it as kept.
 
 mod pack;
+mod project;
+#[cfg(test)]
+pub(crate) mod stub;
 
 use std::time::Duration;
 
 use serde_json::{Value, json};
 
 use crate::error::{Error, Result};
-use crate::problem::Problem;
 
 pub use pack::{reached_barrier, render_pack};
+pub use project::{Project, slugify};
 
 /// The barrier a durable write waits for.
 pub const WRITE_BARRIER: &str = "indexed";
 
-/// The scope segment a problem's durable notes go to.
+/// The scope segment a project's durable notes go to.
 ///
 /// An `app:` segment because `CortexDB` v0.10 accepts only the scope types in
 /// its deployment's `allowed_scope_types`, and refuses math-superagent's
@@ -77,17 +80,17 @@ impl Memory {
         }
     }
 
-    /// The scope `problem`'s durable notes are filed under.
+    /// The scope `project`'s durable notes are filed under.
     #[must_use]
-    pub fn scope(&self, problem: &Problem) -> String {
+    pub fn scope(&self, project: &Project) -> String {
         format!(
             "{}/project:{}/{BRAIN_STORE}",
             self.scope_root,
-            problem.slug()
+            project.slug()
         )
     }
 
-    /// Recalls what memory holds about `query` for `problem`, rendered as
+    /// Recalls what memory holds about `query` for `project`, rendered as
     /// Markdown.
     ///
     /// Returns `None` when nothing is recorded, including when the server
@@ -97,13 +100,13 @@ impl Memory {
     ///
     /// Returns [`Error::MemoryTransport`] when the server cannot be reached
     /// in time, and [`Error::MemoryRefused`] when it refuses the request.
-    pub async fn recall(&self, problem: &Problem, query: &str) -> Result<Option<String>> {
+    pub async fn recall(&self, project: &Project, query: &str) -> Result<Option<String>> {
         let limits: serde_json::Map<String, Value> = RECALL_LAYERS
             .iter()
             .map(|layer| (pack::singular(layer).to_string(), json!(RECALL_LIMIT)))
             .collect();
         let body = json!({
-            "scope": self.scope(problem),
+            "scope": self.scope(project),
             // One scope, read directly. math-superagent found `descend`
             // silently missing a populated scope, so no traversal is used.
             "view": "granular",
@@ -122,7 +125,7 @@ impl Memory {
         Ok(render_pack(&pack, &RECALL_LAYERS))
     }
 
-    /// Stores `note` in `problem`'s durable memory and waits until it is
+    /// Stores `note` in `project`'s durable memory and waits until it is
     /// indexed. Returns the event id the server assigned.
     ///
     /// # Errors
@@ -130,15 +133,15 @@ impl Memory {
     /// Returns [`Error::MemoryTransport`] or [`Error::MemoryRefused`] as
     /// [`Memory::recall`] does, and [`Error::MemoryNotIndexed`] when the
     /// server stored the note without indexing it.
-    pub async fn remember(&self, problem: &Problem, note: &str, labels: &[&str]) -> Result<String> {
+    pub async fn remember(&self, project: &Project, note: &str, labels: &[&str]) -> Result<String> {
         let body = json!({
-            "scope": self.scope(problem),
+            "scope": self.scope(project),
             "modality": "observation",
             "content": { "kind": "text", "text": note },
             "context": { "labels": labels },
             // The server bounds keys at 64 characters and answers a reused key
             // with a different body by `409`, so the key is a content digest.
-            "idempotency_key": idempotency_key(&self.scope(problem), note),
+            "idempotency_key": idempotency_key(&self.scope(project), note),
         });
         let path = format!("/v1/experience?wait={WRITE_BARRIER}");
         let response = self.send("remember", &path, &body, WRITE_TIMEOUT).await?;
@@ -149,6 +152,40 @@ impl Memory {
             .and_then(Value::as_str)
             .unwrap_or("unknown")
             .to_string())
+    }
+
+    /// Checks that the server is ready to store recallable memories.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::MemoryTransport`] when the server cannot be reached,
+    /// and [`Error::MemoryNotReady`] when it reports itself not ready, or
+    /// degraded (for example, on mock embeddings that recall nothing).
+    pub async fn ready(&self) -> Result<()> {
+        let request = self
+            .client
+            .get(format!("{}/v1/admin/ready", self.base_url))
+            .bearer_auth(&self.api_key)
+            .send();
+        let response = tokio::time::timeout(RECALL_TIMEOUT, request)
+            .await
+            .map_err(|_| Error::MemoryTransport {
+                operation: "ready",
+                detail: format!("no answer within {} seconds", RECALL_TIMEOUT.as_secs()),
+            })?
+            .map_err(|error| Error::MemoryTransport {
+                operation: "ready",
+                detail: error.to_string(),
+            })?;
+        // A `503` carries the same report as a `200`; the body is the answer.
+        let report: Value = response
+            .json()
+            .await
+            .map_err(|error| Error::MemoryTransport {
+                operation: "ready",
+                detail: format!("invalid JSON: {error}"),
+            })?;
+        pack::readiness(&report).map_err(Error::MemoryNotReady)
     }
 
     async fn send(

@@ -19,8 +19,12 @@ fn messages_are_lowercase_and_name_the_failing_piece() {
             "setting `SUPERMATH_EMBEDDING_DIMS` has an invalid value `wide`",
         ),
         (
-            Error::EmptyProblem("collatz".into()),
-            "problem `collatz` has an empty statement",
+            Error::InvalidProject("!!".into()),
+            "project name `!!` has no usable characters",
+        ),
+        (
+            Error::MemoryNotReady("embeddings: no key".into()),
+            "memory is not ready: embeddings: no key",
         ),
         (
             Error::MemoryNotIndexed {

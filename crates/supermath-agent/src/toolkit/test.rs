@@ -2,15 +2,15 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use openhuman_embed::{Tool, ToolExposure};
+use openhuman_embed::{Tool, ToolExposure, ToolPolicy};
 use serde_json::{Value, json};
 
 use super::{FACTOR_LIMIT, RECALL_TOOL, Toolkit, factorize, gcd};
-use crate::memory::Memory;
-use crate::problem::Problem;
+use crate::memory::stub::stub;
+use crate::memory::{Memory, Project};
 
-fn problem() -> Problem {
-    Problem::new("odd-sums", "Show 1+3+...+(2n-1) = n^2.").unwrap()
+fn project() -> Project {
+    Project::new("odd-sums").unwrap()
 }
 
 /// A memory client pointed at a port nothing listens on.
@@ -22,7 +22,7 @@ async fn unreachable_memory() -> Memory {
 }
 
 fn tool(name: &str, memory: Memory) -> Box<dyn Tool> {
-    Toolkit::new(memory, problem())
+    Toolkit::new(memory, project())
         .tools()
         .into_iter()
         .find(|tool| tool.name() == name)
@@ -39,7 +39,7 @@ async fn call(name: &str, arguments: Value) -> String {
 
 #[test]
 fn catalogue_keeps_memory_direct_and_defers_the_number_tools() {
-    let toolkit = Toolkit::new(Memory::new("http://x", "k", "ws:t"), problem());
+    let toolkit = Toolkit::new(Memory::new("http://x", "k", "ws:t"), project());
     let catalogue: Vec<(String, ToolExposure)> = toolkit
         .tools()
         .iter()
@@ -56,6 +56,7 @@ fn catalogue_keeps_memory_direct_and_defers_the_number_tools() {
     for tool in toolkit.tools() {
         assert!(tool.description().len() > 20, "{}", tool.name());
         assert_eq!(tool.parameters_schema()["type"], "object");
+        assert_eq!(tool.policy(), ToolPolicy::read_only(), "{}", tool.name());
     }
 }
 
@@ -152,4 +153,30 @@ async fn recall_memory_reports_unavailable_memory_to_the_model() {
         .unwrap()
         .output();
     assert!(output.contains("memory is unavailable"), "{output}");
+}
+
+#[tokio::test]
+async fn recall_memory_returns_recalled_notes() {
+    let pack = json!({ "layers": { "events": [{ "content": { "text": "n <= 5 checked" } }] } });
+    let (url, seen) = stub(200, &pack.to_string()).await;
+    let output = tool(RECALL_TOOL, Memory::new(url, "k", "ws:t"))
+        .execute(json!({ "query": " odd sums " }))
+        .await
+        .unwrap()
+        .output();
+    assert!(output.contains("n <= 5 checked"), "{output}");
+    let seen = seen.await.unwrap();
+    assert_eq!(seen.body["query"], "odd sums");
+    assert_eq!(seen.body["scope"], "ws:t/project:odd-sums/app:brain");
+}
+
+#[tokio::test]
+async fn recall_memory_says_when_nothing_matched() {
+    let (url, _seen) = stub(200, r#"{"layers":{}}"#).await;
+    let output = tool(RECALL_TOOL, Memory::new(url, "k", "ws:t"))
+        .execute(json!({ "query": "odd" }))
+        .await
+        .unwrap()
+        .output();
+    assert!(output.contains("nothing matching"), "{output}");
 }

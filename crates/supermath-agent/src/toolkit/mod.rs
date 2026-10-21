@@ -1,11 +1,11 @@
-//! The tools the solver agent can call, handed to the `OpenHuman` runner as
+//! The tools the agent can call, handed to the `OpenHuman` runner as
 //! host tools.
 //!
 //! Deliberately small for now:
 //!
 //! | Tool | Exposure | Does |
 //! | --- | --- | --- |
-//! | `recall_memory` | direct | searches this problem's `CortexDB` memory |
+//! | `recall_memory` | direct | searches this project's `CortexDB` memory |
 //! | `factor_integer` | deferred | exact prime factorization up to 10^12 |
 //! | `gcd_lcm` | deferred | exact gcd and lcm of two integers |
 //!
@@ -21,24 +21,23 @@ mod recall;
 
 use openhuman_embed::Tool;
 
-use crate::memory::Memory;
-use crate::problem::Problem;
+use crate::memory::{Memory, Project};
 
 pub use number::{FACTOR_LIMIT, factorize, gcd};
 pub use recall::RECALL_TOOL;
 
-/// The tools for one run, bound to its problem.
+/// The tools for one agent, bound to its project.
 #[derive(Debug, Clone)]
 pub struct Toolkit {
     memory: Memory,
-    problem: Problem,
+    project: Project,
 }
 
 impl Toolkit {
-    /// A toolkit whose memory tool reads `problem`'s scope in `memory`.
+    /// A toolkit whose memory tool reads `project`'s scope in `memory`.
     #[must_use]
-    pub fn new(memory: Memory, problem: Problem) -> Self {
-        Self { memory, problem }
+    pub fn new(memory: Memory, project: Project) -> Self {
+        Self { memory, project }
     }
 
     /// Fresh instances of every tool, in catalogue order.
@@ -47,7 +46,7 @@ impl Toolkit {
         vec![
             Box::new(recall::RecallTool::new(
                 self.memory.clone(),
-                self.problem.clone(),
+                self.project.clone(),
             )),
             Box::new(number::FactorTool),
             Box::new(number::GcdTool),

@@ -1,50 +1,40 @@
-//! A math problem-solving agent harness built on the embedded `OpenHuman`
-//! runtime, with durable memory in `CortexDB`.
+//! The supermath agent scaffold: the embedded `OpenHuman` runtime, wired to
+//! the LLM ladder, Jev, a small toolkit, and `CortexDB` memory.
 //!
-//! The harness reads one problem, recalls what earlier runs recorded about it,
-//! runs an `OpenHuman` agent turn, reads a three-valued [`Verdict`] from the
-//! reply, and writes the outcome back to memory. The behavior and its
-//! constraints are specified in `docs/specs/solving-harness.md`.
+//! This crate sets up the pieces an agent runs on. What the agent does with
+//! them is not designed yet.
 //!
 //! # Entry points
 //!
-//! - [`Config::from_env`] reads the model route and memory settings.
-//! - [`Problem::from_file`] loads a statement; its file stem names its memory.
-//! - [`Harness::start`] boots the runtime; [`Harness::solve`] works one
-//!   problem and returns a [`Report`].
-//! - [`Toolkit`] is the set of host tools the solver agent gets.
-//! - [`Memory`] is the `CortexDB` client, usable on its own.
+//! - [`Config::from_env`] reads the ladder, Jev, and memory settings.
+//! - [`Runner::start`] boots `OpenHuman`; [`Runner::agent`] registers the
+//!   agent for a [`Project`], with the [`Toolkit`] as its tools.
+//! - [`Memory`] is the `CortexDB` client: scoped recall, indexed writes, and
+//!   a readiness check.
 //!
 //! # Example
 //!
 //! ```
-//! use supermath_agent::{Problem, Reason, Verdict};
+//! use supermath_agent::{Memory, Project};
 //!
-//! let problem = Problem::new("Odd sums", "Show 1+3+...+(2n-1) = n^2.")?;
-//! assert_eq!(problem.slug(), "odd-sums");
+//! let project = Project::new("Twin Primes")?;
+//! assert_eq!(project.slug(), "twin-primes");
 //!
-//! assert_eq!(Verdict::parse("...\nVERDICT: proved"), Verdict::Proved);
-//! // A reply with no verdict line is never read as a positive answer.
-//! assert_eq!(
-//!     Verdict::parse("I believe it is true."),
-//!     Verdict::NotEstablished(Reason::NoVerdict),
-//! );
+//! let memory = Memory::new("http://localhost:3141", "key", "ws:supermath");
+//! assert_eq!(memory.scope(&project), "ws:supermath/project:twin-primes/app:brain");
 //! # Ok::<(), supermath_agent::Error>(())
 //! ```
 //!
 //! # What this crate does not hold
 //!
 //! No agent loop, tool runtime, or provider client of its own: those are
-//! `OpenHuman`'s. This crate owns only what is specific to solving
-//! mathematics: the problem, the verdict, the prompt, and per-problem memory.
+//! `OpenHuman`'s, and model routing is the ladder's.
 
 mod config;
 mod error;
-mod harness;
 mod memory;
-mod problem;
+mod runner;
 mod toolkit;
-mod verdict;
 
 pub use config::{
     Config, DEFAULT_CORTEX_URL, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL,
@@ -52,8 +42,6 @@ pub use config::{
     DEFAULT_WORKSPACE, REASONING_EFFORTS,
 };
 pub use error::{Error, Result};
-pub use harness::{Harness, Report, ToolCall};
-pub use memory::{Memory, WRITE_BARRIER, reached_barrier, render_pack};
-pub use problem::{Problem, slugify};
+pub use memory::{Memory, Project, WRITE_BARRIER, reached_barrier, render_pack, slugify};
+pub use runner::{MAX_ITERATIONS, Runner, SYSTEM_PROMPT};
 pub use toolkit::{FACTOR_LIMIT, RECALL_TOOL, Toolkit, factorize, gcd};
-pub use verdict::{Reason, VERDICT_PREFIX, Verdict};
