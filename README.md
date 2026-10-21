@@ -1,3 +1,27 @@
+# supermath
+
+A math problem-solving agent built on
+[OpenHuman](https://github.com/tinyhumansai/openhuman), with durable
+per-problem memory in CortexDB. The harness lives in
+[`crates/supermath-agent`](crates/supermath-agent/README.md):
+
+```sh
+git submodule update --init --recursive
+cp .env.example .env          # set SUPERMATH_API_KEY and SUPERMATH_MODEL
+docker compose up --build     # CortexDB + one run on problems/sum-of-odd-numbers.md
+```
+
+Each run recalls what memory holds for the problem, runs an OpenHuman agent
+turn, and ends in a three-valued verdict (proved, refuted, or not
+established) that is written back to memory. See
+[`docs/specs/solving-harness.md`](docs/specs/solving-harness.md) for the
+behavior and [`docs/research/`](docs/research/README.md) for the research
+it draws on.
+
+The rest of this README describes the TinyBus module template the repository
+was generated from; its crates (`crates/template`, `crates/template-bus`) are
+still the template's.
+
 # Rust Template
 
 A production-ready Rust 2024 TinyBus module template used by TinyHumans AI. It
