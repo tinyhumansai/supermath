@@ -21,7 +21,15 @@ use crate::error::{Error, Result};
 pub const DEFAULT_LADDER_URL: &str = "http://localhost:6969/v1";
 
 /// The ladder the solver's turns run on when none is configured.
-pub const DEFAULT_MODEL: &str = "reasoning";
+pub const DEFAULT_MODEL: &str = "flash";
+
+/// How hard the solver's model thinks when nothing else is configured.
+pub const DEFAULT_REASONING_EFFORT: &str = "medium";
+
+/// The reasoning efforts `OpenHuman` accepts, aliases included.
+pub const REASONING_EFFORTS: [&str; 8] = [
+    "none", "minimal", "low", "medium", "high", "xhigh", "off", "max",
+];
 
 /// The ladder that serves embeddings when none is configured.
 pub const DEFAULT_EMBEDDING_MODEL: &str = "vectors";
@@ -45,8 +53,11 @@ pub struct Config {
     pub ladder_url: String,
     /// Bearer token the ladder requires.
     pub ladder_api_key: String,
-    /// The ladder the solver's turns run on, such as `reasoning`.
+    /// The ladder the solver's turns run on, such as `flash`.
     pub model: String,
+    /// The reasoning effort every turn asks for, such as `medium`. The ladder
+    /// forwards a request's own effort to whichever rung serves it.
+    pub reasoning_effort: String,
     /// The ladder that serves embeddings.
     pub embedding_model: String,
     /// The width of [`Self::embedding_model`]'s vectors.
@@ -71,6 +82,7 @@ impl std::fmt::Debug for Config {
         f.debug_struct("Config")
             .field("ladder_url", &self.ladder_url)
             .field("model", &self.model)
+            .field("reasoning_effort", &self.reasoning_effort)
             .field("embedding_model", &self.embedding_model)
             .field("embedding_dims", &self.embedding_dims)
             .field("backend_url", &self.backend_url)
@@ -122,12 +134,20 @@ impl Config {
                     },
                 )?,
             };
+        let reasoning_effort = or("SUPERMATH_REASONING_EFFORT", DEFAULT_REASONING_EFFORT);
+        if !REASONING_EFFORTS.contains(&reasoning_effort.as_str()) {
+            return Err(Error::InvalidConfig {
+                name: "SUPERMATH_REASONING_EFFORT",
+                value: reasoning_effort,
+            });
+        }
         Ok(Self {
             ladder_url: or("LADDER_URL", DEFAULT_LADDER_URL)
                 .trim_end_matches('/')
                 .to_string(),
             ladder_api_key: required("LADDER_API_KEY")?,
             model: or("SUPERMATH_MODEL", DEFAULT_MODEL),
+            reasoning_effort,
             embedding_model: or("SUPERMATH_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL),
             embedding_dims,
             openrouter_api_key: required("OPENROUTER_API_KEY")?,

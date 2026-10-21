@@ -142,14 +142,19 @@ async fn solves_a_problem_through_the_stack_and_stores_the_verdict() {
     );
     assert_eq!(writes[0].body["context"]["labels"][0], "verdict:proved");
 
-    // The ladder served the turn, with the default `reasoning` ladder, and the
-    // recalled note reached the model.
-    let turns: Vec<Seen> = ladder.seen();
-    let models: Vec<(&str, &Value)> = turns
-        .iter()
-        .map(|seen| (seen.path.as_str(), &seen.body["model"]))
+    // The ladder served the turn on the default `flash` ladder at medium
+    // reasoning effort, and the recalled note reached the model.
+    // (`GET /v1/models` probes from OpenHuman's model catalog are skipped.)
+    let turns: Vec<Seen> = ladder
+        .seen()
+        .into_iter()
+        .filter(|seen| seen.path.ends_with("/chat/completions"))
         .collect();
-    assert!(models.iter().all(|(_, model)| *model == "reasoning"), "{models:?}");
+    assert_eq!(turns.len(), 2, "one call for the tool, one for the answer");
+    for turn in &turns {
+        assert_eq!(turn.body["model"], "flash");
+        assert_eq!(turn.body["reasoning_effort"], "medium", "{}", turn.body);
+    }
     let first: String = turns[0].body["messages"].to_string();
     assert!(first.contains("checked n <= 5"), "{first}");
 }

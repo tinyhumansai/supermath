@@ -6,7 +6,7 @@ per-problem memory in CortexDB.
 
 ```text
 problem.md ─▶ recall ─▶ OpenHuman agent turn ─▶ VERDICT ─▶ remember
-              (CortexDB)   │ chat:  LLM ladder (`reasoning`)    (CortexDB)
+              (CortexDB)   │ chat:  LLM ladder (`flash`, medium effort)  (CortexDB)
                            │ tools: toolkit, deferred ones found by
                            │        tool_search, ranked by Jev (OpenRouter)
 ```

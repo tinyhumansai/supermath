@@ -131,7 +131,9 @@ services:
     environment:
       LADDER_URL: *ladder-url
       LADDER_API_KEY: *ladder-key
-      SUPERMATH_MODEL: ${SUPERMATH_MODEL:-reasoning}
+      # The ladder's `flash` rungs, thinking at medium depth.
+      SUPERMATH_MODEL: ${SUPERMATH_MODEL:-flash}
+      SUPERMATH_REASONING_EFFORT: ${SUPERMATH_REASONING_EFFORT:-medium}
       SUPERMATH_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-vectors}
       SUPERMATH_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-1024}
       # Jev's decision calls, and nothing else.

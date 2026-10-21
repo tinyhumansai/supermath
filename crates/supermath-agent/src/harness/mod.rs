@@ -5,7 +5,7 @@
 //! process, wired to two endpoints:
 //!
 //! - the **LLM ladder** is the runtime's provider, so every turn runs on a
-//!   ladder such as `reasoning`;
+//!   ladder such as `flash`, at the configured reasoning effort;
 //! - **Jev**, reached through `OpenRouter`, ranks `tool_search`, with the
 //!   ladder's `vectors` model as its retriever.
 //!
@@ -81,8 +81,10 @@ pub struct Harness {
 }
 
 /// The `OpenHuman` config this harness runs under.
-fn runtime_config() -> RuntimeConfig {
+fn runtime_config(settings: &Config) -> RuntimeConfig {
     let mut config = RuntimeConfig::default();
+    // Every turn asks for this depth; the ladder passes it to the rung.
+    config.runtime.reasoning_effort = Some(settings.reasoning_effort.clone());
     // No local model runtime: every inference goes to the ladder.
     config.local_ai.runtime_enabled = false;
     // Jev decides `tool_search`, through `OpenRouter` and nothing else. The
@@ -131,7 +133,7 @@ impl Harness {
     ///
     /// Returns [`Error::Runtime`] when the runtime fails to build.
     pub async fn start(config: &Config) -> Result<Self> {
-        let runtime_config = runtime_config();
+        let runtime_config = runtime_config(config);
         let provider = Provider::openai_compatible(&config.ladder_url, &config.ladder_api_key)
             .model(&config.model);
         let mut builder = Runtime::builder()

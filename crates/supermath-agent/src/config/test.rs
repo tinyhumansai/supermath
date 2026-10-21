@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use super::{
     Config, DEFAULT_CORTEX_URL, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL,
-    DEFAULT_LADDER_URL, DEFAULT_MODEL, DEFAULT_SCOPE_ROOT,
+    DEFAULT_LADDER_URL, DEFAULT_MODEL, DEFAULT_REASONING_EFFORT, DEFAULT_SCOPE_ROOT,
 };
 use crate::error::Error;
 
@@ -36,6 +36,7 @@ fn fills_defaults_when_only_required_settings_are_given() {
     let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
     assert_eq!(config.ladder_url, DEFAULT_LADDER_URL);
     assert_eq!(config.model, DEFAULT_MODEL);
+    assert_eq!(config.reasoning_effort, DEFAULT_REASONING_EFFORT);
     assert_eq!(config.embedding_model, DEFAULT_EMBEDDING_MODEL);
     assert_eq!(config.embedding_dims, DEFAULT_EMBEDDING_DIMS);
     assert_eq!(config.cortex_url, DEFAULT_CORTEX_URL);
@@ -73,7 +74,8 @@ fn reads_overrides_and_strips_trailing_slashes() {
         ("CORTEX_API_URL", "http://cortexdb:3141/"),
         ("CORTEX_SCOPE_ROOT", "ws:test"),
         ("SUPERMATH_BACKEND_URL", "http://backend"),
-        ("SUPERMATH_MODEL", "flash"),
+        ("SUPERMATH_MODEL", "reasoning"),
+        ("SUPERMATH_REASONING_EFFORT", "high"),
         ("SUPERMATH_EMBEDDING_DIMS", "1536"),
     ])))
     .unwrap();
@@ -81,7 +83,8 @@ fn reads_overrides_and_strips_trailing_slashes() {
     assert_eq!(config.cortex_url, "http://cortexdb:3141");
     assert_eq!(config.scope_root, "ws:test");
     assert_eq!(config.backend_url.as_deref(), Some("http://backend"));
-    assert_eq!(config.model, "flash");
+    assert_eq!(config.model, "reasoning");
+    assert_eq!(config.reasoning_effort, "high");
     assert_eq!(config.embedding_dims, 1536);
 }
 
@@ -95,6 +98,16 @@ fn rejects_embedding_dims_that_are_not_a_positive_integer() {
             "{raw}: {error}"
         );
     }
+}
+
+#[test]
+fn rejects_a_reasoning_effort_openhuman_does_not_accept() {
+    let error = Config::from_lookup(lookup(&with(&[("SUPERMATH_REASONING_EFFORT", "extreme")])))
+        .unwrap_err();
+    assert!(
+        matches!(&error, Error::InvalidConfig { name: "SUPERMATH_REASONING_EFFORT", value } if value == "extreme"),
+        "{error}"
+    );
 }
 
 #[test]

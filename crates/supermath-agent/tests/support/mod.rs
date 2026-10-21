@@ -1,7 +1,13 @@
 //! A loopback HTTP stub for the binary's tests: answers every request with a
 //! handler and records what it received.
 
-#![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic, dead_code)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::panic,
+    dead_code,
+    unreachable_pub
+)]
 
 use std::sync::{Arc, Mutex};
 
@@ -106,7 +112,7 @@ async fn serve(mut socket: tokio::net::TcpStream, handler: Handler, record: Arc<
     let _ = socket.write_all(response.as_bytes()).await;
 }
 
-/// An OpenAI chat completion carrying `content`.
+/// An `OpenAI` chat completion carrying `content`.
 pub fn completion(content: &str) -> Value {
     serde_json::json!({
         "id": "chatcmpl-stub",
@@ -122,7 +128,7 @@ pub fn completion(content: &str) -> Value {
     })
 }
 
-/// An OpenAI chat completion that calls `tool` with `arguments`.
+/// An `OpenAI` chat completion that calls `tool` with `arguments`.
 pub fn tool_call(tool: &str, arguments: &Value) -> Value {
     serde_json::json!({
         "id": "chatcmpl-stub-tool",
