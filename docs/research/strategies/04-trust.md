@@ -148,8 +148,9 @@ certified that the 20-line theorem file states Sendov's conjecture
 (`proofatlas/00`, "The one thing to read"). The gate has to be judged by
 someone other than the author. The Erdős catalogue attempts show why: on
 problem 728, both the model and its human operator misread the direction of a
-quantifier in the statement, and the error was caught only by checking the
-final Lean statement against the intended one (`mathematicians/02`§B1).
+quantifier in the statement, and the author's process included checking the
+final Lean statement against the intended one for exactly this kind of error
+(`mathematicians/02`§B1).
 
 **In supermath.** *Role*. We have no Lean, but we have the same gap. The
 solver's first step is to restate the problem in its own words, and every step
