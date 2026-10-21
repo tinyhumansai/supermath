@@ -1,5 +1,5 @@
 # cargo-deny configuration — run locally with `cargo deny check all`.
-# CI runs the same check in the "Supply chain" job of .github/workflows/ci.yml.
+# CI does not run this check.
 
 [graph]
 all-features = true
