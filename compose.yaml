@@ -1,0 +1,105 @@
+# supermath: the solving harness and its memory.
+#
+#   cp .env.example .env            # set SUPERMATH_API_KEY and SUPERMATH_MODEL
+#   git submodule update --init --recursive
+#   docker compose up --build       # solves problems/${PROBLEM:-sum-of-odd-numbers}.md
+#   PROBLEM=my-problem docker compose run --rm agent solve /problems/my-problem.md
+#
+# Two services:
+#
+#   cortexdb   the memory server, one per deployment, data in a named volume
+#   agent      `crates/supermath-agent`, embedding OpenHuman; one run per start
+#
+# Every model call goes to one OpenAI-compatible endpoint (OpenRouter by
+# default): the solver's turns, and CortexDB's embeddings and enrichment.
+
+x-inference-url: &inference-url ${SUPERMATH_API_BASE_URL:-https://openrouter.ai/api/v1}
+x-inference-key: &inference-key ${CORTEX_INFERENCE_KEY:-${SUPERMATH_API_KEY:-}}
+x-memory-model: &memory-model ${CORTEX_CHAT_MODEL:-${SUPERMATH_MODEL:-}}
+
+services:
+  cortexdb:
+    # Pinned by digest, the release cortexdb-saas runs. The engine is a closed
+    # vendor binary published for amd64 only; Apple silicon runs it emulated.
+    image: cortexdb/cortexdb:v0.10.4@sha256:636e0ed0b8cd4ae2f307e3a90f99050f7879f73c556b1ccbbabf2d3a383398fc
+    platform: linux/amd64
+    restart: unless-stopped
+    environment:
+      # The operator key every request carries as a bearer token. The agent
+      # reads the same variable, so the two cannot drift.
+      CORTEX_API_KEY: ${CORTEX_API_KEY:-supermath-local}
+      CORTEX_V1_API_ADDR: 0.0.0.0:3141
+      CORTEX_EMBEDDING_URL: *inference-url
+      CORTEX_EMBEDDING_MODEL: ${CORTEX_EMBEDDING_MODEL:-openai/text-embedding-3-small}
+      CORTEX_EMBEDDING_DIMS: ${CORTEX_EMBEDDING_DIMS:-1536}
+      # v0.10 refuses to boot with an embedding URL and no key, rather than
+      # storing mock vectors that recall nothing. That refusal is wanted.
+      CORTEX_EMBEDDING_API_KEY: *inference-key
+      CORTEX_LLM_URL: *inference-url
+      CORTEX_LLM_MODEL: *memory-model
+      CORTEX_ENTITY_API_KEY: *inference-key
+      # Enrichment builds facts from notes; unset turns it off entirely.
+      CORTEX_ENRICHMENT_DELAY_SECONDS: "0"
+      CORTEX_ENRICHMENT_URL: *inference-url
+      CORTEX_ENRICHMENT_MODEL: *memory-model
+      CORTEX_ENRICHMENT_API_KEY: *inference-key
+      CORTEX_ANSWER_PROVIDER: openai
+      CORTEX_ANSWER_URL: *inference-url
+      CORTEX_ANSWER_MODEL: *memory-model
+      CORTEX_ANSWER_API_KEY: *inference-key
+      CORTEX_VERIFIER_URL: *inference-url
+      CORTEX_VERIFIER_MODEL: *memory-model
+      CORTEX_VERIFIER_API_KEY: *inference-key
+      # Episodes, beliefs and concepts are built by a background scheduler
+      # that is off unless this is set.
+      CORTEX_V1_LAYERS_AUTO: "1"
+      CORTEX_VECTOR_RESIDENT_MAX: ${CORTEX_VECTOR_RESIDENT_MAX:-200000}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:3141/v1/admin/ready || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+    mem_limit: ${CORTEX_MEM_LIMIT:-4g}
+    # Loopback only, for inspecting memory from the host. The agent reaches
+    # the server by name on the compose network.
+    ports:
+      - "127.0.0.1:${CORTEX_PORT:-3141}:3141"
+    volumes:
+      - cortexdb-data:/data
+
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: supermath-agent:local
+    depends_on:
+      cortexdb:
+        condition: service_healthy
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Run knobs only. Credentials ride `.env`: naming them here would set
+      # them to the empty string whenever the host shell lacks them.
+      SUPERMATH_API_BASE_URL: *inference-url
+      CORTEX_API_URL: http://cortexdb:3141
+      CORTEX_API_KEY: ${CORTEX_API_KEY:-supermath-local}
+      CORTEX_SCOPE_ROOT: ${CORTEX_SCOPE_ROOT:-ws:supermath}
+      SUPERMATH_WORKSPACE: /data/openhuman
+      RUST_LOG: ${RUST_LOG:-warn}
+    command: ["solve", "/problems/${PROBLEM:-sum-of-odd-numbers}.md"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=256m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - ./problems:/problems:ro
+      - agent-data:/data
+
+volumes:
+  cortexdb-data:
+  agent-data:
