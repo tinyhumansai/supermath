@@ -13,6 +13,10 @@ link back here.
   server) and [morluto/jacobian](https://github.com/morluto/jacobian) (a
   mathematics MCP server) approaches building hard, wide-surface tools for
   agents, and what that means for supermath.
+- **[`math-superagent/`](math-superagent/README.md)**: the research notes from
+  [senamakel/math-superagent](https://github.com/senamakel/math-superagent),
+  copied verbatim: how Tao and ten other mathematicians attack problems, and
+  proofatlas.ai read as a harness.
 
 ## Conventions
 
