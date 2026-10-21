@@ -30,7 +30,7 @@ use openhuman_embed::{
     Workspace,
 };
 use openhuman_tinyhumans::jev::TinyHumansJevRanker;
-use tinyinference_embeddings::openai::OpenAiEmbeddingModel;
+use tinyinference_embeddings::OpenAiEmbeddingModel;
 
 use crate::config::Config;
 use crate::error::{Error, Result};
