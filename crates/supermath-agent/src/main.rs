@@ -57,6 +57,25 @@ async fn solve(path: PathBuf) -> supermath_agent::Result<ExitCode> {
     println!("{}", report.reply.trim());
     println!();
     println!("verdict: {}", report.verdict);
+    let calls: Vec<String> = report
+        .tool_calls
+        .iter()
+        .map(|call| {
+            if call.success {
+                call.name.clone()
+            } else {
+                format!("{} (failed)", call.name)
+            }
+        })
+        .collect();
+    eprintln!(
+        "tool calls: {}",
+        if calls.is_empty() {
+            "none".to_string()
+        } else {
+            calls.join(", ")
+        }
+    );
     match (&report.memory_event, &report.memory_error) {
         (Some(event), _) => eprintln!("stored in memory as {event}"),
         (None, Some(error)) => eprintln!("warning: the run was NOT stored in memory: {error}"),

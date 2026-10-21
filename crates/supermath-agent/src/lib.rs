@@ -51,7 +51,7 @@ pub use config::{
     DEFAULT_LADDER_URL, DEFAULT_MODEL, DEFAULT_SCOPE_ROOT, DEFAULT_WORKSPACE,
 };
 pub use error::{Error, Result};
-pub use harness::{Harness, Report};
+pub use harness::{Harness, Report, ToolCall};
 pub use memory::{Memory, WRITE_BARRIER, reached_barrier, render_pack};
 pub use problem::{Problem, slugify};
 pub use toolkit::{FACTOR_LIMIT, RECALL_TOOL, Toolkit, factorize, gcd};

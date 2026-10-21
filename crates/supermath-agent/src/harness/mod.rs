@@ -42,6 +42,19 @@ use crate::verdict::Verdict;
 /// The most tool-loop iterations one solving turn may take.
 const MAX_ITERATIONS: usize = 24;
 
+/// How long to wait for a turn's last events after the turn returns. The
+/// core bus delivers them asynchronously.
+const EVENT_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// One tool call the solver made, without its arguments or result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ToolCall {
+    /// The declared tool name, such as `tool_search` or `factor_integer`.
+    pub name: String,
+    /// Whether the call succeeded.
+    pub success: bool,
+}
+
 /// What one run produced.
 #[derive(Debug, Clone)]
 pub struct Report {
@@ -49,6 +62,9 @@ pub struct Report {
     pub verdict: Verdict,
     /// The agent's full reply.
     pub reply: String,
+    /// Every tool call the turn made, in order. The evidence for what the
+    /// reply says it computed.
+    pub tool_calls: Vec<ToolCall>,
     /// Why recall before the turn failed, when it did.
     pub recall_error: Option<String>,
     /// The memory event the run was stored as, when the write succeeded.
@@ -143,11 +159,15 @@ impl Harness {
             Err(error) => (None, Some(error.to_string())),
         };
 
+        let agent_id = format!("solver-{}", problem.slug());
+        // Subscribed before the agent exists, so no event of its turn is missed.
+        let collector = tokio::spawn(collect_tool_calls(self.runtime.events(), agent_id.clone()));
+
         let toolkit = Toolkit::new(self.memory.clone(), problem.clone());
         let agent = self
             .runtime
             .agent(
-                AgentSpec::new(format!("solver-{}", problem.slug()))
+                AgentSpec::new(agent_id)
                     .definition(
                         AgentDefinitionSpec::new()
                             .bare_prompt(prompt::SOLVER_PROMPT)
@@ -163,6 +183,12 @@ impl Harness {
             .await
             .map_err(|error| Error::Turn(error.to_string()))?;
         let verdict = Verdict::parse(&outcome.reply);
+        let tool_calls = match tokio::time::timeout(EVENT_GRACE, collector).await {
+            Ok(Ok(calls)) => calls,
+            // The turn ended without its closing event arriving in time; what
+            // was seen so far is lost with the task, which is reported as none.
+            _ => Vec::new(),
+        };
 
         let note = prompt::memory_note(&verdict, &outcome.reply);
         let label = format!("verdict:{}", verdict.label());
@@ -178,11 +204,31 @@ impl Harness {
         Ok(Report {
             verdict,
             reply: outcome.reply,
+            tool_calls,
             recall_error,
             memory_event,
             memory_error,
         })
     }
+}
+
+/// Records `agent_id`'s tool calls until its turn ends.
+async fn collect_tool_calls(mut events: RuntimeEvents, agent_id: String) -> Vec<ToolCall> {
+    let mut calls = Vec::new();
+    while let Ok(event) = events.recv().await {
+        if event.agent_id.as_deref() != Some(agent_id.as_str()) {
+            continue;
+        }
+        match event.kind {
+            RuntimeEventKind::ToolEnded { tool_name, success } => calls.push(ToolCall {
+                name: tool_name,
+                success,
+            }),
+            RuntimeEventKind::TurnEnded { .. } => break,
+            _ => {}
+        }
+    }
+    calls
 }
 
 #[cfg(test)]
