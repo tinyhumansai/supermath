@@ -28,15 +28,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /build
+COPY Cargo.toml Cargo.lock ./
 COPY vendor/openhuman/ vendor/openhuman/
-COPY crates/supermath-agent/ crates/supermath-agent/
+COPY crates/ crates/
 
-WORKDIR /build/crates/supermath-agent
-# Cache mounts keep the registry and the (large) OpenHuman build between image
-# builds; the binary is copied out because the target cache is not in the image.
+# Cache mounts keep the registry, git checkouts and the (large) OpenHuman build
+# between image builds; the binary is copied out because the target cache is
+# not part of the image.
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
-    --mount=type=cache,target=/build/crates/supermath-agent/target \
-    cargo build --release --locked --bin supermath-agent \
+    --mount=type=cache,target=/usr/local/cargo/git \
+    --mount=type=cache,target=/build/target \
+    cargo build --release --locked -p supermath-agent \
     && cp target/release/supermath-agent /usr/local/bin/supermath-agent
 
 # OpenHuman's bundled TinyBus modules, staged the way its own image stages them.
