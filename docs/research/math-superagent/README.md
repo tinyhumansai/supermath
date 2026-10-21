@@ -40,15 +40,9 @@ only useful if it matches its source.
 
 ## What supermath takes from it
 
-These notes are inputs, not decisions. The first scaffold of the solving
-harness (`crates/supermath-agent`) takes three things from them, recorded in
-[`../../specs/solving-harness.md`](../../specs/solving-harness.md):
-
-- a run ends in a three-valued verdict (proved, refuted, not established),
-  never a bare yes or no, as both this study and
-  [`../rea-and-jacobian/`](../rea-and-jacobian/README.md) recommend;
-- memory is scoped per problem and the scope is never built from model
-  arguments (`proofatlas/06-trust-model.md` and math-superagent's CortexDB
-  notes);
-- what a run learns is written back only after the run says what it
-  established, so provisional work does not pollute durable recall.
+These notes are inputs, not decisions. The agent scaffold
+(`crates/supermath-agent`, [`../../specs/agent-runner.md`](../../specs/agent-runner.md))
+takes one thing from them so far: memory is scoped per project and the scope
+is never built from model arguments (`proofatlas/06-trust-model.md` and
+math-superagent's CortexDB notes). How the agent works on a problem is still
+to be designed, with these notes as input.

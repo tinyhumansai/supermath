@@ -20,4 +20,4 @@ After the specification is accepted, create a linked implementation plan in
 [`../plans/`](../plans/README.md). Keep code snippets small enough to clarify
 the contract; production code still belongs under `src/`.
 
-See [`example-retry-policy.md`](example-retry-policy.md) for a complete sample.
+See [`agent-runner.md`](agent-runner.md) for an example.

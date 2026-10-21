@@ -32,15 +32,10 @@ docs/
 Complex modules also carry a module-level `README.md` inside `src/<module>/`
 covering their design, public surface, and important constraints.
 
-The solving harness is specified in
-[`specs/solving-harness.md`](specs/solving-harness.md), and
-[`adr/0002-separate-agent-workspace.md`](adr/0002-separate-agent-workspace.md)
-records why it is its own Cargo workspace built on OpenHuman.
-
-The current module-release contract is in
-[`specs/tinybus-module-release.md`](specs/tinybus-module-release.md), with its
-implementation sequence in
-[`plans/tinybus-module-release.md`](plans/tinybus-module-release.md).
+The agent runner is specified in
+[`specs/agent-runner.md`](specs/agent-runner.md), and
+[`adr/0002-build-on-openhuman.md`](adr/0002-build-on-openhuman.md) records why
+it embeds OpenHuman.
 
 ## Conventions
 
