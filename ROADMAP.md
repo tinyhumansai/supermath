@@ -10,8 +10,8 @@ out of scope. A roadmap that lists everything is a roadmap nobody trusts.
 
 - module layout, crate-wide error type, and the public re-export surface
 - lint configuration in `[lints]`, enforced identically locally and in CI
-- CI: format, clippy, build, test, per-file coverage, rustdoc, MSRV, and
-  supply-chain checks
+- CI: format, clippy, build, test, per-file coverage, rustdoc, and MSRV
+  checks
 - a manual release workflow that versions, tags, publishes to crates.io, and
   creates a GitHub release with crate and TinyBus runtime/module assets
 
