@@ -43,8 +43,9 @@ Generally out of scope:
 
 - `unsafe` code is forbidden crate-wide by the lint configuration in
   `Cargo.toml`. Relaxing that is a deliberate, reviewed change.
-- CI runs `cargo-deny` against advisories, licenses, bans, and sources on every
-  push and pull request.
+- `deny.toml` configures `cargo-deny` checks for advisories, licenses, bans,
+  and sources. Run them locally with `cargo deny check all`; CI does not run
+  them.
 - Dependabot proposes weekly Cargo and GitHub Actions updates.
 - Secrets never enter the repository. `.env` is git-ignored, and
   `.env.example` documents variables with placeholder values only.
