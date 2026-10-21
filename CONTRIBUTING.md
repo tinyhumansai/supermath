@@ -54,8 +54,8 @@ request.
 Check whether the standard library or an existing dependency already covers the
 need. If not, add it with a caret range, only the features you need, gated
 behind a Cargo feature when optional, and with a comment saying why it exists.
-Run `cargo deny check all` if you have `cargo-deny` installed; CI runs it
-regardless.
+Run `cargo deny check all` if you have `cargo-deny` installed; CI does not
+run it.
 
 ## Pull Request Checklist
 
