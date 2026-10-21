@@ -67,7 +67,8 @@ vendor/tinybus/         # pinned TinyBus host types and module SDK
 docs/
 ├── specs/              # behavior and architecture specifications
 ├── plans/              # test-first implementation plans
-└── adr/                # immutable architecture decision records
+├── adr/                # immutable architecture decision records
+└── research/           # pinned notes on outside work that informs design
 ```
 
 ### The two-crate split
