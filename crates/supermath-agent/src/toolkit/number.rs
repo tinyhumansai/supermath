@@ -164,11 +164,9 @@ impl Tool for GcdTool {
         let g = gcd(a, b);
         // In u128 so the lcm of two u64 values cannot overflow; sent as a
         // string because JSON numbers lose precision past 2^53.
-        let lcm = if g == 0 {
-            0
-        } else {
-            u128::from(a / g) * u128::from(b)
-        };
+        let lcm = a
+            .checked_div(g)
+            .map_or(0, |a| u128::from(a) * u128::from(b));
         Ok(ToolResult::json(json!({
             "a": a,
             "b": b,
