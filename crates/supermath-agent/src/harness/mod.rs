@@ -26,8 +26,8 @@ mod prompt;
 use std::sync::Arc;
 
 use openhuman_embed::{
-    AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, RuntimeConfig, ToolScopeSpec,
-    Workspace,
+    AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, RuntimeConfig,
+    RuntimeEventKind, RuntimeEvents, ToolScopeSpec, Workspace,
 };
 use openhuman_tinyhumans::jev::TinyHumansJevRanker;
 use tinyinference_embeddings::OpenAiEmbeddingModel;
