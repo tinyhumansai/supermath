@@ -27,7 +27,7 @@ pub const DEFAULT_MODEL: &str = "reasoning";
 pub const DEFAULT_EMBEDDING_MODEL: &str = "vectors";
 
 /// The width of [`DEFAULT_EMBEDDING_MODEL`]'s vectors.
-pub const DEFAULT_EMBEDDING_DIMS: usize = 3072;
+pub const DEFAULT_EMBEDDING_DIMS: usize = 1024;
 
 /// The `CortexDB` address used when none is configured.
 pub const DEFAULT_CORTEX_URL: &str = "http://localhost:3141";

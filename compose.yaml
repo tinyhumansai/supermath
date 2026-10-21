@@ -36,11 +36,19 @@ services:
       # the ladder moves on to the next rung.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       SURPLUS_API_KEY: ${SURPLUS_API_KEY:-}
+      VENICE_INFERENCE_KEY: ${VENICE_INFERENCE_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
       RUST_LOG: ${LADDER_LOG:-info}
-    # The image ships `config.example.toml` (ladders `flash`, `reasoning`,
-    # `max-reasoning`, `vectors`, ...) as its configuration. Mount your own
-    # over `/etc/ladder/config.toml` to change the ladders. Published on 6970 so
-    # it does not collide with a shared ladder already on 6969.
+    # The ladders themselves (`flash`, `reasoning`, `vectors`, ...). Defaults to
+    # the operator's router config; the image's bundled example has no working
+    # `vectors` rung, so it is not a usable fallback.
+    volumes:
+      - type: bind
+        source: ${LADDER_CONFIG_PATH:-${HOME}/.config/ladder/config.toml}
+        target: /etc/ladder/config.toml
+        read_only: true
+    # Published on 6970 so it does not collide with a shared ladder already on
+    # 6969. Containers reach it by name.
     ports:
       - "127.0.0.1:${LADDER_PORT:-6970}:6969"
     mem_limit: 512m
@@ -70,11 +78,11 @@ services:
       # `LLM_API_KEY`, so the ladder's key is given under that name too.
       OPENAI_API_KEY: *ladder-key
       LLM_API_KEY: *ladder-key
-      # Embeddings on the `vectors` ladder: 3072 dimensions, one of the widths
-      # the server accepts.
+      # Embeddings on the `vectors` ladder (BGE-M3, 1024 wide). The server pins
+      # the width on first ingest, so changing it needs a fresh volume.
       CORTEX_EMBEDDING_URL: *ladder-url
       CORTEX_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-vectors}
-      CORTEX_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-3072}
+      CORTEX_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-1024}
       CORTEX_EMBEDDING_API_KEY: *ladder-key
       # Extraction, enrichment, answers and verification on the cheap `flash`
       # ladder. Enrichment builds facts from notes; unset turns it off.
@@ -125,7 +133,7 @@ services:
       LADDER_API_KEY: *ladder-key
       SUPERMATH_MODEL: ${SUPERMATH_MODEL:-reasoning}
       SUPERMATH_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-vectors}
-      SUPERMATH_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-3072}
+      SUPERMATH_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-1024}
       # Jev's decision calls, and nothing else.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       CORTEX_API_URL: http://cortexdb:3141
