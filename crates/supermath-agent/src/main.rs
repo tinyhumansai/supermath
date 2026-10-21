@@ -46,6 +46,9 @@ fn main() -> ExitCode {
 
 async fn solve(path: PathBuf) -> supermath_agent::Result<ExitCode> {
     let config = Config::from_env()?;
+    // OpenHuman's logging: a daily file under `<workspace>/logs/`, filtered by
+    // `RUST_LOG`. The terminal keeps only the reply and the verdict.
+    openhuman_embed::process::init_for_embedded(&config.workspace, false);
     let problem = Problem::from_file(&path)?;
     eprintln!("solving `{}` with {}", problem.slug(), config.model);
     let harness = Harness::start(&config).await?;
