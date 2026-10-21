@@ -102,7 +102,13 @@ impl Tool for FactorTool {
         let divisors: u64 = factors.iter().map(|(_, e)| u64::from(*e) + 1).product();
         let rendered = factors
             .iter()
-            .map(|(p, e)| if *e == 1 { p.to_string() } else { format!("{p}^{e}") })
+            .map(|(p, e)| {
+                if *e == 1 {
+                    p.to_string()
+                } else {
+                    format!("{p}^{e}")
+                }
+            })
             .collect::<Vec<_>>()
             .join(" * ");
         Ok(ToolResult::json(json!({

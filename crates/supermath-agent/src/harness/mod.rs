@@ -26,8 +26,8 @@ mod prompt;
 use std::sync::Arc;
 
 use openhuman_embed::{
-    AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, RuntimeConfig,
-    ToolScopeSpec, Workspace,
+    AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, RuntimeConfig, ToolScopeSpec,
+    Workspace,
 };
 use openhuman_tinyhumans::jev::TinyHumansJevRanker;
 use tinyinference_embeddings::openai::OpenAiEmbeddingModel;
@@ -137,11 +137,11 @@ impl Harness {
     /// and [`Error::Turn`] when the turn itself fails. Memory failures are
     /// reported on the [`Report`], not as errors.
     pub async fn solve(&self, problem: &Problem) -> Result<Report> {
-        let (recalled, recall_error) =
-            match self.memory.recall(problem, problem.statement()).await {
-                Ok(notes) => (notes, None),
-                Err(error) => (None, Some(error.to_string())),
-            };
+        let (recalled, recall_error) = match self.memory.recall(problem, problem.statement()).await
+        {
+            Ok(notes) => (notes, None),
+            Err(error) => (None, Some(error.to_string())),
+        };
 
         let toolkit = Toolkit::new(self.memory.clone(), problem.clone());
         let agent = self
@@ -166,11 +166,14 @@ impl Harness {
 
         let note = prompt::memory_note(&verdict, &outcome.reply);
         let label = format!("verdict:{}", verdict.label());
-        let (memory_event, memory_error) =
-            match self.memory.remember(problem, &note, &[label.as_str()]).await {
-                Ok(event) => (Some(event), None),
-                Err(error) => (None, Some(error.to_string())),
-            };
+        let (memory_event, memory_error) = match self
+            .memory
+            .remember(problem, &note, &[label.as_str()])
+            .await
+        {
+            Ok(event) => (Some(event), None),
+            Err(error) => (None, Some(error.to_string())),
+        };
 
         Ok(Report {
             verdict,

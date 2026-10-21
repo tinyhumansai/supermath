@@ -88,8 +88,8 @@ fn reads_overrides_and_strips_trailing_slashes() {
 #[test]
 fn rejects_embedding_dims_that_are_not_a_positive_integer() {
     for raw in ["0", "-1", "wide"] {
-        let error = Config::from_lookup(lookup(&with(&[("SUPERMATH_EMBEDDING_DIMS", raw)])))
-            .unwrap_err();
+        let error =
+            Config::from_lookup(lookup(&with(&[("SUPERMATH_EMBEDDING_DIMS", raw)]))).unwrap_err();
         assert!(
             matches!(&error, Error::InvalidConfig { name: "SUPERMATH_EMBEDDING_DIMS", value } if value == raw),
             "{raw}: {error}"

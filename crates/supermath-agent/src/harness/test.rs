@@ -3,8 +3,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use super::prompt::{SOLVER_PROMPT, memory_note, turn_message};
-use crate::toolkit::RECALL_TOOL;
 use crate::problem::Problem;
+use crate::toolkit::RECALL_TOOL;
 use crate::verdict::{Reason, Verdict};
 
 fn problem() -> Problem {

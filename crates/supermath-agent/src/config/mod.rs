@@ -112,17 +112,16 @@ impl Config {
         };
         let required = |name: &'static str| get(name).ok_or(Error::MissingConfig(name));
         let or = |name: &str, default: &str| get(name).unwrap_or_else(|| default.to_string());
-        let embedding_dims = match get("SUPERMATH_EMBEDDING_DIMS") {
-            None => DEFAULT_EMBEDDING_DIMS,
-            Some(raw) => raw
-                .parse::<usize>()
-                .ok()
-                .filter(|dims| *dims > 0)
-                .ok_or(Error::InvalidConfig {
-                    name: "SUPERMATH_EMBEDDING_DIMS",
-                    value: raw,
-                })?,
-        };
+        let embedding_dims =
+            match get("SUPERMATH_EMBEDDING_DIMS") {
+                None => DEFAULT_EMBEDDING_DIMS,
+                Some(raw) => raw.parse::<usize>().ok().filter(|dims| *dims > 0).ok_or(
+                    Error::InvalidConfig {
+                        name: "SUPERMATH_EMBEDDING_DIMS",
+                        value: raw,
+                    },
+                )?,
+            };
         Ok(Self {
             ladder_url: or("LADDER_URL", DEFAULT_LADDER_URL)
                 .trim_end_matches('/')
