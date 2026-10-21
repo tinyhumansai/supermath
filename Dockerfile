@@ -68,13 +68,16 @@ RUN groupadd --gid 10001 supermath \
  && chown supermath:supermath /data
 
 COPY --from=builder /usr/local/bin/supermath-agent /usr/local/bin/supermath-agent
-COPY --from=modules /bundled-modules /opt/openhuman/bundled-modules
+# The module loader refuses a directory the running user does not own.
+COPY --from=modules --chown=supermath:supermath /bundled-modules /opt/openhuman/bundled-modules
 
 ENV OPENHUMAN_BUNDLED_MODULES=/opt/openhuman/bundled-modules \
     OPENHUMAN_DOCKER=1 \
     OPENHUMAN_WORKSPACE=/data/openhuman \
     SUPERMATH_WORKSPACE=/data/openhuman \
-    HOME=/home/supermath \
+    # The root filesystem is read-only under compose; HOME is the writable
+    # data volume, so OpenHuman's module cache and ~/OpenHuman land there.
+    HOME=/data \
     RUST_LOG=info
 
 USER supermath
