@@ -145,7 +145,11 @@ async fn solves_a_problem_through_the_stack_and_stores_the_verdict() {
     // The ladder served the turn, with the default `reasoning` ladder, and the
     // recalled note reached the model.
     let turns: Vec<Seen> = ladder.seen();
-    assert!(turns.iter().all(|seen| seen.body["model"] == "reasoning"));
+    let models: Vec<(&str, &Value)> = turns
+        .iter()
+        .map(|seen| (seen.path.as_str(), &seen.body["model"]))
+        .collect();
+    assert!(models.iter().all(|(_, model)| *model == "reasoning"), "{models:?}");
     let first: String = turns[0].body["messages"].to_string();
     assert!(first.contains("checked n <= 5"), "{first}");
 }
