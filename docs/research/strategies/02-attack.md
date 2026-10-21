@@ -236,7 +236,7 @@ form of this move we can afford.
 
 **Guard.** The new setting must reproduce the known cases, and the author's
 confidence in it is not evidence. Grothendieck's general rule that the
-generalisation must be shorter or more uniform than the old proof, not just
+generalisation must be shorter or more uniform than the old proof, and not merely
 broader (`mathematicians/01`§B4), applies as well.
 
 ## 10. Build the bridge an analogy is missing

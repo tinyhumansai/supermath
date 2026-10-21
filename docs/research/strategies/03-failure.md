@@ -80,12 +80,12 @@ is an addition, not a substitute.
 ## 4. Treat an abandoned approach as inventory
 
 In 1991 Wiles abandoned horizontal Iwasawa theory and switched to the
-Kolyvagin–Flach method. In 1993 the gap found in his announced proof was in
-the Kolyvagin–Flach part. The 1994 repair was that the failed method supplied
+Kolyvagin-Flach method. In 1993 the gap found in his announced proof was in
+the Kolyvagin-Flach part. The 1994 repair was that the failed method supplied
 what the abandoned one had been missing, and neither worked alone
 (`mathematicians/04`§B1).
 
-> "I realised that, the Kolyvagin–Flach method wasn't working, but it was all I
+> "I realised that, the Kolyvagin-Flach method wasn't working, but it was all I
 > needed to make my original Iwasawa theory work from three years earlier."
 > (Wiles, quoted by Singh, via `mathematicians/04`§B1)
 
