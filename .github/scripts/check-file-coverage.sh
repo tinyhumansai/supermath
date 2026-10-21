@@ -13,7 +13,7 @@ cargo llvm-cov \
   --locked \
   --workspace \
   --all-targets \
-  --all-features \
+  \
   --json \
   --output-path "$report"
 
