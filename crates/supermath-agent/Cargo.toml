@@ -1,0 +1,128 @@
+[package]
+name = "supermath-agent"
+version = "0.1.0"
+edition = "2024"
+# OpenHuman pins Rust 1.96 (rusqlite and libsqlite3-sys use `cfg_select!`), and
+# this crate compiles all of it.
+rust-version = "1.96"
+license = "GPL-3.0-only"
+repository = "https://github.com/tinyhumansai/supermath"
+description = "A math problem-solving agent harness built on the embedded OpenHuman runtime, with CortexDB memory."
+readme = "README.md"
+keywords = ["agent", "mathematics", "openhuman", "cortexdb"]
+categories = ["science"]
+publish = false
+
+# This crate is its own workspace, excluded from the root one. OpenHuman is
+# built from `vendor/openhuman`, and its graph only resolves with the `[patch]`
+# table below, which Cargo honours only at a workspace root. It also carries its
+# own copy of TinyBus, which would collide in one lockfile with the copy the
+# root workspace pins in `vendor/tinybus`. `docs/adr/0002-separate-agent-workspace.md`
+# records the decision.
+[workspace]
+
+[[bin]]
+name = "supermath-agent"
+path = "src/main.rs"
+
+[dependencies]
+# The embedded OpenHuman runtime: agent turns, tools, providers, and sessions.
+# Default features because the facade's default set is what OpenHuman tests and
+# ships; trimming it is a later optimisation.
+openhuman-embed = { path = "../../vendor/openhuman/crates/openhuman-embed" }
+# Host tools implement OpenHuman's asynchronous `Tool` trait.
+async-trait = "0.1"
+# The error type OpenHuman's `Tool::execute` returns.
+anyhow = "1"
+# The CortexDB HTTP client. Rustls avoids a system OpenSSL dependency; the
+# same feature set OpenHuman already compiles, so no second reqwest build.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# CortexDB request and response bodies, and host tool arguments.
+serde_json = "1"
+# Derive macros for the crate-wide error type in `src/error/`.
+thiserror = "2"
+# The async runtime OpenHuman itself runs on; timeouts on memory calls.
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "net", "io-util"] }
+
+[dev-dependencies]
+# Temporary problem files for the loading tests.
+tempfile = "3"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+missing_debug_implementations = "warn"
+unreachable_pub = "warn"
+rust_2018_idioms = { level = "warn", priority = -1 }
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+todo = "warn"
+unimplemented = "warn"
+missing_errors_doc = "warn"
+missing_panics_doc = "warn"
+doc_markdown = "warn"
+must_use_candidate = "warn"
+
+[lints.rustdoc]
+broken_intra_doc_links = "warn"
+private_intra_doc_links = "warn"
+
+# OpenHuman's own patch table, with every path re-rooted at `vendor/openhuman`.
+# Without it the graph holds two `tinytools` (so MCP tools fail the harness's
+# `Tool` trait), two `tinybus`, and git copies of crates OpenHuman vendors.
+# Entries this graph never uses are left out, because Cargo warns on an unused
+# patch. Keep it in step with `vendor/openhuman/Cargo.toml` when the gitlink
+# moves.
+[patch."https://github.com/tinyhumansai/tinytools"]
+tinytools = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+tinytools-std = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools-std" }
+tinytools-agent = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
+
+[patch."https://github.com/tinyhumansai/tinybus"]
+tinybus = { path = "../../vendor/openhuman/vendor/tinybus/crates/tinybus" }
+tinybus-macros = { path = "../../vendor/openhuman/vendor/tinybus/crates/tinybus-macros" }
+tinybus-module = { path = "../../vendor/openhuman/vendor/tinybus/crates/tinybus-module" }
+
+[patch."https://github.com/tinyhumansai/tinystoragedrivers"]
+tinystoragedrivers = { path = "../../vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers" }
+tinystoragedrivers-bus = { path = "../../vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-bus" }
+tinystoragedrivers-busproxy = { path = "../../vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-busproxy" }
+tinystoragedrivers-client = { path = "../../vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-client" }
+tinystoragedrivers-core = { path = "../../vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-core" }
+tinystoragedrivers-file = { path = "../../vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-file" }
+tinystoragedrivers-secrets = { path = "../../vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-secrets" }
+tinystoragedrivers-sqlite = { path = "../../vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-sqlite" }
+
+[patch."https://github.com/tinyhumansai/tinyinference"]
+tinyinference-decisions = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-decisions" }
+tinyinference-core = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinyinference-local = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinyinference-providers = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
+
+[patch.crates-io]
+tinyagents-harness = { path = "../../vendor/openhuman/vendor/tinyagents/crates/tinyagents-harness" }
+tinyagents-hooks = { path = "../../vendor/openhuman/vendor/tinyagents/crates/tinyagents-hooks" }
+tinytools = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools" }
+tinybus = { path = "../../vendor/openhuman/vendor/tinybus/crates/tinybus" }
+tinybus-macros = { path = "../../vendor/openhuman/vendor/tinybus/crates/tinybus-macros" }
+tinybus-module = { path = "../../vendor/openhuman/vendor/tinybus/crates/tinybus-module" }
+tinyinference-core = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }
+tinyinference-embeddings = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
+tinyinference-llm = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+tinyinference-local = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local" }
+tinyinference-providers = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers" }
+tinyinference-voice = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice" }
+tiny-artifacts = { path = "../../vendor/openhuman/vendor/tiny-artifacts/crates/tiny-artifacts" }
+
+[profile.release]
+lto = "thin"
+codegen-units = 16
+strip = "debuginfo"

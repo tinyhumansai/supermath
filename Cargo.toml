@@ -12,7 +12,12 @@ members = ["crates/*"]
 # repository; each contains a full copy of this manifest and every crate under
 # it, so without this entry cargo walks into them and reports duplicate
 # packages.
-exclude = ["vendor", "worktrees"]
+#
+# `crates/supermath-agent` is its own workspace: it embeds OpenHuman, whose
+# dependency graph only resolves under OpenHuman's `[patch]` table and whose
+# TinyBus copy would collide with `vendor/tinybus` in one lockfile.
+# `docs/adr/0002-separate-agent-workspace.md` records why.
+exclude = ["vendor", "worktrees", "crates/supermath-agent"]
 
 # Shared package metadata. A member inherits a field with `field.workspace =
 # true`, so the version the release workflow bumps is written in exactly one

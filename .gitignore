@@ -1,5 +1,6 @@
 # Build output
 /target/
+/crates/supermath-agent/target/
 **/*.rs.bk
 *.pdb
 
@@ -23,3 +24,7 @@ worktrees/*
 .idea/
 .vscode/
 *.swp
+
+# OpenHuman state: the local RPC token and the default harness workspace
+core.token
+.supermath/
