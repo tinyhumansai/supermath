@@ -5,8 +5,8 @@
 //! - **The LLM ladder** (`LADDER_URL`, `LADDER_API_KEY`) serves every chat
 //!   completion and every embedding. It is an OpenAI-compatible router that
 //!   picks the best-priced model for a named ladder such as `reasoning`.
-//! - **OpenRouter** (`OPENROUTER_API_KEY`) serves Jev only: the decision model
-//!   OpenHuman's `tool_search` uses to pick deferred tools.
+//! - **`OpenRouter`** (`OPENROUTER_API_KEY`) serves Jev only: the decision model
+//!   `OpenHuman`'s `tool_search` uses to pick deferred tools.
 //!
 //! [`Config::from_env`] reads the process environment;
 //! [`Config::from_lookup`] takes any lookup function, so tests never touch
@@ -51,7 +51,7 @@ pub struct Config {
     pub embedding_model: String,
     /// The width of [`Self::embedding_model`]'s vectors.
     pub embedding_dims: usize,
-    /// OpenRouter key; Jev's decision calls are its only use.
+    /// `OpenRouter` key; Jev's decision calls are its only use.
     pub openrouter_api_key: String,
     /// `OpenHuman` backend URL; `None` leaves `OpenHuman`'s own default.
     pub backend_url: Option<String>,

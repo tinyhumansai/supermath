@@ -24,7 +24,7 @@ pub fn factorize(mut n: u64) -> Vec<(u64, u32)> {
     let mut divisor = 2u64;
     while divisor.saturating_mul(divisor) <= n {
         let mut exponent = 0;
-        while n % divisor == 0 {
+        while n.is_multiple_of(divisor) {
             n /= divisor;
             exponent += 1;
         }
@@ -49,11 +49,11 @@ pub fn gcd(mut a: u64, mut b: u64) -> u64 {
 }
 
 /// Reads argument `name` as a non-negative integer that fits in `u64`.
-fn integer(arguments: &Value, name: &str) -> Result<u64, ToolResult> {
+fn integer(arguments: &Value, name: &str) -> Result<u64, String> {
     arguments
         .get(name)
         .and_then(Value::as_u64)
-        .ok_or_else(|| ToolResult::error(format!("`{name}` must be a non-negative integer")))
+        .ok_or_else(|| format!("`{name}` must be a non-negative integer"))
 }
 
 /// Factors one integer exactly.
@@ -91,7 +91,7 @@ impl Tool for FactorTool {
     async fn execute(&self, arguments: Value) -> anyhow::Result<ToolResult> {
         let n = match integer(&arguments, "n") {
             Ok(n) => n,
-            Err(refusal) => return Ok(refusal),
+            Err(refusal) => return Ok(ToolResult::error(refusal)),
         };
         if !(2..=FACTOR_LIMIT).contains(&n) {
             return Ok(ToolResult::error(format!(
@@ -159,7 +159,7 @@ impl Tool for GcdTool {
     async fn execute(&self, arguments: Value) -> anyhow::Result<ToolResult> {
         let (a, b) = match (integer(&arguments, "a"), integer(&arguments, "b")) {
             (Ok(a), Ok(b)) => (a, b),
-            (Err(refusal), _) | (_, Err(refusal)) => return Ok(refusal),
+            (Err(refusal), _) | (_, Err(refusal)) => return Ok(ToolResult::error(refusal)),
         };
         let g = gcd(a, b);
         // In u128 so the lcm of two u64 values cannot overflow; sent as a

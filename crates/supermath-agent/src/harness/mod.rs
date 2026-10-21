@@ -6,7 +6,7 @@
 //!
 //! - the **LLM ladder** is the runtime's provider, so every turn runs on a
 //!   ladder such as `reasoning`;
-//! - **Jev**, reached through OpenRouter, ranks `tool_search`, with the
+//! - **Jev**, reached through `OpenRouter`, ranks `tool_search`, with the
 //!   ladder's `vectors` model as its retriever.
 //!
 //! [`Harness::solve`] then, for one [`Problem`]:
@@ -69,14 +69,14 @@ fn runtime_config() -> RuntimeConfig {
     let mut config = RuntimeConfig::default();
     // No local model runtime: every inference goes to the ladder.
     config.local_ai.runtime_enabled = false;
-    // Jev decides `tool_search`, through OpenRouter and nothing else. The
+    // Jev decides `tool_search`, through `OpenRouter` and nothing else. The
     // route is an operator decision, so it is named rather than left `auto`.
     config.agent.tool_search.ranker = "jev".into();
     config.agent.tool_search.jev_route = "openrouter".into();
     config
 }
 
-/// The Jev ranker: OpenRouter for decisions, the ladder for retrieval.
+/// The Jev ranker: `OpenRouter` for decisions, the ladder for retrieval.
 fn jev_ranker(config: &Config, runtime_config: RuntimeConfig) -> Arc<TinyHumansJevRanker> {
     let openrouter_key = config.openrouter_api_key.clone();
     let embedder = OpenAiEmbeddingModel::new(config.ladder_api_key.clone())
