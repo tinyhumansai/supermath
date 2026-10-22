@@ -19,29 +19,30 @@ fn messages_are_lowercase_and_name_the_failing_piece() {
             "setting `SUPERMATH_EMBEDDING_DIMS` has an invalid value `wide`",
         ),
         (
-            Error::InvalidProject("!!".into()),
-            "project name `!!` has no usable characters",
+            Error::DuplicateTool("calc_factor".into()),
+            "tool `calc_factor` is registered twice",
         ),
         (
-            Error::MemoryNotReady("embeddings: no key".into()),
-            "memory is not ready: embeddings: no key",
-        ),
-        (
-            Error::MemoryNotIndexed {
-                completed: "stored".into(),
-            },
-            "memory stored the note but did not index it (completed: stored)",
-        ),
-        (
-            Error::MemoryRefused {
-                operation: "recall",
-                status: 403,
-                detail: "POLICY_DENIED".into(),
-            },
-            "memory refused `recall` with status 403: POLICY_DENIED",
+            Error::Runtime("no provider".into()),
+            "openhuman runtime failed: no provider",
         ),
     ];
     for (error, message) in cases {
         assert_eq!(error.to_string(), message);
     }
+}
+
+#[test]
+fn wrapped_errors_keep_the_inner_message() {
+    let memory = Error::from(supermath_ledger::Error::MemoryNotReady("degraded".into()));
+    assert_eq!(memory.to_string(), "memory is not ready: degraded");
+
+    let toolkit = Error::from(supermath_mcp::Error::InvalidProject("!!".into()));
+    assert_eq!(toolkit.to_string(), "invalid project name \"!!\"");
+
+    let subagents = Error::from(supermath_subagents::Error::InvalidConfig {
+        name: "SUPERMATH_READER_MODEL",
+        value: " ".into(),
+    });
+    assert!(subagents.to_string().contains("SUPERMATH_READER_MODEL"));
 }

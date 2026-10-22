@@ -5,9 +5,11 @@
 use std::collections::HashMap;
 
 use super::{
-    Config, DEFAULT_CORTEX_URL, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL,
-    DEFAULT_LADDER_URL, DEFAULT_MODEL, DEFAULT_REASONING_EFFORT, DEFAULT_SCOPE_ROOT,
+    Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_LADDER_URL, DEFAULT_MODEL,
+    DEFAULT_REASONING_EFFORT,
 };
+use supermath_subagents::Models;
+
 use crate::error::Error;
 
 fn lookup(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
@@ -39,8 +41,11 @@ fn fills_defaults_when_only_required_settings_are_given() {
     assert_eq!(config.reasoning_effort, DEFAULT_REASONING_EFFORT);
     assert_eq!(config.embedding_model, DEFAULT_EMBEDDING_MODEL);
     assert_eq!(config.embedding_dims, DEFAULT_EMBEDDING_DIMS);
-    assert_eq!(config.cortex_url, DEFAULT_CORTEX_URL);
-    assert_eq!(config.scope_root, DEFAULT_SCOPE_ROOT);
+    assert_eq!(config.toolkit.ledger.cortex_url, "http://localhost:3141");
+    assert_eq!(config.toolkit.ledger.scope_root, "ws:supermath");
+    assert_eq!(config.models, Models::default());
+    assert_eq!(config.jacobian_cmd, None);
+    assert_eq!(config.lean_lsp_cmd, None);
     assert_eq!(config.backend_url, None);
     assert_eq!(config.openrouter_api_key, "sk-or-test");
 }
@@ -77,15 +82,35 @@ fn reads_overrides_and_strips_trailing_slashes() {
         ("SUPERMATH_MODEL", "reasoning"),
         ("SUPERMATH_REASONING_EFFORT", "high"),
         ("SUPERMATH_EMBEDDING_DIMS", "1536"),
+        ("SUPERMATH_READER_MODEL", "cheap"),
+        ("SUPERMATH_JACOBIAN_CMD", " jacobian-mcp --stdio "),
+        ("SUPERMATH_LEAN_LSP_CMD", "uvx lean-lsp-mcp"),
     ])))
     .unwrap();
     assert_eq!(config.ladder_url, "http://ladder:6969/v1");
-    assert_eq!(config.cortex_url, "http://cortexdb:3141");
-    assert_eq!(config.scope_root, "ws:test");
+    assert_eq!(config.toolkit.ledger.cortex_url, "http://cortexdb:3141");
+    assert_eq!(config.toolkit.ledger.scope_root, "ws:test");
     assert_eq!(config.backend_url.as_deref(), Some("http://backend"));
     assert_eq!(config.model, "reasoning");
     assert_eq!(config.reasoning_effort, "high");
     assert_eq!(config.embedding_dims, 1536);
+    assert_eq!(config.models.reader, "cheap");
+    assert_eq!(config.jacobian_cmd.as_deref(), Some("jacobian-mcp --stdio"));
+    assert_eq!(config.lean_lsp_cmd.as_deref(), Some("uvx lean-lsp-mcp"));
+}
+
+#[test]
+fn rejects_a_child_model_that_is_not_a_ladder_name() {
+    let error =
+        Config::from_lookup(lookup(&with(&[("SUPERMATH_READER_MODEL", "two words")]))).unwrap_err();
+    assert!(matches!(error, Error::Subagents(_)), "{error}");
+}
+
+#[test]
+fn rejects_an_invalid_toolkit_setting() {
+    let error =
+        Config::from_lookup(lookup(&with(&[("SUPERMATH_WEB_DAILY_CAP", "lots")]))).unwrap_err();
+    assert!(matches!(error, Error::Toolkit(_)), "{error}");
 }
 
 #[test]

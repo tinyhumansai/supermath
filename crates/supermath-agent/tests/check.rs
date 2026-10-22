@@ -77,12 +77,13 @@ fn env(stub: &Stub, home: &Path) -> Vec<(String, String)> {
 async fn check_boots_the_runner_and_reports_a_ready_stack() {
     let stub = server(json!({ "ready": true, "degraded": false })).await;
     let home = tempfile::tempdir().unwrap();
-    let output = run(
-        &["check", "Twin Primes"],
-        env(&stub, home.path()),
-        home.path(),
-    )
-    .await;
+    let mut env = env(&stub, home.path());
+    env.push((
+        "SUPERMATH_JACOBIAN_CMD".into(),
+        "jacobian-mcp --stdio".into(),
+    ));
+    env.push(("SUPERMATH_LEAN_LSP_CMD".into(), "uvx lean-lsp-mcp".into()));
+    let output = run(&["check", "Twin Primes"], env, home.path()).await;
     let (stdout, stderr) = (text(&output.stdout), text(&output.stderr));
 
     assert!(
@@ -94,10 +95,37 @@ async fn check_boots_the_runner_and_reports_a_ready_stack() {
         "{stdout}"
     );
     assert!(
-        stdout.contains(
-            "agent: supermath-twin-primes with recall_memory (direct), \
-             factor_integer (deferred), gcd_lcm (deferred)"
-        ),
+        stdout.contains("agent: supermath-twin-primes with 34 tools"),
+        "{stdout}"
+    );
+    let line = |prefix: &str| {
+        stdout
+            .lines()
+            .find(|line| line.starts_with(prefix))
+            .unwrap_or_else(|| panic!("no `{prefix}` line in {stdout}"))
+            .to_string()
+    };
+    let tools = line("tools: ");
+    for listed in [
+        "recall_memory (direct)",
+        "calc_factor (deferred)",
+        "lean_check (",
+        "ledger_record (",
+    ] {
+        assert!(tools.contains(listed), "{listed} in {tools}");
+    }
+    let agent_tools = line("agent tools: ");
+    for name in [
+        "agent_digest_paper",
+        "agent_formalize",
+        "agent_refute",
+        "agent_review_alignment",
+    ] {
+        assert!(agent_tools.contains(name), "{name} in {agent_tools}");
+    }
+    assert!(!stdout.contains("unavailable"), "{stdout}");
+    assert!(
+        stdout.contains("mcp servers: jacobian, lean_lsp"),
         "{stdout}"
     );
     assert!(
@@ -122,6 +150,7 @@ async fn check_fails_when_memory_is_not_ready() {
     let stderr = text(&output.stderr);
     assert_eq!(output.status.code(), Some(1), "{stderr}");
     assert!(stderr.contains("memory is not ready: degraded"), "{stderr}");
+    assert!(!text(&output.stdout).contains("mcp servers"));
     assert!(text(&output.stdout).contains("agent: supermath-scratch"));
 }
 
@@ -148,5 +177,5 @@ async fn reports_usage_and_configuration_errors() {
     let stub = server(json!({ "ready": true })).await;
     let unnamed = run(&["check", "!!"], env(&stub, home.path()), home.path()).await;
     assert_eq!(unnamed.status.code(), Some(1));
-    assert!(text(&unnamed.stderr).contains("project name `!!`"));
+    assert!(text(&unnamed.stderr).contains("invalid project name \"!!\""));
 }

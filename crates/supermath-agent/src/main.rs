@@ -5,12 +5,14 @@
 //! ```
 //!
 //! Boots `OpenHuman` with the ladder and Jev, registers the agent for
-//! `project` (default `scratch`) with the toolkit, and checks that `CortexDB`
-//! is ready. Exit status: `0` ready, `1` otherwise.
+//! `project` (default `scratch`) with the composed toolkit and the `agent_*`
+//! tools, lists them, and checks that `CortexDB` is ready. Exit status: `0`
+//! ready, `1` otherwise.
 
 use std::process::ExitCode;
 
-use supermath_agent::{Config, Project, Runner, Toolkit};
+use openhuman_embed::Tool;
+use supermath_agent::{Config, Runner};
 
 const USAGE: &str = "usage: supermath-agent check [project]";
 
@@ -51,28 +53,45 @@ fn main() -> ExitCode {
 
 async fn check(project: &str) -> supermath_agent::Result<()> {
     let config = Config::from_env()?;
-    let project = Project::new(project)?;
     // OpenHuman's logging: a daily file under `<workspace>/logs/`, filtered by
     // `RUST_LOG`.
     openhuman_embed::process::init_for_embedded(&config.workspace, false);
 
     let runner = Runner::start(&config).await?;
-    let agent = runner.agent(&project)?;
+    let solver = runner.agent(project)?;
     println!(
         "runner: ladder {} model `{}` at {} effort; tool_search ranked by Jev",
         config.ladder_url, config.model, config.reasoning_effort
     );
-    let tools: Vec<String> = Toolkit::new(runner.memory().clone(), project.clone())
-        .tools()
-        .iter()
-        .map(|tool| format!("{} ({:?})", tool.name(), tool.exposure()).to_lowercase())
-        .collect();
-    println!("agent: {} with {}", agent.id(), tools.join(", "));
-    runner.memory().ready().await?;
+    let tools = solver.host().adapt();
+    let list = |agentic: bool| -> String {
+        tools
+            .iter()
+            .filter(|tool| tool.kind().is_agentic() == agentic)
+            .map(|tool| format!("{} ({:?})", tool.name(), tool.exposure()).to_lowercase())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    println!("agent: {} with {} tools", solver.agent().id(), tools.len());
+    println!("tools: {}", list(false));
+    println!("agent tools: {}", list(true));
+    let servers: Vec<&str> = [
+        ("jacobian", &config.jacobian_cmd),
+        ("lean_lsp", &config.lean_lsp_cmd),
+    ]
+    .into_iter()
+    .filter_map(|(name, command)| command.as_ref().map(|_| name))
+    .collect();
+    if !servers.is_empty() {
+        println!("mcp servers: {}", servers.join(", "));
+    }
+    let memory = solver.host().toolkit().memory();
+    memory.ready().await?;
+    let scope = supermath_ledger::MemoryProject::new(solver.host().toolkit().project().slug())?;
     println!(
         "memory: {} ready, scope {}",
-        config.cortex_url,
-        runner.memory().scope(&project)
+        config.toolkit.ledger.cortex_url,
+        memory.scope(&scope)
     );
     Ok(())
 }

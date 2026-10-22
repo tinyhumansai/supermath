@@ -1,6 +1,6 @@
 # Agent runner
 
-- **Status:** Draft (scaffold implemented)
+- **Status:** Implemented (toolkit and sub-agents wired; the solving loop is still open)
 - **Owner:** Maintainers
 - **Decision:** [`../adr/0002-build-on-openhuman.md`](../adr/0002-build-on-openhuman.md)
 - **Research:** [`../research/math-superagent/`](../research/math-superagent/README.md),
@@ -21,7 +21,9 @@ selection, a toolkit, and memory.
   on the `flash` ladder at `medium` reasoning effort by default.
 - Jev, the decision model OpenRouter serves, ranks `tool_search` over the
   agent's deferred tools.
-- A small toolkit is handed to the agent as host tools.
+- The composed toolkit (`supermath-mcp`) and the `agent_*` sub-agents
+  (`supermath-subagents`) are handed to the agent as host tools.
+- Jacobian and lean-lsp-mcp join as stdio MCP servers when configured.
 - CortexDB holds durable memory, scoped per project.
 - `docker compose up` runs the ladder, CortexDB, and `supermath-agent check`.
 
@@ -29,8 +31,8 @@ selection, a toolkit, and memory.
 
 - How the agent attacks a problem: the loop, prompts, roles, and verdicts.
   They are designed later, with the research notes as input.
-- The conjecture toolkit, including Lean checking. It is specified in
-  [`toolkit/`](toolkit/README.md).
+- The tools themselves. They are specified in [`toolkit/`](toolkit/README.md)
+  and implemented in the domain crates; this crate only adapts them.
 - Multi-tenant memory. One deployment owns one scope root.
 
 ## Behavior
@@ -44,24 +46,44 @@ supermath-agent check [project]     # default project: scratch
 2. Boots the OpenHuman runtime with the ladder as its provider and the Jev
    ranker installed (`tool_search.ranker = jev`, `jev_route = openrouter`).
    The ranker retrieves with the ladder's `vectors` model.
-3. Registers the agent `supermath-<project>` with `ToolScopeSpec::HostOnly`
-   and the toolkit. No turn runs.
-4. Checks `GET /v1/admin/ready` on CortexDB. Not ready, or degraded (such as
-   mock embeddings), is `Error::MemoryNotReady`.
+3. Composes the toolkit for the project (`Toolkit::compose`), builds the
+   `agent_*` children on the same runtime, and registers the agent
+   `supermath-<project>` with a `ToolScopeSpec::Named` list: every toolkit
+   tool, the `agent_*` tools, and `tool_search`. OpenHuman's own `memory`
+   tool is disallowed so it cannot shadow `recall_memory`. When
+   `SUPERMATH_JACOBIAN_CMD` or `SUPERMATH_LEAN_LSP_CMD` is set, the server is
+   attached with `AgentSpec::mcp` and `McpServer::stdio`. No turn runs.
+4. Lists the tools and the `agent_*` tools, then checks `GET /v1/admin/ready`
+   on CortexDB. Not ready, or degraded (such as mock embeddings), is
+   `Error::Memory`.
 
 Exit status `0` means the stack is ready.
 
 ### Toolkit
 
-| Tool | Exposure | Does |
-| --- | --- | --- |
-| `recall_memory` | direct | recalls this project's CortexDB memory |
-| `factor_integer` | deferred | exact prime factorization, 2 to 10^12 |
-| `gcd_lcm` | deferred | exact gcd and lcm of two `u64` |
+The tools are the domain crates' (`docs/specs/toolkit/README.md` has the
+catalogue); the runner links them in process through `supermath-mcp`, and
+`host/` adapts each ([details](toolkit/crates.md#supermath-agent)).
+
+| Group | Tools | Crate | Exposure |
+| --- | --- | --- | --- |
+| memory | `recall_memory` | `supermath-ledger` | direct |
+| ledger | `ledger_record`, `ledger_claims`, `ledger_link`, `ledger_bound` | `supermath-ledger` | per tool |
+| calc | `calc_factor`, `calc_gcd_lcm` | `supermath-calc` | deferred |
+| files | `file_read`, `file_write`, `file_edit`, `file_list` | `supermath-files` | per tool |
+| lean | `lean_check`, `lean_goals`, `lean_decl`, `lean_search`, ... | `supermath-lean` | per tool |
+| python | `py_run`, `py_search_counterexample`, `py_solvers` | `supermath-python` | per tool |
+| literature | `lit_search_arxiv`, `lit_get_paper`, `lit_citations`, `lit_oeis`, ... | `supermath-literature` | per tool |
+| web | `web_search`, `web_research`, `web_read` | `supermath-web` | per tool |
+| sub-agents | `agent_digest_paper`, `agent_formalize`, `agent_review_alignment`, `agent_refute` | `supermath-subagents` | per tool |
+| MCP | `mcp_jacobian_*`, `mcp_lean_lsp_*` | external servers | deferred (OpenHuman's rule) |
 
 Deferred tools stay out of the model's initial catalogue and are revealed by
-`tool_search`, which Jev ranks. Every tool is read-only and takes typed JSON
-arguments; none evaluates text the model wrote.
+`tool_search`, which Jev ranks. A tool's own `Exposure` and `Permission`
+carry through the adapter. A call to any tool is recorded in the toolkit's
+call log under a `call_id`, which the adapted result carries so a ledger
+`tool` source can quote it. The `agent_*` tools get `agent-N` ids and an
+agentic budget (64 iterations, 1,000,000 tokens, one hour).
 
 ### Memory scopes
 
@@ -70,8 +92,9 @@ arguments; none evaluates text the model wrote.
 ```
 
 `CORTEX_SCOPE_ROOT` defaults to `ws:supermath`. The slug comes from the host,
-never from model output or a tool argument. CortexDB v0.10 refuses scope types
-outside its `allowed_scope_types`, which is why the leaf is `app:` and not
+never from model output or a tool argument. The memory client is the
+ledger's. CortexDB v0.10 refuses scope types outside its
+`allowed_scope_types`, which is why the leaf is `app:` and not
 math-superagent's `store:`. Writes wait for the `indexed` barrier, and a write
 the server stored without indexing is an error.
 
@@ -91,6 +114,10 @@ the server stored without indexing is an error.
 | `CORTEX_API_URL` | `http://localhost:3141` | CortexDB base URL |
 | `CORTEX_API_KEY` | required | CortexDB operator key |
 | `CORTEX_SCOPE_ROOT` | `ws:supermath` | scope subtree this deployment owns |
+| `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL` | `flash`, `formalize`, `reasoning` | the ladder rung of each `agent_*` child |
+| `SUPERMATH_JACOBIAN_CMD` | unset | command line of the Jacobian MCP server (stdio) |
+| `SUPERMATH_LEAN_LSP_CMD` | unset | command line of lean-lsp-mcp (stdio) |
+| `SUPERMATH_PROJECTS`, `LEAN_URL`, `PYTHON_URL`, ... | see [`toolkit/mcp/`](toolkit/mcp/README.md) | the toolkit's own variables |
 
 ## Invariants
 
@@ -101,10 +128,14 @@ the server stored without indexing is an error.
 
 ## Acceptance criteria
 
-- Unit tests cover configuration, project slugs, the memory client (against a
-  loopback stub), readiness, and every toolkit tool's answers and refusals.
+- Unit tests cover configuration, the host adapter (every adapted tool
+  matches the composed toolkit's name, schema, exposure, permission and
+  kind), the agent's pinned tool list, and the MCP command parsing.
 - `tests/check.rs` runs the binary against loopback stubs of the ladder,
-  CortexDB, and the backend, and asserts no completion was requested.
+  CortexDB, and the backend, asserts the tool listing, and asserts no
+  completion was requested.
+- `tests/live.rs` holds `live_subagents_formalize_bench`, skipped unless
+  `SUPERMATH_LIVE_SUBAGENTS=1`.
 - `docker compose config --quiet` passes.
 
 ## Open questions

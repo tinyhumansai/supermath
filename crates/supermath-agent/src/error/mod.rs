@@ -21,40 +21,22 @@ pub enum Error {
         value: String,
     },
 
-    /// A project name had no usable characters.
-    #[error("project name `{0}` has no usable characters")]
-    InvalidProject(String),
+    /// The toolkit could not be composed, for example because the project
+    /// name has no usable characters.
+    #[error(transparent)]
+    Toolkit(#[from] supermath_mcp::Error),
 
-    /// `CortexDB` could not be reached, or did not answer in time.
-    #[error("memory request `{operation}` failed: {detail}")]
-    MemoryTransport {
-        /// The memory operation that failed, such as `recall`.
-        operation: &'static str,
-        /// What went wrong, in the transport's words.
-        detail: String,
-    },
+    /// `CortexDB` is unreachable or not ready to store recallable memories.
+    #[error(transparent)]
+    Memory(#[from] supermath_ledger::Error),
 
-    /// `CortexDB` answered with a refusal.
-    #[error("memory refused `{operation}` with status {status}: {detail}")]
-    MemoryRefused {
-        /// The memory operation that was refused.
-        operation: &'static str,
-        /// The HTTP status code.
-        status: u16,
-        /// The server's error code and message, when it sent them.
-        detail: String,
-    },
+    /// The `agent_*` tools could not be built or configured.
+    #[error(transparent)]
+    Subagents(#[from] supermath_subagents::Error),
 
-    /// `CortexDB` reported itself not ready to store recallable memories.
-    #[error("memory is not ready: {0}")]
-    MemoryNotReady(String),
-
-    /// `CortexDB` stored a write without indexing it, so it cannot be recalled.
-    #[error("memory stored the note but did not index it (completed: {completed})")]
-    MemoryNotIndexed {
-        /// The stages the server reported, comma-separated.
-        completed: String,
-    },
+    /// A tool was offered to the host adapter twice under one name.
+    #[error("tool `{0}` is registered twice")]
+    DuplicateTool(String),
 
     /// The `OpenHuman` runtime failed to boot or to register the agent.
     #[error("openhuman runtime failed: {0}")]

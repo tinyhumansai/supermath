@@ -18,8 +18,9 @@ path = "src/main.rs"
 [dependencies]
 # The embedded OpenHuman runtime: agent turns, tools, providers, and sessions.
 # Default features because the facade's default set is what OpenHuman tests and
-# ships; trimming it is a later optimisation.
-openhuman-embed = { path = "../../vendor/openhuman/crates/openhuman-embed" }
+# ships; trimming it is a later optimisation. `mcp` lets the agent connect
+# Jacobian and lean-lsp-mcp as stdio MCP servers (`AgentSpec::mcp`).
+openhuman-embed = { path = "../../vendor/openhuman/crates/openhuman-embed", features = ["mcp"] }
 # Only for `jev::TinyHumansJevRanker`, the Jev-backed `tool_search` ranker.
 # Nothing hosted is installed: no TinyHumans login, transport, or provider.
 openhuman-tinyhumans = { path = "../../vendor/openhuman/crates/openhuman-tinyhumans", default-features = false, features = ["jev"] }
@@ -28,22 +29,27 @@ openhuman-tinyhumans = { path = "../../vendor/openhuman/crates/openhuman-tinyhum
 # so its `EmbeddingModel` trait is the one the ranker expects.
 tinyinference-embeddings = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 # Host tools implement OpenHuman's asynchronous `Tool` trait.
-async-trait = "0.1"
+async-trait = { workspace = true }
 # The error type OpenHuman's `Tool::execute` returns.
 anyhow = "1"
-# The CortexDB HTTP client. Rustls avoids a system OpenSSL dependency; the
-# same feature set OpenHuman already compiles, so no second reqwest build.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
-# CortexDB request and response bodies, and host tool arguments.
-serde_json = "1"
+# The contract the host adapter wraps: `Tool`, `Exposure`, `Permission`, `Kind`.
+supermath-tool = { path = "../supermath-tool" }
+# The composed toolkit (`Config`, `Toolkit`) the agent links in process.
+supermath-mcp = { path = "../supermath-mcp" }
+# The agent_* tools, built on the same runtime the agent runs on.
+supermath-subagents = { path = "../supermath-subagents" }
+# The ledger's error type, for the readiness check on its memory client.
+supermath-ledger = { path = "../supermath-ledger" }
+# Tool envelopes are JSON values; the adapter adds the call id to each.
+serde_json = { workspace = true }
 # Derive macros for the crate-wide error type in `src/error/`.
-thiserror = "2"
-# The async runtime OpenHuman itself runs on; timeouts on memory calls.
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "time", "net", "io-util"] }
+thiserror = { workspace = true }
+# The async runtime OpenHuman itself runs on.
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time", "net", "io-util"] }
 
 [dev-dependencies]
 # Temporary problem files for the loading tests.
-tempfile = "3"
+tempfile = { workspace = true }
 
 [lints]
 workspace = true

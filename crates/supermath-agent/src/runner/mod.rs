@@ -8,25 +8,34 @@
 //! - **Jev**, reached through `OpenRouter`, ranks `tool_search` over deferred
 //!   tools, with the ladder's `vectors` model as its retriever.
 //!
-//! [`Runner::agent`] registers an agent for one [`Project`] whose only tools
-//! are the [`Toolkit`], bound to that project's memory. What the agent is
-//! asked to do is not decided here yet.
+//! [`Runner::agent`] composes the toolkit for one project, builds the
+//! `agent_*` children on the same runtime, and registers the top-level agent:
+//! a `Named` tool scope listing the adapted toolkit, the `agent_*` tools, and
+//! `tool_search`, with `OpenHuman`'s own `memory` tool disallowed so it does
+//! not shadow the ledger's `recall_memory`. Jacobian and lean-lsp-mcp join as
+//! stdio MCP servers when their commands are configured.
+
+mod types;
 
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
 use openhuman_embed::{
-    Agent, AgentDefinitionSpec, AgentSpec, HostTurnTools, Provider, Runtime, RuntimeConfig,
+    AgentDefinitionSpec, AgentSpec, HostTurnTools, McpServer, Provider, Runtime, RuntimeConfig,
     ToolScopeSpec, Workspace,
 };
 use openhuman_tinyhumans::jev::{OPENROUTER_API_KEY_ENV, TinyHumansJevRanker};
+use supermath_mcp::Toolkit;
+use supermath_subagents::{Subagents, SubagentsConfig};
 use tinyinference_embeddings::OpenAiEmbeddingModel;
 
+pub use types::Solver;
+
 use crate::config::Config;
+
 use crate::error::{Error, Result};
-use crate::memory::{Memory, Project};
-use crate::toolkit::Toolkit;
+use crate::host::Host;
 
 /// The most tool-loop iterations one turn may take.
 pub const MAX_ITERATIONS: usize = 24;
@@ -35,13 +44,28 @@ pub const MAX_ITERATIONS: usize = 24;
 pub const SYSTEM_PROMPT: &str = "\
 You are supermath, a careful mathematical assistant.
 Use `recall_memory` to check what earlier work on this project recorded, and
-ask `tool_search` for tools before computing anything exact by hand.";
+ask `tool_search` for tools before computing anything exact by hand.
+Hand long jobs (reading a paper, formalizing a statement, hunting a
+counterexample) to the `agent_*` tools, and quote the `call_id` of the tool
+call that backs a claim when you record it.";
 
-/// The embedded runtime and the memory client every agent shares.
+/// The tool `OpenHuman` ranks deferred tools with; the scope must list it.
+const TOOL_SEARCH: &str = "tool_search";
+
+/// `OpenHuman`'s own memory tool, which would shadow the ledger's.
+const OPENHUMAN_MEMORY: &str = "memory";
+
+/// The slug Jacobian's tools appear under, as `mcp_jacobian_<tool>`.
+const JACOBIAN_SERVER: &str = "jacobian";
+
+/// The slug lean-lsp-mcp's tools appear under, as `mcp_lean_lsp_<tool>`.
+const LEAN_LSP_SERVER: &str = "lean_lsp";
+
+/// The embedded runtime every agent of a process shares.
 #[derive(Debug)]
 pub struct Runner {
-    runtime: Runtime,
-    memory: Memory,
+    runtime: Arc<Runtime>,
+    config: Config,
 }
 
 /// The `OpenHuman` config the runner runs under.
@@ -131,40 +155,84 @@ impl Runner {
         let runtime = Box::pin(builder.build())
             .await
             .map_err(|error| Error::Runtime(error.to_string()))?;
-        let memory = Memory::new(
-            &config.cortex_url,
-            &config.cortex_api_key,
-            &config.scope_root,
-        );
-        Ok(Self { runtime, memory })
+        Ok(Self {
+            runtime: Arc::new(runtime),
+            config: config.clone(),
+        })
     }
 
-    /// The memory client every agent's tools share.
-    #[must_use]
-    pub fn memory(&self) -> &Memory {
-        &self.memory
-    }
-
-    /// Registers the agent for `project`, with the [`Toolkit`] as its tools.
+    /// Composes the toolkit for `project`, builds the `agent_*` children, and
+    /// registers the top-level agent.
     ///
     /// # Errors
     ///
-    /// Returns [`Error::Runtime`] when `OpenHuman` refuses the agent.
-    pub fn agent(&self, project: &Project) -> Result<Agent> {
-        let toolkit = Toolkit::new(self.memory.clone(), project.clone());
-        self.runtime
-            .agent(
-                AgentSpec::new(format!("supermath-{}", project.slug()))
-                    .definition(
-                        AgentDefinitionSpec::new()
-                            .bare_prompt(SYSTEM_PROMPT)
-                            .tools(ToolScopeSpec::HostOnly)
-                            .max_iterations(MAX_ITERATIONS),
-                    )
-                    .tools(move |_| HostTurnTools::advertised(toolkit.tools())),
+    /// [`Error::Toolkit`] when `project` has no usable characters or a domain
+    /// cannot build; [`Error::Subagents`] when `OpenHuman` refuses a child;
+    /// [`Error::DuplicateTool`] when two tools share a name;
+    /// [`Error::Runtime`] when `OpenHuman` refuses the agent.
+    pub fn agent(&self, project: &str) -> Result<Solver> {
+        let toolkit = Arc::new(Toolkit::compose(&self.config.toolkit, project)?);
+        let subagents = Subagents::new(
+            &self.runtime,
+            &toolkit.registry(),
+            toolkit.call_log(),
+            toolkit.project(),
+            &SubagentsConfig {
+                models: self.config.models.clone(),
+                ..SubagentsConfig::default()
+            },
+        )?;
+        let host = Arc::new(Host::new(Arc::clone(&toolkit), subagents.tools())?);
+
+        let mut scope: Vec<String> = host.tool_names().into_iter().map(str::to_owned).collect();
+        scope.push(TOOL_SEARCH.to_owned());
+        let belt = Arc::clone(&host);
+        let mut spec = AgentSpec::new(format!("supermath-{}", toolkit.project().slug()))
+            .definition(
+                AgentDefinitionSpec::new()
+                    .bare_prompt(SYSTEM_PROMPT)
+                    .tools(ToolScopeSpec::Named(scope.clone()))
+                    .disallow_tools([OPENHUMAN_MEMORY])
+                    .max_iterations(MAX_ITERATIONS),
             )
-            .map_err(|error| Error::Runtime(error.to_string()))
+            .tools(move |_| HostTurnTools::advertised(belt.belt()));
+        for server in mcp_servers(&self.config) {
+            spec = spec.mcp(server);
+        }
+        let agent = self
+            .runtime
+            .agent(spec)
+            .map_err(|error| Error::Runtime(error.to_string()))?;
+        Ok(Solver {
+            agent,
+            host,
+            scope,
+            unavailable: subagents
+                .unavailable()
+                .iter()
+                .map(|gap| gap.tool.to_owned())
+                .collect(),
+        })
     }
+}
+
+/// The external MCP servers `config` names, in a fixed order.
+fn mcp_servers(config: &Config) -> Vec<McpServer> {
+    [
+        (JACOBIAN_SERVER, &config.jacobian_cmd),
+        (LEAN_LSP_SERVER, &config.lean_lsp_cmd),
+    ]
+    .into_iter()
+    .filter_map(|(name, command)| stdio_server(name, command.as_deref()?))
+    .collect()
+}
+
+/// A stdio server for a command line: the first word runs, the rest are its
+/// arguments. `None` for a blank line.
+fn stdio_server(name: &str, command_line: &str) -> Option<McpServer> {
+    let mut words = command_line.split_whitespace();
+    let command = words.next()?;
+    Some(McpServer::stdio(name, command, words))
 }
 
 #[cfg(test)]

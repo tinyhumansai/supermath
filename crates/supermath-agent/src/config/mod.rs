@@ -15,6 +15,8 @@
 
 use std::path::PathBuf;
 
+use supermath_subagents::Models;
+
 use crate::error::{Error, Result};
 
 /// The ladder's API root when none is configured.
@@ -36,12 +38,6 @@ pub const DEFAULT_EMBEDDING_MODEL: &str = "vectors";
 
 /// The width of [`DEFAULT_EMBEDDING_MODEL`]'s vectors.
 pub const DEFAULT_EMBEDDING_DIMS: usize = 1024;
-
-/// The `CortexDB` address used when none is configured.
-pub const DEFAULT_CORTEX_URL: &str = "http://localhost:3141";
-
-/// The scope subtree this deployment owns when none is configured.
-pub const DEFAULT_SCOPE_ROOT: &str = "ws:supermath";
 
 /// Where the `OpenHuman` workspace lives when none is configured.
 pub const DEFAULT_WORKSPACE: &str = ".supermath";
@@ -68,12 +64,16 @@ pub struct Config {
     pub backend_url: Option<String>,
     /// Directory holding the `OpenHuman` workspace and agent home.
     pub workspace: PathBuf,
-    /// `CortexDB` base URL, without a trailing slash.
-    pub cortex_url: String,
-    /// `CortexDB` operator key, sent as a bearer token.
-    pub cortex_api_key: String,
-    /// The scope subtree every memory this deployment writes hangs below.
-    pub scope_root: String,
+    /// Every tool domain's settings, including `CortexDB` (the ledger).
+    pub toolkit: supermath_mcp::Config,
+    /// The ladder rung each `agent_*` child runs on.
+    pub models: Models,
+    /// Command line of the Jacobian MCP server, when `SUPERMATH_JACOBIAN_CMD`
+    /// is set.
+    pub jacobian_cmd: Option<String>,
+    /// Command line of the lean-lsp-mcp server, when `SUPERMATH_LEAN_LSP_CMD`
+    /// is set.
+    pub lean_lsp_cmd: Option<String>,
 }
 
 impl std::fmt::Debug for Config {
@@ -87,8 +87,11 @@ impl std::fmt::Debug for Config {
             .field("embedding_dims", &self.embedding_dims)
             .field("backend_url", &self.backend_url)
             .field("workspace", &self.workspace)
-            .field("cortex_url", &self.cortex_url)
-            .field("scope_root", &self.scope_root)
+            .field("cortex_url", &self.toolkit.ledger.cortex_url)
+            .field("scope_root", &self.toolkit.ledger.scope_root)
+            .field("models", &self.models)
+            .field("jacobian_cmd", &self.jacobian_cmd)
+            .field("lean_lsp_cmd", &self.lean_lsp_cmd)
             .finish_non_exhaustive()
     }
 }
@@ -99,8 +102,9 @@ impl Config {
     /// # Errors
     ///
     /// Returns [`Error::MissingConfig`] naming the first required variable
-    /// that is unset or blank, and [`Error::InvalidConfig`] when a numeric
-    /// setting does not parse.
+    /// that is unset or blank, [`Error::InvalidConfig`] when a numeric
+    /// setting does not parse, and [`Error::Toolkit`] or [`Error::Subagents`]
+    /// when a domain or child setting is invalid.
     pub fn from_env() -> Result<Self> {
         Self::from_lookup(|name| std::env::var(name).ok())
     }
@@ -114,8 +118,9 @@ impl Config {
     /// # Errors
     ///
     /// Returns [`Error::MissingConfig`] naming the first required variable
-    /// that is unset or blank, and [`Error::InvalidConfig`] when a numeric
-    /// setting does not parse.
+    /// that is unset or blank, [`Error::InvalidConfig`] when a numeric
+    /// setting does not parse, and [`Error::Toolkit`] or [`Error::Subagents`]
+    /// when a domain or child setting is invalid.
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Result<Self> {
         let get = |name: &str| {
             lookup(name)
@@ -141,23 +146,28 @@ impl Config {
                 value: reasoning_effort,
             });
         }
+        let ladder_api_key = required("LADDER_API_KEY")?;
+        let openrouter_api_key = required("OPENROUTER_API_KEY")?;
+        // The agent keeps memory: unlike the MCP server, it refuses to start
+        // without the CortexDB key.
+        required("CORTEX_API_KEY")?;
+        let toolkit = supermath_mcp::Config::from_lookup(&lookup)?;
         Ok(Self {
             ladder_url: or("LADDER_URL", DEFAULT_LADDER_URL)
                 .trim_end_matches('/')
                 .to_string(),
-            ladder_api_key: required("LADDER_API_KEY")?,
+            ladder_api_key,
             model: or("SUPERMATH_MODEL", DEFAULT_MODEL),
             reasoning_effort,
             embedding_model: or("SUPERMATH_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL),
             embedding_dims,
-            openrouter_api_key: required("OPENROUTER_API_KEY")?,
+            openrouter_api_key,
             backend_url: get("SUPERMATH_BACKEND_URL"),
             workspace: PathBuf::from(or("SUPERMATH_WORKSPACE", DEFAULT_WORKSPACE)),
-            cortex_url: or("CORTEX_API_URL", DEFAULT_CORTEX_URL)
-                .trim_end_matches('/')
-                .to_string(),
-            cortex_api_key: required("CORTEX_API_KEY")?,
-            scope_root: or("CORTEX_SCOPE_ROOT", DEFAULT_SCOPE_ROOT),
+            toolkit,
+            models: Models::from_lookup(&lookup)?,
+            jacobian_cmd: get("SUPERMATH_JACOBIAN_CMD"),
+            lean_lsp_cmd: get("SUPERMATH_LEAN_LSP_CMD"),
         })
     }
 }

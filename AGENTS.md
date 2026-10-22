@@ -14,19 +14,30 @@ package it holds.
 ```text
 Cargo.toml              # virtual workspace: members, [workspace.package],
                         # [workspace.lints], and OpenHuman's [patch] table
-crates/
-└── supermath-agent/    # the agent: OpenHuman runner, toolkit, CortexDB memory
+crates/                 # one directory per package, named for the package
+├── supermath-tool/         # the contract: Tool, Envelope, ErrorCode, Budget, Project
+├── supermath-files/        # project workspaces: Lean and Python files
+├── supermath-lean/         # the Lean service client and the lean_* tools
+├── supermath-python/       # the Python solver client and the py_* tools
+├── supermath-literature/   # arXiv, Semantic Scholar, OEIS: the lit_* tools
+├── supermath-web/          # Gemini grounded search: the web_* tools
+├── supermath-ledger/       # CortexDB memory, claims: the ledger_* tools
+├── supermath-calc/         # exact arithmetic: calc_factor, calc_gcd_lcm
+├── supermath-subagents/    # the agentic agent_* tools, on OpenHuman
+├── supermath-mcp/          # composes the domains into a Toolkit; MCP server
+└── supermath-agent/        # the OpenHuman runner: host tools, agents, `check`
     ├── src/
     │   ├── lib.rs      # crate docs + the entire public re-export surface
     │   ├── main.rs     # `supermath-agent check`
     │   ├── error/mod.rs        # crate-wide `Error` and `Result<T>`
-    │   └── <feature>/          # config, memory, runner, toolkit
+    │   └── <feature>/          # config, host, runner
     │       ├── mod.rs          # module docs, wiring, smallest useful public API
     │       ├── types.rs        # substantial type definitions
     │       └── test.rs         # module-local unit tests
     └── tests/          # the binary end to end, against loopback stubs
 vendor/openhuman/       # OpenHuman, a git submodule (openhuman-embed)
 compose.yaml            # the LLM ladder, CortexDB, and the agent
+scripts/                # check-crate-deps.sh: the crate dependency rules
 docs/
 ├── specs/              # behavior and architecture specifications
 ├── plans/              # test-first implementation plans
@@ -35,11 +46,14 @@ docs/
 ```
 
 The agent's runtime pieces and why they are arranged this way are in
-`docs/specs/agent-runner.md` and `docs/adr/0002-build-on-openhuman.md`. In
-short: OpenHuman owns the agent loop, tools runtime, and sessions; the LLM
-ladder owns model choice and price; OpenRouter serves Jev, the decision model
-that ranks `tool_search`; CortexDB holds memory. This crate owns only the
-wiring, the toolkit, and the memory scopes.
+`docs/specs/agent-runner.md`, `docs/specs/toolkit/crates.md`, and
+`docs/adr/0002-build-on-openhuman.md`. In short: each tool domain is its own
+crate and depends only on `supermath-tool`; `supermath-mcp` composes them into
+a toolkit and serves it over MCP; OpenHuman owns the agent loop, tools
+runtime, and sessions; `supermath-subagents` and `supermath-agent` are the
+only crates that depend on it. The LLM ladder owns model choice and price;
+OpenRouter serves Jev, the decision model that ranks `tool_search`; CortexDB
+holds memory. `scripts/check-crate-deps.sh` enforces the dependency rules.
 
 Add a crate by creating `crates/<name>/` — `members = ["crates/*"]` picks it up
 by existing. Inherit `version`, `edition`, `rust-version`, `license`, and
@@ -68,7 +82,7 @@ broad ones.
 
 Keep public exports centralized in each crate's `src/lib.rs` so downstream users
 have one predictable surface. Put shared error variants in
-`crates/supermath-agent/src/error/mod.rs` and return the crate-wide `Result<T>` from
+the crate's `src/error/mod.rs` and return the crate-wide `Result<T>` from
 fallible public APIs.
 
 ## Build And Test
@@ -88,10 +102,11 @@ Supporting commands:
 
 - `cargo fmt --all` — format before committing.
 - `cargo test <filter>` — run a focused subset while iterating.
+- `scripts/check-crate-deps.sh` — the crate dependency rules CI also runs.
 - `cargo run -p supermath-agent -- check` — boot the runner against a live
   ladder and CortexDB (see `README.md` for the environment).
 - `docker compose up --build` — the whole stack.
-- `cargo doc --no-deps -p supermath-agent` — build the rustdoc CI also builds
+- `cargo doc --no-deps --workspace` — build the rustdoc CI also builds
   with `RUSTDOCFLAGS="-D warnings"`.
 - `cargo test --doc` — run doctests alone when editing documentation examples.
 
