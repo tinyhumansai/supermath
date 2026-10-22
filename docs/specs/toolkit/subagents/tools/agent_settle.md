@@ -2,7 +2,7 @@
 
 | Crate | Area | Kind | Exposure | Permission | Phase |
 | --- | --- | --- | --- | --- | --- |
-| `supermath-subagents` | [Sub-agents](../README.md) | agentic (OpenHuman) | deferred | write | P7 |
+| `supermath-subagents` | [Sub-agents](../README.md) | agentic (OpenHuman) | deferred | read | P7 |
 
 **Given → returns:** an aligned Lean conjecture → `proved`, `refuted`, or
 `unknown` with the bounds, lemmas, and leads the attempt found.

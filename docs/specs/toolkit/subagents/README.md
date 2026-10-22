@@ -71,6 +71,7 @@ configuration:
 | `SUPERMATH_READER_MODEL` | `deepseek-v4.1-flash` | `agent_digest_paper` |
 | `SUPERMATH_FORMALIZER_MODEL` | `deepseek-v4-pro` | `agent_formalize`, `agent_refute` |
 | `SUPERMATH_REVIEWER_MODEL` | `glm-5.3` | `agent_review_alignment` |
+| `SUPERMATH_DUEL_MODEL` | `deepseek-v4-pro` | both sides of `agent_settle` |
 
 The formalizer's model is a candidate, to be benchmarked against other
 Surplus models on the [acceptance set](#acceptance-criteria). A child sets
@@ -134,6 +135,7 @@ the shape [`../tools.md`](../tools.md) sets out.
 | [`agent_formalize`](tools/agent_formalize.md) | a statement or paper locator → Lean files and their verdicts |
 | [`agent_review_alignment`](tools/agent_review_alignment.md) | a declaration and its informal statement → alignment |
 | [`agent_refute`](tools/agent_refute.md) | a statement → a counterexample, or a repaired statement |
+| [`agent_settle`](tools/agent_settle.md) | an aligned Lean conjecture → `proved`, `refuted`, or `unknown`, from a prover and a refuter racing in parallel |
 
 ## Invariants
 

@@ -266,6 +266,7 @@ tools, which need OpenHuman ([`mcp/`](mcp/README.md)).
 | [`agent_formalize`](subagents/tools/agent_formalize.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | a statement or paper locator → Lean files and their verdicts |
 | [`agent_refute`](subagents/tools/agent_refute.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P6 | a statement → a counterexample, or a repaired statement |
 | [`agent_review_alignment`](subagents/tools/agent_review_alignment.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | a declaration and its informal statement → alignment |
+| [`agent_settle`](subagents/tools/agent_settle.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P7 | an aligned Lean conjecture → `proved`, `refuted`, or `unknown`, from a prover and a refuter racing in parallel |
 
 `factor_integer` and `gcd_lcm` move to `supermath-calc` as `calc_factor`
 and `calc_gcd_lcm` in P1. Jacobian's ~1,400 operations are reached over MCP, not
