@@ -444,3 +444,6 @@ warning: `tinymemory-tools` (lib) generated 1 warning (run `cargo fix --lib -p t
    Compiling tinyagents-harness-tools v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-harness-tools)
    Compiling tinyagents-hooks v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-hooks)
    Compiling tinyagents-runtime v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-runtime)
+   Compiling openhuman-embed v0.64.18 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/crates/openhuman-embed)
+   Compiling supermath-subagents v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-subagents)
+   Compiling openhuman-tinyhumans v0.64.18 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/crates/openhuman-tinyhumans)
