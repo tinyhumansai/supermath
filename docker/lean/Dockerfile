@@ -11,8 +11,10 @@
 
 FROM debian:bookworm-slim AS build
 
-# Must match the tag in lakefile.toml and the toolchain in lean-toolchain.
-ARG REPL_REV=v4.20.0
+# The REPL commit built against the toolchain in lean-toolchain (and so the
+# Mathlib tag in lakefile.toml). The REPL repository has no `v4.20.0` tag, so
+# this pins the head of its `bump_to_v4.20.0` branch by commit.
+ARG REPL_REV=16054ca34b80803d6621dccd11882ca2ea03e215
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl git build-essential \
@@ -36,9 +38,11 @@ RUN elan toolchain install "$(cat lean-toolchain)" \
  && cp lean-toolchain /opt/toolchain
 
 # The REPL, built with the same toolchain.
-RUN git clone --depth 1 --branch "$REPL_REV" \
-      https://github.com/leanprover-community/repl /opt/repl \
- && cd /opt/repl && lake build
+RUN git init -q /opt/repl \
+ && cd /opt/repl \
+ && git fetch -q --depth 1 https://github.com/leanprover-community/repl "$REPL_REV" \
+ && git checkout -q FETCH_HEAD \
+ && lake build
 
 FROM debian:bookworm-slim
 
