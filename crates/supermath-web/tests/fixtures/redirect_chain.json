@@ -1,0 +1,85 @@
+{
+  "comment": "path -> [status, location]; a null location answers without one",
+  "routes": {
+    "/r/arxiv": [
+      302,
+      "https://arxiv.org/abs/1908.08483v2"
+    ],
+    "/r/blog": [
+      302,
+      "/r/blog2"
+    ],
+    "/r/blog2": [
+      302,
+      "https://terrytao.wordpress.com/2019/10/01/sunflowers/"
+    ],
+    "/r/dead": [
+      404,
+      null
+    ],
+    "/r/nolocation": [
+      302,
+      null
+    ],
+    "/r/plain": [
+      200,
+      null
+    ],
+    "/r/loop1": [
+      302,
+      "/r/loop2"
+    ],
+    "/r/loop2": [
+      302,
+      "/r/loop1"
+    ],
+    "/r/five1": [
+      301,
+      "/r/five2"
+    ],
+    "/r/five2": [
+      302,
+      "/r/five3"
+    ],
+    "/r/five3": [
+      307,
+      "/r/five4"
+    ],
+    "/r/five4": [
+      308,
+      "/r/five5"
+    ],
+    "/r/five5": [
+      302,
+      "https://example.com/final"
+    ],
+    "/r/six1": [
+      302,
+      "/r/six2"
+    ],
+    "/r/six2": [
+      302,
+      "/r/six3"
+    ],
+    "/r/six3": [
+      302,
+      "/r/six4"
+    ],
+    "/r/six4": [
+      302,
+      "/r/six5"
+    ],
+    "/r/six5": [
+      302,
+      "/r/six6"
+    ],
+    "/r/six6": [
+      302,
+      "https://example.com/final"
+    ],
+    "/r/badlocation": [
+      302,
+      "http://[::1"
+    ]
+  }
+}

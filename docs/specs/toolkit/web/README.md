@@ -1,6 +1,6 @@
 # Web tools
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Crate:** `supermath-web`
 - **Parent:** [`README.md`](../README.md)
 - **Decision:** [`../../../adr/0005-search-the-web-with-gemini-grounding.md`](../../../adr/0005-search-the-web-with-gemini-grounding.md)
@@ -44,8 +44,9 @@ response's `candidates[0].groundingMetadata` carries what we keep:
 
 The model is `SUPERMATH_WEB_MODEL` (default: the current Gemini Flash
 model, pinned by name in config, never an alias that moves). The key is
-`GEMINI_API_KEY`; without it, every `web_*` tool returns
-`BACKEND_UNAVAILABLE`, and no other engine stands in.
+`GEMINI_API_KEY`; without it, `web_search` and `web_research` return
+`BACKEND_UNAVAILABLE`, and no other engine stands in. `web_read` is a plain
+fetch and needs no key.
 
 ### Sources, not prose
 
@@ -57,9 +58,12 @@ the sources and nothing more:
   `data.findings` and counted in `unknowns` ("2 unsupported sentences
   omitted").
 - Grounding URIs arrive as `vertexaisearch.cloud.google.com` redirects. The
-  tool resolves each one with a `HEAD` request (no body, five redirects at
-  most, 5 s) to the real URL, and reports the redirect as unresolved in
-  `unknowns` when that fails. A source the agent cannot open is not a
+  tool resolves each one with `HEAD` requests to the redirect host (no body,
+  five redirects at most, 5 s) and takes the real URL from the last
+  `Location`; it does not request the destination itself. A redirect that
+  loops, dead-ends (a 404, a 5xx, or no `Location`), or times out is
+  reported as unresolved in `unknowns`, and its source is dropped along with
+  any sentence it alone supported. A source the agent cannot open is not a
   source.
 - Ledger entries from the web cite the resolved URL, never the redirect and
   never Gemini.
@@ -102,9 +106,10 @@ nothing more.
 | `web_*` calls per project per day | 200 (`SUPERMATH_WEB_DAILY_CAP`) |
 | Wall time per call | 30 s (`web_search`), 180 s (`web_research`), 20 s (`web_read`) |
 
-Responses are cached under `SUPERMATH_CACHE` for 24 hours, keyed by model,
-prompt, and arguments, so a repeated question costs nothing. A cached answer
-says so in `coverage`, with its age.
+Responses are cached under `$SUPERMATH_CACHE/web` for 24 hours, keyed by
+model and prompt (which holds the arguments), so a repeated question costs
+no Gemini request. A cached answer says so in `coverage.cached_age`. The
+daily cap counts every `web_*` call, cached or not, in memory per UTC day.
 
 ### Terms
 
@@ -132,9 +137,9 @@ Web sources sit below the literature in the ledger's
 | | |
 | --- | --- |
 | Name | `supermath-web` |
-| Depends on | `supermath-tool`, `reqwest`, an HTML parser, `serde_json`, `tokio` |
-| Public API | `GeminiClient`, `Grounding`, `SourceClass`, `resolve_redirect`, `extract_main_text`, and the tools below |
-| Configuration | `GEMINI_API_KEY`, `SUPERMATH_WEB_MODEL`, `SUPERMATH_WEB_DAILY_CAP`, `SUPERMATH_CACHE`, `SUPERMATH_CONTACT` |
+| Depends on | `supermath-tool`, `reqwest`, `scraper` (the HTML parser), `serde_json`, `tokio` |
+| Public API | `WebToolkit` (builds the tools), `WebConfig`, `GeminiClient`, `Grounding`, `SourceClass`, `resolve_redirect`, `extract_main_text`, and the tools below |
+| Configuration | `GEMINI_API_KEY`, `SUPERMATH_WEB_MODEL`, `SUPERMATH_WEB_DAILY_CAP`, `SUPERMATH_CACHE`, `SUPERMATH_CONTACT`, and `SUPERMATH_WEB_BASE_URL` (the Gemini API root, for stubs) |
 | Tests | recorded Gemini responses and pages from a loopback stub; redirect chains; a test per source class; `live_web_search` gated by `GEMINI_API_KEY` and `SUPERMATH_LIVE_WEB` |
 
 ## Tools

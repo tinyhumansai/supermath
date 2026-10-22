@@ -1,0 +1,43 @@
+//! The Gemini client on its own.
+
+use std::sync::Arc;
+
+use supermath_web::{Error, GeminiClient, SystemClock};
+
+use crate::support::{KEY, config, fixed_gemini};
+
+#[tokio::test]
+async fn debug_output_redacts_the_key() {
+    let stub = fixed_gemini("grounded.json").await;
+    let client = GeminiClient::new(&config(&stub), Arc::new(SystemClock)).unwrap();
+    assert!(client.has_api_key());
+    assert_eq!(client.model(), "gemini-2.5-flash");
+    let shown = format!("{client:?}");
+    assert!(!shown.contains(KEY));
+    assert!(shown.contains("<redacted>"));
+}
+
+#[tokio::test]
+async fn generating_without_a_key_fails_before_any_request() {
+    let stub = fixed_gemini("grounded.json").await;
+    let config = supermath_web::WebConfig::default().with_base_url(stub.base.clone());
+    let client = GeminiClient::new(&config, Arc::new(SystemClock)).unwrap();
+    assert!(!client.has_api_key());
+    assert_eq!(
+        client.generate("hi").await.unwrap_err(),
+        Error::MissingApiKey
+    );
+    assert!(stub.requests().is_empty());
+}
+
+#[tokio::test]
+async fn generate_returns_the_decoded_response() {
+    let stub = fixed_gemini("grounded.json").await;
+    let client = GeminiClient::new(&config(&stub), Arc::new(SystemClock)).unwrap();
+    let generation = client.generate("hi").await.unwrap();
+    assert_eq!(generation.cached_age, None);
+    let candidate = &generation.response.candidates[0];
+    let meta = candidate.grounding_metadata.as_ref().unwrap();
+    assert_eq!(meta.grounding_chunks.len(), 2);
+    assert_eq!(meta.web_search_queries.len(), 2);
+}

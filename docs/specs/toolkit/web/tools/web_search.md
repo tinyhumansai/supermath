@@ -26,8 +26,9 @@ for a quick, sourced answer: "is the Sendov conjecture proved for degree
 - `prefer` names [source classes](../README.md#source-classes) the prompt asks
   Gemini to favor, and the tool sorts by. It filters nothing: sources of
   other classes are still returned, after the preferred ones.
-- `since` asks for material from that date on; Google may still return
-  older sources, which are flagged in `unknowns`.
+- `since` (`YYYY-MM-DD`) asks for material from that date on. Google gives
+  no dates for its sources, so the tool cannot tell which are older: it adds
+  an `unknowns` line saying the date is a request, not a check.
 - `limit` caps the sources returned (default 8, maximum 20).
 
 The prompt asks Gemini to answer in short factual sentences, to name

@@ -1,0 +1,65 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "The conjecture remains open in general. The conjecture was proved by Smith in 2020."
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "groundingMetadata": {
+        "webSearchQueries": [
+          "conjecture status"
+        ],
+        "groundingChunks": [
+          {
+            "web": {
+              "uri": "{{BASE}}/r/arxiv",
+              "title": "arxiv.org"
+            }
+          },
+          {
+            "web": {
+              "uri": "{{BASE}}/r/blog",
+              "title": "terrytao.wordpress.com"
+            }
+          }
+        ],
+        "groundingSupports": [
+          {
+            "segment": {
+              "startIndex": 0,
+              "endIndex": 39,
+              "text": "The conjecture remains open in general."
+            },
+            "groundingChunkIndices": [
+              0
+            ]
+          },
+          {
+            "segment": {
+              "startIndex": 40,
+              "endIndex": 83,
+              "text": "The conjecture was proved by Smith in 2020."
+            },
+            "groundingChunkIndices": [
+              1
+            ]
+          }
+        ],
+        "searchEntryPoint": {
+          "renderedContent": "<div class=\"container\">Search Suggestions</div>"
+        }
+      }
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 120,
+    "candidatesTokenCount": 45,
+    "totalTokenCount": 165
+  },
+  "modelVersion": "gemini-2.5-flash"
+}

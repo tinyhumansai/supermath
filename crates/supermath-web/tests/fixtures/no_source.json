@@ -1,0 +1,38 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "No source found."
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "groundingMetadata": {
+        "webSearchQueries": [
+          "obscure query"
+        ],
+        "groundingChunks": [
+          {
+            "web": {
+              "uri": "{{BASE}}/r/arxiv",
+              "title": "arxiv.org"
+            }
+          }
+        ],
+        "groundingSupports": [],
+        "searchEntryPoint": {
+          "renderedContent": "<div class=\"container\">Search Suggestions</div>"
+        }
+      }
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 120,
+    "candidatesTokenCount": 45,
+    "totalTokenCount": 165
+  },
+  "modelVersion": "gemini-2.5-flash"
+}

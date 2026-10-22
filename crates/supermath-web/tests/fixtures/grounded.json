@@ -1,0 +1,67 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Alweiss, Lovett, Wu and Zhang improved the bound to (log k)^{k(1+o(1))} in 2019. Rao later gave a simpler proof."
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "groundingMetadata": {
+        "webSearchQueries": [
+          "sunflower conjecture best bound",
+          "sunflower lemma improvement 2021"
+        ],
+        "groundingChunks": [
+          {
+            "web": {
+              "uri": "{{BASE}}/r/arxiv",
+              "title": "arxiv.org"
+            }
+          },
+          {
+            "web": {
+              "uri": "{{BASE}}/r/blog",
+              "title": "terrytao.wordpress.com"
+            }
+          }
+        ],
+        "groundingSupports": [
+          {
+            "segment": {
+              "startIndex": 0,
+              "endIndex": 80,
+              "text": "Alweiss, Lovett, Wu and Zhang improved the bound to (log k)^{k(1+o(1))} in 2019."
+            },
+            "groundingChunkIndices": [
+              0,
+              1
+            ]
+          },
+          {
+            "segment": {
+              "startIndex": 81,
+              "endIndex": 112,
+              "text": "Rao later gave a simpler proof."
+            },
+            "groundingChunkIndices": [
+              1
+            ]
+          }
+        ],
+        "searchEntryPoint": {
+          "renderedContent": "<div class=\"container\">Search Suggestions</div>"
+        }
+      }
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 120,
+    "candidatesTokenCount": 45,
+    "totalTokenCount": 165
+  },
+  "modelVersion": "gemini-2.5-flash"
+}

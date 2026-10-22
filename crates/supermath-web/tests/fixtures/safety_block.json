@@ -1,0 +1,14 @@
+{
+  "promptFeedback": {
+    "blockReason": "SAFETY",
+    "safetyRatings": [
+      {
+        "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+        "probability": "HIGH"
+      }
+    ]
+  },
+  "usageMetadata": {
+    "promptTokenCount": 9
+  }
+}

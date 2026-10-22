@@ -1,0 +1,48 @@
+[package]
+name = "supermath-web"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Web tools for supermath: Gemini grounded search, sourced research briefs, and page reading."
+readme = "README.md"
+keywords = ["agent", "mathematics", "search", "gemini"]
+categories = ["science"]
+publish = false
+
+[dependencies]
+# The tool contract: `Tool`, `Envelope`, `ErrorCode`, `Usage`, `CallContext`.
+supermath-tool = { path = "../supermath-tool" }
+# Async methods on `Tool`, which must stay object-safe.
+async-trait = { workspace = true }
+# Gemini response types, tool arguments, and the cache file's wire form.
+serde = { workspace = true }
+# Untyped JSON at the tool boundary and in the response cache.
+serde_json = { workspace = true }
+# The crate-wide error enum.
+thiserror = { workspace = true }
+# `rt` for the concurrent redirect and facet tasks, `time` for per-call
+# timeouts, `net` for the DNS check before `web_read`, `fs` for the response
+# cache, `macros` for `select!` on cancellation, `sync` for the daily cap.
+tokio = { workspace = true, features = ["rt", "time", "net", "fs", "macros", "sync"] }
+# The Gemini API client and the page fetcher.
+reqwest = { workspace = true }
+# Hashes the model and prompt into the response cache's file name.
+sha2 = { workspace = true }
+# Hex-encodes that digest.
+hex = { workspace = true }
+# Parses grounding redirects, page URLs, and source domains.
+url = { workspace = true }
+# Parses fetched HTML so `web_read` can keep headings, paragraphs, code, and
+# math sources while dropping scripts, navigation, and hidden elements.
+scraper = "0.23"
+
+[dev-dependencies]
+# Stub servers and the async test runtime; one runtime across the workspace.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util", "time"] }
+# Scratch cache directories.
+tempfile = { workspace = true }
+
+[lints]
+workspace = true

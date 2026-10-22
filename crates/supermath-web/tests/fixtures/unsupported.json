@@ -1,0 +1,65 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "The conjecture is open. Everyone believes it holds. A dead link claims otherwise."
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "groundingMetadata": {
+        "webSearchQueries": [
+          "conjecture status"
+        ],
+        "groundingChunks": [
+          {
+            "web": {
+              "uri": "{{BASE}}/r/arxiv",
+              "title": "arxiv.org"
+            }
+          },
+          {
+            "web": {
+              "uri": "{{BASE}}/r/dead",
+              "title": "gone.example"
+            }
+          }
+        ],
+        "groundingSupports": [
+          {
+            "segment": {
+              "startIndex": 0,
+              "endIndex": 23,
+              "text": "The conjecture is open."
+            },
+            "groundingChunkIndices": [
+              0
+            ]
+          },
+          {
+            "segment": {
+              "startIndex": 52,
+              "endIndex": 81,
+              "text": "A dead link claims otherwise."
+            },
+            "groundingChunkIndices": [
+              1
+            ]
+          }
+        ],
+        "searchEntryPoint": {
+          "renderedContent": "<div class=\"container\">Search Suggestions</div>"
+        }
+      }
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 120,
+    "candidatesTokenCount": 45,
+    "totalTokenCount": 165
+  },
+  "modelVersion": "gemini-2.5-flash"
+}

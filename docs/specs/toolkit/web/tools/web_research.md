@@ -73,11 +73,12 @@ between sources.
     "sources": [{ "url": "…", "title": "…", "class": "preprint", "arxiv_id": "…" }],
     "disagreements": [
       { "facet": "status", "claims": [{ "text": "…", "sources": [1] }, { "text": "…", "sources": [4] }] }
-    ]
+    ],
+    "search_entry_points": ["<html …>"]
   },
   "coverage": { "searched": ["…every query Google ran…"], "not_covered": ["paywalled full text"] },
   "unknowns": [],
-  "next": ["lit_get_paper {\"arxiv_id\": \"…\"}", "ledger_record {…}"]
+  "next": ["lit_get_paper {\"arxiv_id\": \"…\"}"]
 }
 ```
 
@@ -91,9 +92,16 @@ between sources.
   `ok` when at least one facet found something, `unknown` otherwise.
 - At most eight findings per facet and 30 sources in all; the brief stays
   under about 1,500 words.
-- It records nothing in the ledger itself. `next` suggests
-  `ledger_record` for the leads it found; the agent, or a sub-agent,
-  decides what is worth keeping.
+- It records nothing in the ledger itself. `next` suggests `lit_get_paper`
+  for the arXiv sources it found; the agent, or a sub-agent, decides what is
+  worth keeping and records it.
+- `search_entry_points` lists the distinct Google search-suggestion widgets
+  of the facet turns, passed through unchanged (see
+  [terms](../README.md#terms)).
+- Disagreements are found within one facet: a status word ("open",
+  "unsolved") against a settled one ("proved", "refuted"), or the same
+  sentence with different figures. A finding that uses both kinds of word
+  is not compared.
 
 ## Errors
 

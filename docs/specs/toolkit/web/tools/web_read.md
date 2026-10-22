@@ -61,6 +61,11 @@ actually says. It is a plain HTTP fetch; no model reads the page.
 | `FORBIDDEN` | 401 or 403, or `robots.txt` disallows the path |
 | `RATE_LIMITED` | 429; `retry_after_ms` is set |
 | `TIMEOUT` | no response in 20 s |
+| `BACKEND_UNAVAILABLE` | the site answered 5xx, was unreachable, or redirected more than five times |
+| `BUDGET_EXCEEDED` | the project's daily web cap is spent |
+
+A `cursor` is `c2`, `c3`, and so on; each page is a fresh fetch of the URL,
+so a page that changed between calls can shift the break.
 
 The fetch sends the same `User-Agent` as the literature tools, naming
 supermath and `SUPERMATH_CONTACT`, and honours `robots.txt`.
