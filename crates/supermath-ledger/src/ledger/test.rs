@@ -366,6 +366,23 @@ async fn supplied_evidence_never_earns_cited() {
 }
 
 #[tokio::test]
+async fn supplied_evidence_never_demotes_a_claim_already_cited() {
+    let h = harness().await;
+    let claim = || Claim::new(Kind::Fact, "a cited lemma", arxiv(Some("thm:main"), None));
+    let cited = h.ledger.record(&ctx(), claim()).await.unwrap().entry;
+    assert_eq!(cited.status, Status::Cited);
+    let supplied_ctx = ctx().with_evidence_origin(EvidenceOrigin::Supplied);
+    let again = h.ledger.record(&supplied_ctx, claim()).await.unwrap();
+    assert!(!again.created, "nothing is written");
+    assert_eq!(again.entry, cited);
+    assert!(
+        again.notes.iter().any(|n| n.contains("kept")),
+        "the call says why it changed nothing: {:?}",
+        again.notes
+    );
+}
+
+#[tokio::test]
 async fn a_clean_lean_check_earns_formalised_with_alignment_not_reviewed() {
     let h = harness().await;
     teach(&h, clean("aa"));
