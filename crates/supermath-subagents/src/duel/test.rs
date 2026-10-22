@@ -861,9 +861,12 @@ async fn a_side_stops_when_its_budget_cannot_fund_another_turn() {
     assert_eq!(prover.limits(), [Limits::DUEL.with_iterations(4)]);
 }
 
+/// An alignment, a change to the world, and the code it must produce.
+type Precondition = (&'static str, fn(&World), ErrorCode);
+
 #[tokio::test]
 async fn preconditions_are_checked_before_any_side_runs() {
-    let cases: [(&str, fn(&World), ErrorCode); 4] = [
+    let cases: [Precondition; 4] = [
         ("disputed", |_| {}, ErrorCode::InvalidInput),
         (
             "accepted",
