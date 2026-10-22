@@ -24,7 +24,9 @@ pub use digest::AgentDigestPaper;
 pub use formalize::AgentFormalize;
 pub use refute::AgentRefute;
 pub use review::AgentReviewAlignment;
-pub(crate) use shared::{Agentic, Shared};
+pub(crate) use refute::{frame_of, witness_of};
+pub(crate) use shared::{Agentic, Shared, parse_args};
+pub(crate) use verify::describe;
 
 #[cfg(test)]
 pub(crate) use formalize::valid_lean_path as valid_lean_path_for_tests;

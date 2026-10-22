@@ -25,7 +25,9 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use serde_json::{Value, json};
-use supermath_tool::{Cancellation, CallContext, Envelope, ErrorCode, ToolRegistry, Usage};
+use supermath_tool::{
+    CallContext, Cancellation, Envelope, ErrorCode, Tool, ToolRegistry, Usage,
+};
 use tokio::sync::mpsc;
 
 use crate::child::{ChildEnd, TurnControl};
@@ -139,7 +141,7 @@ async fn write_host(
 fn side_scope(core: &Arc<Agentic>, side: Side, board: &Arc<Board>) -> ToolRegistry {
     let areas = board.target().areas(side);
     let mut scope = ToolRegistry::new();
-    let mut add = |tool| {
+    let mut add = |tool: Arc<dyn Tool>| {
         // Names come from one registry plus the two duel tools, so none
         // repeats; a duplicate would only drop the second copy.
         let _ = scope.register(tool);

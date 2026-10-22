@@ -34,6 +34,33 @@ struct PostArgs {
     declaration: Option<String>,
 }
 
+const POST_DESCRIPTION: &str = "Sends your partner in the duel one finding. A lemma (path and \
+     declaration) is relayed only if lean_check says it is checked; a bound relays the frames your \
+     searches covered to the end; an obstruction (prover) or candidate (refuter) is relayed as an \
+     unverified lead. At most 80 words and 12 posts.";
+
+const BOARD_DESCRIPTION: &str = "Shows what the duel has settled so far: your goal, your \
+     partner's status, every verified lemma and bound, and every unverified lead. Marks your \
+     partner's posts as read.";
+
+fn post_schema() -> Value {
+    json!({
+        "type": "object",
+        "properties": {
+            "kind": {"type": "string", "enum": ["lemma", "bound", "obstruction", "candidate"]},
+            "text": {"type": "string", "description": "The finding, in at most 80 words."},
+            "path": {"type": "string", "description": "For a lemma: the Lean file under your area."},
+            "declaration": {"type": "string", "description": "For a lemma: its fully qualified name."}
+        },
+        "required": ["kind", "text"],
+        "additionalProperties": false
+    })
+}
+
+fn board_schema() -> Value {
+    json!({"type": "object", "properties": {}, "additionalProperties": false})
+}
+
 /// `duel_post` for one side.
 pub(crate) struct DuelPost {
     pub(crate) side: Side,
@@ -231,24 +258,11 @@ impl Tool for DuelPost {
     }
 
     fn description(&self) -> &'static str {
-        "Sends your partner in the duel one finding. A lemma (path and declaration) is relayed \
-         only if lean_check says it is checked; a bound relays the frames your searches covered \
-         to the end; an obstruction (prover) or candidate (refuter) is relayed as an unverified \
-         lead. At most 80 words and 12 posts."
+        POST_DESCRIPTION
     }
 
     fn schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "kind": {"type": "string", "enum": ["lemma", "bound", "obstruction", "candidate"]},
-                "text": {"type": "string", "description": "The finding, in at most 80 words."},
-                "path": {"type": "string", "description": "For a lemma: the Lean file under your area."},
-                "declaration": {"type": "string", "description": "For a lemma: its fully qualified name."}
-            },
-            "required": ["kind", "text"],
-            "additionalProperties": false
-        })
+        post_schema()
     }
 
     fn exposure(&self) -> Exposure {
@@ -285,12 +299,11 @@ impl Tool for DuelBoard {
     }
 
     fn description(&self) -> &'static str {
-        "Shows what the duel has settled so far: your goal, your partner's status, every \
-         verified lemma and bound, and every unverified lead. Marks your partner's posts as read."
+        BOARD_DESCRIPTION
     }
 
     fn schema(&self) -> Value {
-        json!({"type": "object", "properties": {}, "additionalProperties": false})
+        board_schema()
     }
 
     fn exposure(&self) -> Exposure {
@@ -314,5 +327,53 @@ impl Tool for DuelBoard {
             return invalid("duel_board takes no arguments");
         }
         Envelope::ok(self.board.view(self.side))
+    }
+}
+
+/// `duel_post` or `duel_board` outside a duel: same name and schema, so a
+/// duel side's agent is built with the tools each of its turns will carry,
+/// but every call is refused.
+pub(crate) struct Offline(pub(crate) &'static str);
+
+#[async_trait]
+impl Tool for Offline {
+    fn name(&self) -> &'static str {
+        self.0
+    }
+
+    fn description(&self) -> &'static str {
+        if self.0 == "duel_post" {
+            POST_DESCRIPTION
+        } else {
+            BOARD_DESCRIPTION
+        }
+    }
+
+    fn schema(&self) -> Value {
+        if self.0 == "duel_post" {
+            post_schema()
+        } else {
+            board_schema()
+        }
+    }
+
+    fn exposure(&self) -> Exposure {
+        Exposure::Direct
+    }
+
+    fn permission(&self) -> Permission {
+        Permission::Read
+    }
+
+    fn kind(&self) -> Kind {
+        Kind::Primitive
+    }
+
+    fn errors(&self) -> &'static [ErrorCode] {
+        &[ErrorCode::InvalidInput]
+    }
+
+    async fn call(&self, _ctx: &CallContext, _args: Value) -> Envelope {
+        invalid(format!("{} works only inside an agent_settle duel", self.0))
     }
 }
