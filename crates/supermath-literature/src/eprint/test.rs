@@ -83,6 +83,14 @@ fn plain_text_is_one_tex_file() {
 }
 
 #[test]
+fn a_source_ending_in_dos_end_of_file_markers_is_text() {
+    // arXiv 1301.7651 is a gzipped .tex that ends in `\x1a\r\n\x1a\r\n`.
+    let source = b"This proves the theorem.\r\n\r\n\x1a\r\n\x1a\r\n";
+    let tree = latex(unpack(&gzip(source)).unwrap());
+    assert!(tree.get("main.tex").unwrap().contains("theorem"));
+}
+
+#[test]
 fn binary_junk_and_corrupt_archives_are_decode_errors() {
     for bytes in [&[0u8, 1, 2, 3][..], &[][..], &[0x1f, 0x8b, 9, 9, 9][..]] {
         assert!(matches!(unpack(bytes), Err(crate::Error::Decode { .. })));
