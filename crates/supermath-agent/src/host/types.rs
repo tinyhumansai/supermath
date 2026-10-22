@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use openhuman_embed::{PermissionLevel, ToolExposure, ToolPolicy, ToolResult};
 use serde_json::Value;
-use supermath_tool::{Exposure, Kind, Outcome, Permission};
+use supermath_tool::{Exposure, Kind, Permission};
 
 use super::Host;
 
