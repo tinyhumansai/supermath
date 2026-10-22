@@ -22,14 +22,18 @@ trust no further than the evidence behind its answer.
 ## Goals
 
 - A toolkit an OpenHuman agent can use to work on a conjecture end to end:
-  literature, web research, Lean formalization and checking, computation, a claim ledger in
-  CortexDB, and sub-agents for the long tasks.
-- Lean is the arbiter. A claim is `formalised` only when this harness ran the
+  literature, web research, Lean formalization and checking, computation
+  with Python solvers, a claim ledger in CortexDB, and sub-agents for the
+  long tasks.
+- Lean is the arbiter. A claim is `formalised` only when this process ran the
   Lean kernel on it and saw no `sorry` and no axiom outside the allowlist.
-- Two crates ([`crates.md`](crates.md)): `supermath-mcp`, the toolkit and
-  an MCP server any agent can use, with no OpenHuman dependency; and
-  `supermath-agent`, the OpenHuman runner, which links the toolkit as host
-  tools and adds the model-driven `agent_*` tools.
+- One crate per tool domain, each specified and tested on its own
+  ([`crates.md`](crates.md)): files, Lean, Python, literature, web, ledger,
+  calc, and sub-agents, over a small core contract crate.
+  `supermath-mcp` composes them and serves them to any MCP client;
+  `supermath-agent`, the OpenHuman runner, links the same composition.
+- The project workspace holds Lean and Python side by side, and every tool
+  that runs code runs a file in it ([`files/`](files/README.md)).
 - Every tool follows the [contract](#tool-contract) below.
 
 ## Non-goals
@@ -40,19 +44,24 @@ trust no further than the evidence behind its answer.
   and models on the ladder.
 - Accepting a result as published mathematics. A checked proof is evidence
   that a Lean statement holds, not that it says what the paper says; that is
-  [alignment](ledger.md#alignment), a separate axis.
+  [alignment](ledger/README.md#alignment), a separate axis.
 
 ## Documents
 
-| Spec | Covers |
-| --- | --- |
-| [`lean.md`](lean.md) | the pinned Lean service and the `lean_*` tools |
-| [`literature.md`](literature.md) | arXiv, Semantic Scholar, OEIS: the `lit_*` tools |
-| [`web.md`](web.md) | web research through Gemini with Google Search grounding: the `web_*` tools |
-| [`ledger.md`](ledger.md) | claims, facts, and edges in CortexDB: the `ledger_*` tools |
-| [`agents.md`](agents.md) | sub-agents behind the `agent_*` tools |
-| [`tools/`](tools/README.md) | one file per tool: arguments, behavior, errors |
-| [`crates.md`](crates.md) | the `supermath-mcp` and `supermath-agent` crates, host tools, and the MCP server |
+| Spec | Crate | Covers |
+| --- | --- | --- |
+| [`crates.md`](crates.md) | all | the crate layout, dependency rules, per-crate testing, the runner, compose |
+| [`tools.md`](tools.md) | all | the shape of a tool spec file |
+| [`tool/`](tool/README.md) | `supermath-tool` | the `Tool` trait, envelope, budgets, and contract tests |
+| [`files/`](files/README.md) | `supermath-files` | the project workspace: Lean and Python files, path rules, the write log |
+| [`lean/`](lean/README.md) | `supermath-lean` | the pinned Lean service and the `lean_*` tools |
+| [`python/`](python/README.md) | `supermath-python` | the pinned Python solver service and the `py_*` tools |
+| [`literature/`](literature/README.md) | `supermath-literature` | arXiv, Semantic Scholar, OEIS: the `lit_*` tools |
+| [`web/`](web/README.md) | `supermath-web` | Gemini with Google Search grounding: the `web_*` tools |
+| [`ledger/`](ledger/README.md) | `supermath-ledger` | claims, facts, and edges in CortexDB: the `ledger_*` tools |
+| [`calc/`](calc/README.md) | `supermath-calc` | small exact arithmetic |
+| [`subagents/`](subagents/README.md) | `supermath-subagents` | the agentic `agent_*` tools |
+| [`mcp/`](mcp/README.md) | `supermath-mcp` | composition, ports, and the MCP server |
 
 ## Tool contract
 
@@ -64,7 +73,8 @@ what makes a tool cheap for an agent to choose, call, and believe.
 
 A tool is named `<area>_<verb>_<object>` for the question it answers, not the
 engine behind it: `lean_check`, `lit_search_arxiv`, `ledger_record`. Areas are
-`lit`, `web`, `lean`, `calc`, `ledger`, and `agent`. A tool establishes exactly one
+`file`, `lean`, `py`, `lit`, `web`, `ledger`, `calc`, and `agent`, one per
+crate. A tool establishes exactly one
 postcondition, stated in its description as "given X, returns Y such that P".
 Workflows are composed by the agent or by an `agent_*` tool, never hidden in
 a primitive.
@@ -83,11 +93,11 @@ Every tool is one of two kinds, declared by the tool and shown in the
   families:
   - **`agentic (Gemini)`**, the `web_*` search tools: one or more Gemini
     turns with Google Search grounding, where Gemini chooses the queries
-    ([`web.md`](web.md)). Lives in `supermath-mcp`.
+    ([`web/`](web/README.md)). Lives in `supermath-web`.
   - **`agentic (OpenHuman)`**, the `agent_*` tools: a full OpenHuman agent
     turn, on its own ladder rung, with its own prompt and its own subset
     of primitives, running up to dozens of tool calls
-    ([`agents.md`](agents.md)). Lives in `supermath-agent`.
+    ([`subagents/`](subagents/README.md)). Lives in `supermath-subagents`.
 
 An agentic tool is a different thing to call, and the contract says so:
 
@@ -106,7 +116,7 @@ Rules for agentic tools:
 - **Never the source of a verdict.** What a model turn says it did is a
   claim. An agentic tool reports verdicts and statuses only from
   primitives it ran *after* the turn ended: `agent_formalize` re-runs
-  [`lean_check`](tools/lean_check.md) on the files the child wrote; `web_*`
+  [`lean_check`](lean/tools/lean_check.md) on the files the child wrote; `web_*`
   tools keep only sentences that a grounding source supports.
 - **Usage is part of the answer.** The envelope carries
   `usage: {model, turns, tool_calls, input_tokens, output_tokens,
@@ -121,8 +131,9 @@ Rules for agentic tools:
 
 ### Progressive disclosure
 
-Five tools are **direct**, always in the model's catalogue: `recall_memory`,
-`lit_search_arxiv`, `web_search`, `lean_check`, and `ledger_record`. Every other tool is
+Six tools are **direct**, always in the model's catalogue: `recall_memory`,
+`lit_search_arxiv`, `web_search`, `lean_check`, `py_run`, and
+`ledger_record`. Every other tool is
 **deferred** and found through `tool_search`, which Jev ranks. A description's
 first sentence is what Jev ranks on, so it names the question.
 
@@ -172,13 +183,13 @@ Tests assert codes, never message text.
 
 - Arguments are typed JSON, parsed once at the boundary. No tool evaluates a
   string as code in the host. Lean source is sent to the Lean service, which
-  is sandboxed ([`lean.md`](lean.md#isolation)).
+  is sandboxed ([`lean/`](lean/README.md#isolation)).
 - No silent fallback. If a backend is missing, the tool says so; it never
   answers from a different engine than the one it names.
 - Every call is admitted against a budget (time, size, rows) before it runs.
-- Lean tools take files in the project's package, never Lean source as an
-  argument; only `lean_write` and `lean_edit` put source on disk
-  ([`lean.md`](lean.md#files-not-source)).
+- Tools that run code (Lean and Python) take files in the project's
+  workspace, never source as an argument; only `file_write` and
+  `file_edit` put source on disk ([`files/`](files/README.md)).
 - Provenance only where it carries trust: `lean_check` records the
   toolchain, Mathlib revision, file digest, and elapsed time; a literature
   row records its source and version. Arithmetic does not.
@@ -187,10 +198,10 @@ Tests assert codes, never message text.
 
 Every tool declares `Read` or `Write` honestly; the runner maps it to
 OpenHuman's permission levels and the MCP server to `readOnlyHint`
-([`crates.md`](crates.md)). `lean_write`, `lean_edit`, and the ledger
+([`crates.md`](crates.md)). `file_write`, `file_edit`, and the ledger
 writes are `Write`.
 `agent_*` tools are `Read` themselves, because the writing happens inside
-the child agent, which has its own scope ([`agents.md`](agents.md#scopes)).
+the child agent, which has its own scope ([`subagents/`](subagents/README.md#scopes)).
 
 ## Claim status
 
@@ -201,84 +212,92 @@ Every claim the ledger holds has a status. Statuses only rise on evidence:
 | `asserted` | someone said it; the default | anyone |
 | `cited` | a source says it, with a locator | a `lit_*` result |
 | `checked` | it held on a stated finite range | a `calc_*` result with its frame |
-| `formalised` | the Lean kernel accepted a statement of it, in this run | `supermath-mcp`, from a `lean_check` it ran |
+| `formalised` | the Lean kernel accepted a statement of it, in this run | the ledger, from a `lean_check` this process ran |
 
-`evidence_origin` is `collected` (a tool in this `supermath-mcp` process produced it) or
+`evidence_origin` is `collected` (a tool in this process produced it) or
 `supplied` (it arrived as text). Only `collected` evidence may set `checked`
 or `formalised`. A transcript someone pasted is a claim, not evidence.
 
 Alignment, whether a Lean statement says what the informal statement says,
 is a separate field: `not_reviewed`, `accepted`, or `disputed`
-([`ledger.md`](ledger.md#alignment)).
+([`ledger/`](ledger/README.md#alignment)).
 
 ## Catalogue
 
-Every tool lives in `supermath-mcp` except the `agent_*` tools, which need
-models and live in `supermath-agent`; MCP clients get everything but those.
+Every tool, by crate. MCP clients get every tool except the `agent_*`
+tools, which need OpenHuman ([`mcp/`](mcp/README.md)).
 
-| Tool | Kind | Exposure | Permission | Phase | Given → returns |
-| --- | --- | --- | --- | --- | --- |
-| [`recall_memory`](tools/recall_memory.md) | primitive | direct | read | shipped | a query → this project's notes |
-| [`lit_search_arxiv`](tools/lit_search_arxiv.md) | primitive | direct | read | P3 | a query → paged papers |
-| [`lit_get_paper`](tools/lit_get_paper.md) | primitive | deferred | read | P3 | an arXiv id → metadata, section index, a section's text |
-| [`lit_extract_statements`](tools/lit_extract_statements.md) | primitive | deferred | read | P3 | an arXiv id → numbered statements and their `\ref` edges |
-| [`lit_citations`](tools/lit_citations.md) | primitive | deferred | read | P5 | an arXiv id → references or citing papers |
-| [`lit_oeis`](tools/lit_oeis.md) | primitive | deferred | read | P3 | terms or a query → matching sequences |
-| [`web_search`](tools/web_search.md) | agentic (Gemini) | direct | read | P3 | a question → grounded findings with their sources |
-| [`web_research`](tools/web_research.md) | agentic (Gemini) | deferred | read | P3 | a research question → a sourced brief across several searches |
-| [`web_read`](tools/web_read.md) | primitive | deferred | read | P3 | a URL → the page's main text, paged |
-| [`lean_write`](tools/lean_write.md) | primitive | deferred | write | P2 | a module path and its content → the file written, with its digest |
-| [`lean_edit`](tools/lean_edit.md) | primitive | deferred | write | P2 | a file and exact replacements → the edited file's digest and changed lines |
-| [`lean_read`](tools/lean_read.md) | primitive | deferred | read | P2 | a file and a line range → its numbered lines and digest |
-| [`lean_files`](tools/lean_files.md) | primitive | deferred | read | P2 | the project → its Lean files with their last verdicts |
-| [`lean_check`](tools/lean_check.md) | primitive | direct | read | P2 | a Lean file in the project → a [verdict](lean.md#verdicts) with provenance |
-| [`lean_search`](tools/lean_search.md) | primitive | deferred | read | P2 | a name, pattern, or phrase → Mathlib declarations |
-| [`lean_decl`](tools/lean_decl.md) | primitive | deferred | read | P2 | a declaration name → signature, docstring, module |
-| [`lean_goals`](tools/lean_goals.md) | primitive | deferred | read | P4 | a file and a position → the goal state there |
-| [`lean_try_tactics`](tools/lean_try_tactics.md) | primitive | deferred | read | P4 | a file, one of its `sorry`s, and tactics → per-tactic outcome |
-| [`lean_build`](tools/lean_build.md) | primitive | deferred | read | P5 | the project package → per-file verdicts |
-| [`lean_blueprint`](tools/lean_blueprint.md) | primitive | deferred | read | P5 | the project → the declaration DAG with status |
-| [`calc_factor`](tools/calc_factor.md) | primitive | deferred | read | P1 | an integer → its factorization |
-| [`calc_gcd_lcm`](tools/calc_gcd_lcm.md) | primitive | deferred | read | P1 | two integers → gcd and lcm |
-| [`calc_search_counterexample`](tools/calc_search_counterexample.md) | primitive | deferred | read | P5 | a decidable predicate in a project file and a range → a witness, or none in range |
-| [`ledger_record`](tools/ledger_record.md) | primitive | direct | write | P2 | a claim or fact → its id and status |
-| [`ledger_claims`](tools/ledger_claims.md) | primitive | deferred | read | P2 | filters → paged claims |
-| [`ledger_link`](tools/ledger_link.md) | primitive | deferred | write | P4 | two claim ids → a `uses` edge |
-| [`ledger_bound`](tools/ledger_bound.md) | primitive | deferred | write | P5 | a quantity and a bound → the best bound so far |
-| [`agent_digest_paper`](tools/agent_digest_paper.md) | agentic (OpenHuman) | deferred | read | P4 | an arXiv id → facts recorded from it |
-| [`agent_formalize`](tools/agent_formalize.md) | agentic (OpenHuman) | deferred | read | P4 | a statement or paper locator → Lean files and their verdicts |
-| [`agent_review_alignment`](tools/agent_review_alignment.md) | agentic (OpenHuman) | deferred | read | P4 | a declaration and its informal statement → alignment |
-| [`agent_refute`](tools/agent_refute.md) | agentic (OpenHuman) | deferred | read | P5 | a statement → a counterexample, or a repaired statement |
+| Tool | Crate | Kind | Exposure | Permission | Phase | Given → returns |
+| --- | --- | --- | --- | --- | --- | --- |
+| [`file_edit`](files/tools/file_edit.md) | `supermath-files` | primitive | deferred | write | P1 | a file and exact replacements → the edited file's digest and changed lines |
+| [`file_list`](files/tools/file_list.md) | `supermath-files` | primitive | deferred | read | P1 | the project, optionally a directory → its files with their last results |
+| [`file_read`](files/tools/file_read.md) | `supermath-files` | primitive | deferred | read | P1 | a file and a line range → its numbered lines and digest, or its outline |
+| [`file_write`](files/tools/file_write.md) | `supermath-files` | primitive | deferred | write | P1 | a path and its content → the file written, with its digest |
+| [`calc_factor`](calc/tools/calc_factor.md) | `supermath-calc` | primitive | deferred | read | P1 | an integer → its factorization |
+| [`calc_gcd_lcm`](calc/tools/calc_gcd_lcm.md) | `supermath-calc` | primitive | deferred | read | P1 | two integers → gcd and lcm |
+| [`ledger_bound`](ledger/tools/ledger_bound.md) | `supermath-ledger` | primitive | deferred | write | P6 | a quantity and a bound → the best bound so far |
+| [`ledger_claims`](ledger/tools/ledger_claims.md) | `supermath-ledger` | primitive | deferred | read | P2 | filters → paged claims |
+| [`ledger_link`](ledger/tools/ledger_link.md) | `supermath-ledger` | primitive | deferred | write | P5 | two claim ids → a `uses` edge |
+| [`ledger_record`](ledger/tools/ledger_record.md) | `supermath-ledger` | primitive | direct | write | P2 | a claim or fact → its id and status |
+| [`recall_memory`](ledger/tools/recall_memory.md) | `supermath-ledger` | primitive | direct | read | P1 | a query → this project's notes |
+| [`lean_blueprint`](lean/tools/lean_blueprint.md) | `supermath-lean` | primitive | deferred | read | P6 | the project → the declaration DAG with status |
+| [`lean_build`](lean/tools/lean_build.md) | `supermath-lean` | primitive | deferred | read | P6 | the project package → per-file verdicts |
+| [`lean_check`](lean/tools/lean_check.md) | `supermath-lean` | primitive | direct | read | P2 | a Lean file in the project → a [verdict](lean/README.md#verdicts) with provenance |
+| [`lean_decl`](lean/tools/lean_decl.md) | `supermath-lean` | primitive | deferred | read | P2 | a declaration name → signature, docstring, module, without the proof |
+| [`lean_goals`](lean/tools/lean_goals.md) | `supermath-lean` | primitive | deferred | read | P5 | a file and a position → the goal state there |
+| [`lean_search`](lean/tools/lean_search.md) | `supermath-lean` | primitive | deferred | read | P2 | a name, pattern, or phrase → Mathlib declarations |
+| [`lean_search_counterexample`](lean/tools/lean_search_counterexample.md) | `supermath-lean` | primitive | deferred | read | P6 | a decidable predicate declared in a project file, and a range → a witness, or none in range |
+| [`lean_try_tactics`](lean/tools/lean_try_tactics.md) | `supermath-lean` | primitive | deferred | read | P5 | a file, one of its `sorry`s, and tactics → per-tactic outcome |
+| [`py_run`](python/tools/py_run.md) | `supermath-python` | primitive | direct | read | P4 | a Python file, an entry point, and arguments → its returned value, output, and provenance |
+| [`py_search_counterexample`](python/tools/py_search_counterexample.md) | `supermath-python` | primitive | deferred | read | P4 | a predicate function in a project file and a frame → a witness, or none in frame |
+| [`py_solvers`](python/tools/py_solvers.md) | `supermath-python` | primitive | deferred | read | P4 | nothing, or an area → the solvers in the pinned environment, with versions |
+| [`lit_citations`](literature/tools/lit_citations.md) | `supermath-literature` | primitive | deferred | read | P6 | an arXiv id → references or citing papers |
+| [`lit_extract_statements`](literature/tools/lit_extract_statements.md) | `supermath-literature` | primitive | deferred | read | P3 | an arXiv id → numbered statements and their `\ref` edges |
+| [`lit_get_paper`](literature/tools/lit_get_paper.md) | `supermath-literature` | primitive | deferred | read | P3 | an arXiv id → metadata, section index, a section's text |
+| [`lit_oeis`](literature/tools/lit_oeis.md) | `supermath-literature` | primitive | deferred | read | P3 | terms or a query → matching sequences |
+| [`lit_search_arxiv`](literature/tools/lit_search_arxiv.md) | `supermath-literature` | primitive | direct | read | P3 | a query → paged papers |
+| [`web_read`](web/tools/web_read.md) | `supermath-web` | primitive | deferred | read | P3 | a URL → the page's main text, paged |
+| [`web_research`](web/tools/web_research.md) | `supermath-web` | agentic (Gemini) | deferred | read | P3 | a research question → a sourced brief across several searches |
+| [`web_search`](web/tools/web_search.md) | `supermath-web` | agentic (Gemini) | direct | read | P3 | a question → grounded findings with their sources |
+| [`agent_digest_paper`](subagents/tools/agent_digest_paper.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | an arXiv id → facts recorded from it |
+| [`agent_formalize`](subagents/tools/agent_formalize.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | a statement or paper locator → Lean files and their verdicts |
+| [`agent_refute`](subagents/tools/agent_refute.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P6 | a statement → a counterexample, or a repaired statement |
+| [`agent_review_alignment`](subagents/tools/agent_review_alignment.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | a declaration and its informal statement → alignment |
 
-`factor_integer` and `gcd_lcm` move to `supermath-mcp` as `calc_factor` and
-`calc_gcd_lcm` in P1. Jacobian's ~1,400 operations are reached over MCP, not
+`factor_integer` and `gcd_lcm` move to `supermath-calc` as `calc_factor`
+and `calc_gcd_lcm` in P1. Jacobian's ~1,400 operations are reached over MCP, not
 reimplemented ([`crates.md`](crates.md#consuming-other-mcp-servers)).
 
 ## Invariants
 
 - No tool reports `false`, "not found", or "no counterexample" for something
   outside its coverage or budget; it reports `unknown`.
-- Only `supermath-mcp` sets `formalised` or `collected`, and only from a call
-  it executed itself, whoever the caller is.
+- Only the ledger sets `formalised`, and only `collected` evidence counts,
+  from a call this process executed itself, whoever the caller is.
 - A sub-agent's own account of its work is never a verdict. An `agent_*` tool
   re-runs `lean_check` on what the child produced and reports that.
 - No memory scope comes from model output ([`agent-runner.md`](../agent-runner.md#memory-scopes)).
 - Tool names, argument schemas, and error codes are the same over OpenHuman
   and over MCP.
-- `supermath-mcp` depends on no OpenHuman crate and calls no model, except
-  Gemini as the web search backend ([ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)).
+- Only `supermath-subagents` and `supermath-agent` depend on OpenHuman, and
+  no domain crate depends on another except through `supermath-files`
+  ([`crates.md`](crates.md#dependency-rules)).
+- Only `supermath-web` calls a model outside the sub-agents: Gemini, as
+  its search backend ([ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)).
+- A Python result can make a claim `checked` on a stated frame, never
+  `formalised` ([`python/`](python/README.md#status-rules)).
 - No web source raises a claim above `asserted`.
 
 ## Acceptance criteria
 
-- Every tool has unit tests for its answer, each error code it can return,
-  and its envelope's serde form.
+- Every domain crate passes the [contract checker](tool/README.md#contract-tests)
+  over its tools, and its own tests run with `cargo test -p <crate>`.
 - A test asserts the direct/deferred split and that every description's first
   sentence names a question.
 - An end-to-end test drives `supermath-mcp serve` and gets the same envelope
   as the runner's host tool for the same arguments.
 - `live_*` tests, gated by environment variables, exercise the real Lean
-  service, arXiv, and CortexDB.
+  service, the Python service, arXiv, Gemini, and CortexDB.
 
 ## Open questions
 

@@ -1,152 +1,114 @@
-# Crates: the MCP toolkit and the OpenHuman runner
+# Crates: one per tool domain
 
 - **Status:** Draft
 - **Parent:** [`README.md`](README.md)
-- **Decision:** [`../../adr/0004-split-the-toolkit-into-an-mcp-crate.md`](../../adr/0004-split-the-toolkit-into-an-mcp-crate.md)
+- **Decisions:** [`../../adr/0006-one-crate-per-tool-domain.md`](../../adr/0006-one-crate-per-tool-domain.md),
+  [`../../adr/0007-run-python-solvers-as-a-pinned-service.md`](../../adr/0007-run-python-solvers-as-a-pinned-service.md)
 
-The toolkit and the agent that uses it are two crates. `supermath-mcp` is
-the toolkit: every primitive tool, the Lean, literature, and CortexDB
-clients, and an MCP server, with no dependency on OpenHuman. `supermath-agent`
-is the OpenHuman runner: the runtime, the ladder and Jev wiring, and the
-sub-agents. The runner depends on the toolkit; the toolkit never depends on
-the runner.
+Each tool domain is its own crate, with its own spec folder, its own tests,
+and its own coverage. A small core crate holds the contract every domain
+implements; `supermath-mcp` composes the domains and serves them;
+`supermath-agent` is the OpenHuman runner.
 
 ```text
 crates/
-├── supermath-mcp/      # the toolkit; serves MCP; no OpenHuman
-│   └── src/
-│       ├── lib.rs      # Tool trait, Toolkit, Envelope: the public surface
-│       ├── main.rs     # `supermath-mcp serve [project]`, `supermath-mcp check`
-│       ├── config/     # LEAN_URL, CORTEX_*, literature settings
-│       ├── error/
-│       ├── envelope/   # Outcome, Envelope, ErrorCode, Coverage
-│       ├── tool/       # the Tool trait, Exposure, Permission
-│       ├── lean/       # Lean service client, verdict reduction
-│       ├── literature/ # arXiv, Semantic Scholar, OEIS; LaTeX flattening
-│       ├── web/        # Gemini grounded search, redirect resolution, page reading
-│       ├── memory/     # the CortexDB client (moved from supermath-agent)
-│       ├── ledger/     # entries, status transitions, effective status
-│       ├── calc/       # factor, gcd/lcm, counterexample search
-│       ├── toolkit/    # one file per area binding clients to tools
-│       └── server/     # the MCP server over Toolkit (rmcp)
-└── supermath-agent/    # the OpenHuman runner
-    └── src/
-        ├── lib.rs
-        ├── main.rs     # `supermath-agent check [project]`
-        ├── config/     # ladder, Jev, models, workspace
-        ├── error/
-        ├── host/       # adapts supermath-mcp tools into OpenHuman tools
-        ├── subagents/  # child agents and the agent_* tools
-        └── runner/     # Runtime, Jev ranker, agent registration
+├── supermath-tool/         # the contract: Tool, Envelope, ErrorCode, Kind, Usage, Budget, Project
+├── supermath-files/        # the project workspace: Lean and Python files, path rules, write log
+├── supermath-lean/         # the Lean service client and the lean_* tools
+├── supermath-python/       # the Python solver service client and the py_* tools
+├── supermath-literature/   # arXiv, Semantic Scholar, OEIS and the lit_* tools
+├── supermath-web/          # Gemini grounded search, page reading and the web_* tools
+├── supermath-ledger/       # CortexDB memory, claims, statuses and the ledger_* tools
+├── supermath-calc/         # small exact arithmetic: calc_factor, calc_gcd_lcm
+├── supermath-subagents/    # the agentic agent_* tools, on OpenHuman
+├── supermath-mcp/          # composes the domains into a Toolkit; `supermath-mcp serve`
+└── supermath-agent/        # the OpenHuman runner; `supermath-agent check`
 ```
 
-## Dependency direction
-
-| Crate | Depends on | Never depends on |
+| Crate | Spec | Kind of tools |
 | --- | --- | --- |
-| `supermath-mcp` | `rmcp`, `reqwest`, `serde_json`, `tokio`, `thiserror` | OpenHuman, the ladder, any model except Gemini for web search |
-| `supermath-agent` | `supermath-mcp`, `openhuman-embed`, `openhuman-tinyhumans` (`jev`) | — |
+| `supermath-tool` | [`tool/`](tool/README.md) | none; the contract |
+| `supermath-files` | [`files/`](files/README.md) | primitive |
+| `supermath-lean` | [`lean/`](lean/README.md) | primitive |
+| `supermath-python` | [`python/`](python/README.md) | primitive |
+| `supermath-literature` | [`literature/`](literature/README.md) | primitive |
+| `supermath-web` | [`web/`](web/README.md) | agentic (Gemini) and primitive |
+| `supermath-ledger` | [`ledger/`](ledger/README.md) | primitive |
+| `supermath-calc` | [`calc/`](calc/README.md) | primitive |
+| `supermath-subagents` | [`subagents/`](subagents/README.md) | agentic (OpenHuman) |
+| `supermath-mcp` | [`mcp/`](mcp/README.md) | none; composition and serving |
+| `supermath-agent` | [`../agent-runner.md`](../agent-runner.md), and [below](#supermath-agent) | none; the runner |
 
-`supermath-mcp` calls no model, with one exception: Gemini, as the backend
-of the `web_*` tools, whose prose is kept only where Google Search
-grounding ties it to a source ([`web.md`](web.md),
-[ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)).
-Everything else that needs a model (reading a paper
-for meaning, writing Lean, reviewing alignment) is an `agent_*` tool in
-`supermath-agent`. This keeps the toolkit deterministic and testable
-without a provider, and lets any MCP client use it without our ladder.
+## Dependency rules
 
-Both crates are workspace members and share one `Cargo.lock`. Building or
-testing `supermath-mcp` alone (`cargo test -p supermath-mcp`) never compiles
-OpenHuman; `supermath-agent` still does.
-
-## `supermath-mcp`
-
-### The `Tool` trait
-
-The toolkit's own trait, small enough to adapt to both OpenHuman and MCP:
-
-```rust
-#[async_trait]
-pub trait Tool: Send + Sync {
-    fn name(&self) -> &'static str;
-    fn description(&self) -> &'static str;
-    fn schema(&self) -> serde_json::Value;   // JSON Schema of the arguments
-    fn exposure(&self) -> Exposure;          // Direct | Deferred
-    fn permission(&self) -> Permission;      // Read | Write
-    fn kind(&self) -> Kind;                  // Primitive | Agentic
-    async fn call(&self, args: serde_json::Value) -> Envelope;
-}
+```text
+                         supermath-tool
+     ┌────────┬───────────┬────┴────┬────────┬────────┬─────────────┐
+   files  literature     web     ledger    calc   subagents ── openhuman-embed
+   ┌─┴──┐
+ lean  python
+     └────────── all primitive domains ──────────┐
+                                           supermath-mcp
+                                                 │
+                                          supermath-agent ── subagents, openhuman-embed
 ```
 
-`call` never returns `Err`: a failure is an `error` envelope with a code
-([`README.md`](README.md#one-envelope)). `Toolkit::new(config, project)`
-builds every tool bound to one project, and `Toolkit::tools()` lists them
-in catalogue order.
+- Every domain crate depends on `supermath-tool`. `lean` and `python` also
+  depend on `supermath-files`. **No other domain crate depends on another
+  domain crate.**
+- Where one domain needs another's evidence, it defines a port (a trait),
+  and `supermath-mcp` wires the real implementation: the ledger's
+  `LeanEvidence` ([`ledger/`](ledger/README.md#crate)) and the files
+  crate's `FileObserver` ([`files/`](files/README.md#observers)). Each
+  crate is tested against fakes of its ports.
+- `supermath-subagents` reaches primitives only through the `ToolRegistry`
+  the composition hands it ([`subagents/`](subagents/README.md#crate)).
+- Only `supermath-subagents` and `supermath-agent` depend on OpenHuman.
+  `cargo test -p` on any other crate never compiles it.
+- Only `supermath-web` calls a model (Gemini, as its search backend;
+  [ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)), and
+  only `supermath-subagents` runs model turns on the ladder.
 
-### The trust boundary
+CI enforces the rules with a script over `cargo metadata`: it fails if a
+domain crate depends on a domain crate other than `supermath-files`, or if
+a crate other than those two reaches an `openhuman` crate.
 
-The trust rules ([`README.md`](README.md#claim-status)) are enforced here,
-because this is the only crate that runs Lean and writes the ledger. The
-server treats every caller the same, whether it is our runner, Claude
-Code, or anything else:
+## Testing each crate on its own
 
-- A status above `cited` is never taken from arguments. `ledger_record`
-  with a `lean` source makes the server run `lean_check` itself, and the
-  claim becomes `formalised` only if that check is `checked` with no debt.
-- `evidence_origin: collected` means a tool in this `supermath-mcp` process
-  produced the evidence. Anything else is `supplied`.
+Each crate is specified, tested, and gated separately:
 
-So the runner gets no special privileges, and the sub-agents' trust
-invariant ([`agents.md`](agents.md#invariants)) holds by construction.
-
-### The MCP server
+- **Spec.** Its folder under `docs/specs/toolkit/` holds a `README.md` with
+  the domain's shared rules and a `## Crate` section (name, dependencies,
+  public API, configuration, tests), and a `tools/` folder with one file
+  per tool.
+- **Unit tests** in `src/<module>/test.rs`, and **integration tests** in
+  the crate's `tests/`, exercising only its public API against loopback
+  stubs of its backend and fakes of its ports.
+- **Contract tests.** Every domain crate runs
+  [`supermath-tool`'s contract checker](tool/README.md#contract-tests) over
+  its own tools.
+- **Live tests** are named `live_<domain>_*` and gated by the domain's
+  environment variables.
+- **Coverage** is per crate and per file: at least 90% line coverage,
+  reported by `cargo llvm-cov -p <crate>`.
 
 ```sh
-supermath-mcp serve [project]      # MCP over stdio
-supermath-mcp check                # Lean service, CortexDB, and arXiv reachable
+cargo test -p supermath-lean            # one domain, seconds, no OpenHuman
+cargo test --workspace                  # everything
 ```
-
-- `tools/list` serves each tool's name, description, and schema. MCP has no
-  deferral, so every tool is listed; `exposure` is published in the tool's
-  annotations for clients that can use it.
-- `tools/call` returns the envelope as JSON text content, and sets
-  `isError` on an `error` envelope.
-- The project comes from the command line, never from a tool argument.
-- Read-only tools are annotated `readOnlyHint: true`; `lean_write`,
-  `lean_edit`, and the `ledger_*` writes are not.
-- Agentic tools (the `web_*` search tools here) say so in the first
-  sentence of their description, and their envelope carries `usage`.
-
-Registering it with Claude Code:
-
-```sh
-claude mcp add supermath -- supermath-mcp serve my-project
-```
-
-### Configuration
-
-| Variable | Default | Meaning |
-| --- | --- | --- |
-| `LEAN_URL` | `http://localhost:3150` | the Lean service |
-| `SUPERMATH_LEAN_PROJECTS` | `./.supermath/lean` | the per-project Lean packages; the Lean service mounts the same directory |
-| `CORTEX_API_URL`, `CORTEX_API_KEY`, `CORTEX_SCOPE_ROOT` | as today | CortexDB, moved from the runner |
-| `SUPERMATH_CONTACT` | required for arXiv | the contact in the arXiv `User-Agent` |
-| `SEMANTIC_SCHOLAR_API_KEY` | unset | raises the Semantic Scholar rate limit |
-| `SUPERMATH_CACHE` | `./.supermath/cache` | literature and web response cache |
-| `GEMINI_API_KEY` | unset | Gemini API key; without it the `web_*` tools are unavailable |
-| `SUPERMATH_WEB_MODEL` | a pinned Gemini Flash model | the model behind grounded search |
-| `SUPERMATH_WEB_DAILY_CAP` | `200` | `web_*` calls per project per day |
 
 ## `supermath-agent`
 
+The OpenHuman runner. It depends on `supermath-mcp` for the composed
+toolkit and on `supermath-subagents` for the agentic tools.
+
 ### Host tools
 
-`host/` wraps each `supermath_mcp::Tool` in an OpenHuman `Tool`:
+`host/` wraps each `supermath_tool::Tool` in an OpenHuman `Tool`:
 
 - `name`, `description`, and `parameters_schema` pass through unchanged.
-- `exposure` maps `Direct` and `Deferred` to OpenHuman's, so the four
-  direct tools stay in the catalogue and Jev ranks the rest.
+- `exposure` maps `Direct` and `Deferred` to OpenHuman's, so the direct
+  tools stay in the catalogue and Jev ranks the rest.
 - `permission` maps `Read` to `PermissionLevel::ReadOnly` and
   `ToolPolicy::read_only()`, and `Write` to `PermissionLevel::Write`.
 - `execute` calls `call` and returns the envelope as `ToolResult::json`.
@@ -161,8 +123,8 @@ the adapted tools and the MCP server publish identical names and schemas.
 - The top-level agent uses `ToolScopeSpec::Named`, listing the adapted
   toolkit, the `agent_*` tools, and `tool_search`. `HostOnly` refuses write
   tools and MCP servers, and the toolkit needs both.
-- `subagents/` builds the [child agents](agents.md), each with its own
-  `Named` subset of the adapted toolkit.
+- `supermath-subagents` builds the [child agents](subagents/README.md),
+  each with a `Named` list of primitives from the registry.
 - The runtime is held as `Arc<Runtime>`.
 
 ### Consuming other MCP servers
@@ -177,7 +139,8 @@ deferred `mcp_<server>_<tool>`, ranked by Jev alongside ours.
 | [lean-lsp-mcp](https://github.com/oOo0oOo/lean-lsp-mcp) | hover, diagnostics, and goals from a Lean language server | `SUPERMATH_LEAN_LSP_CMD` |
 
 Both are optional. Our `lean_*` tools stay the source of verdicts;
-lean-lsp-mcp answers never set a status.
+lean-lsp-mcp answers never set a status. Jacobian is also importable from
+the [Python solver environment](python/README.md#the-solver-environment).
 
 ## Compose and images
 
@@ -185,34 +148,30 @@ lean-lsp-mcp answers never set a status.
 | --- | --- | --- |
 | `ladder` | as today | model routing |
 | `cortexdb` | as today | memory |
-| `lean` | `docker/lean/` | the pinned Lean service ([`lean.md`](lean.md#the-lean-service)) |
-| `agent` | `Dockerfile` | `supermath-agent check`, linking `supermath-mcp` |
+| `lean` | `docker/lean/` | the pinned Lean service ([`lean/`](lean/README.md#the-lean-service)) |
+| `python` | `docker/python/` | the pinned Python solver service ([`python/`](python/README.md#the-python-service)) |
+| `agent` | `Dockerfile` | `supermath-agent check`, linking the composed toolkit |
 
-`agent` and `lean` share the `lean-projects` volume: `supermath-mcp`
-writes Lean sources there, and the Lean service builds them
-([`lean.md`](lean.md#files-not-source)).
+`agent`, `lean`, and `python` share the `projects` volume: the agent writes
+files there through `file_write` and `file_edit`; the language services
+build and run them ([`files/`](files/README.md#layout)). `python` mounts it
+read-only; `lean` writes only Lake build outputs. Both sit on an
+`internal: true` network with the agent and have no egress.
 
 `docker/mcp/Dockerfile` builds a small image with only `supermath-mcp`, for
-running the server without OpenHuman. It is not a compose service, since
-stdio servers are started by their client.
+running the server without OpenHuman.
 
 ## Acceptance criteria
 
-- `cargo tree -p supermath-mcp` contains no `openhuman` crate; a CI step
-  asserts it.
-- `supermath-mcp`'s tests run without the ladder, OpenHuman, or a model.
-- `crates/supermath-mcp/tests/serve.rs` starts `supermath-mcp serve`
-  against loopback stubs, performs the MCP handshake, lists tools, and
-  calls `calc_factor`.
+- The dependency-rules script passes in CI, and fails on a fixture
+  workspace that breaks each rule.
+- Every domain crate runs the contract checker over its tools.
+- `cargo test -p <crate>` passes for each domain crate without compiling
+  OpenHuman.
 - A `supermath-agent` test compares every adapted tool's name, schema,
-  exposure, and permission with the toolkit's, and its envelope for the
-  same call with the MCP server's.
-- A test pins the top-level agent's `Named` scope.
+  exposure, permission, and kind with the composed toolkit's.
 
 ## Open questions
 
-1. Should `supermath-mcp serve` also speak streamable HTTP, for agents on
-   another machine?
-2. Does `supermath-agent` ever need to reach a remote `supermath-mcp` over
-   MCP instead of linking it, for example to share one Lean service across
-   hosts?
+1. Should `supermath-calc` fold into `supermath-python` once Python is
+   available, or stay as the dependency-free fast path?
