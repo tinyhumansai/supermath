@@ -171,10 +171,10 @@ async fn write_reads_the_string_null_as_a_new_file_and_refuses_a_non_digest() {
     // duel side one iteration per file it created.
     let fx = fx();
     let tool = FileWrite::new(fx.ws.clone());
-    for (path, null) in [(LEAN, "null"), ("python/work/s.py", " NULL "), ("python/work/t.py", "")] {
+    for (path, given) in [(LEAN, "null"), ("python/work/s.py", " NULL "), ("python/work/t.py", "")] {
         let content = if path == LEAN { SOURCE } else { "import math\n" };
-        let created = call(&tool, json!({"path": path, "content": content, "if_sha256": null})).await;
-        assert!(created.is_ok(), "{null:?}: {created:?}");
+        let created = call(&tool, json!({"path": path, "content": content, "if_sha256": given})).await;
+        assert!(created.is_ok(), "{given:?}: {created:?}");
     }
     let stale = call(&tool, json!({"path": LEAN, "content": SOURCE, "if_sha256": "null"})).await;
     assert_eq!(code(&stale), ErrorCode::Conflict, "an existing file still needs its digest");
