@@ -147,6 +147,11 @@ fn exactly_the_six_direct_tools_are_direct_and_every_description_names_its_quest
     direct.sort_unstable();
     assert_eq!(direct, DIRECT);
     for tool in registry.iter() {
-        assert_eq!(description_violation(tool.as_ref()), None, "{}", tool.name());
+        assert_eq!(
+            description_violation(tool.as_ref()),
+            None,
+            "{}",
+            tool.name()
+        );
     }
 }

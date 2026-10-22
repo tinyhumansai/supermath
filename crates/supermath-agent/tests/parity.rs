@@ -16,10 +16,9 @@ use supermath_mcp::{Config, Toolkit, serve_on};
 /// A toolkit over an empty projects directory, with no backend configured.
 fn toolkit(projects: &std::path::Path) -> Toolkit {
     let projects = projects.display().to_string();
-    let config = Config::from_lookup(|name| {
-        (name == "SUPERMATH_PROJECTS").then(|| projects.clone())
-    })
-    .unwrap();
+    let config =
+        Config::from_lookup(|name| (name == "SUPERMATH_PROJECTS").then(|| projects.clone()))
+            .unwrap();
     Toolkit::compose(&config, "Parity").unwrap()
 }
 

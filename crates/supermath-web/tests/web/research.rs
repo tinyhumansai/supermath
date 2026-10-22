@@ -346,8 +346,10 @@ async fn a_facet_whose_findings_all_lost_their_sources_says_so() {
     // preprints ranks the blog post past the thirty-source limit.
     let stub = gemini_stub(|request| {
         if facet_of(&request.body) == "status" {
-            let sentences: Vec<String> =
-                WORDS.iter().map(|w| format!("Claim {w} is true.")).collect();
+            let sentences: Vec<String> = WORDS
+                .iter()
+                .map(|w| format!("Claim {w} is true."))
+                .collect();
             let uris: Vec<String> = (0..32)
                 .map(|i| format!("https://arxiv.org/abs/2401.{:05}", i + 1))
                 .collect();

@@ -266,6 +266,11 @@ fn the_runners_catalogue_has_exactly_six_direct_tools_and_question_descriptions(
     assert!(adapted.iter().any(|tool| tool.name() == "agent_settle"));
     let tools = host.toolkit().registry();
     for tool in tools.iter().chain(host.agents.iter()) {
-        assert_eq!(description_violation(tool.as_ref()), None, "{}", tool.name());
+        assert_eq!(
+            description_violation(tool.as_ref()),
+            None,
+            "{}",
+            tool.name()
+        );
     }
 }
