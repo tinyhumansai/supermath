@@ -74,13 +74,21 @@ fn the_arxiv_set_has_twelve_distinct_version_pinned_cases() {
             "{}",
             case.id
         );
-        assert!(!case.area.is_empty() && !case.label.is_empty(), "{}", case.id);
+        assert!(
+            !case.area.is_empty() && !case.label.is_empty(),
+            "{}",
+            case.id
+        );
     }
 }
 
 #[test]
 fn every_case_in_both_sets_gets_its_own_lean_path() {
-    let mut paths: Vec<String> = formalize_cases().unwrap().iter().map(BenchCase::path).collect();
+    let mut paths: Vec<String> = formalize_cases()
+        .unwrap()
+        .iter()
+        .map(BenchCase::path)
+        .collect();
     paths.extend(arxiv_cases().unwrap().iter().map(BenchCase::path));
     let distinct: HashSet<_> = paths.iter().collect();
     assert_eq!(distinct.len(), 42);
