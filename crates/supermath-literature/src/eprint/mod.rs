@@ -78,9 +78,13 @@ fn unpack_plain(bytes: &[u8]) -> Result<Source> {
     }
 }
 
-/// Latin-1 sources are mostly printable ASCII with a few high bytes.
+/// Latin-1 sources are mostly printable ASCII with a few high bytes. Sources
+/// edited on DOS may also carry its end-of-file marker, Ctrl-Z (`0x1a`).
 fn looks_like_text(bytes: &[u8]) -> bool {
-    !bytes.is_empty() && bytes.iter().all(|b| !matches!(*b, 0..=8 | 14..=31))
+    !bytes.is_empty()
+        && bytes
+            .iter()
+            .all(|b| !matches!(*b, 0..=8 | 14..=25 | 27..=31))
 }
 
 fn untar(bytes: &[u8]) -> Result<Source> {

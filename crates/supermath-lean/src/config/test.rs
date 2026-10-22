@@ -19,6 +19,12 @@ fn nothing_set_means_no_service_and_default_indexes() {
 }
 
 #[test]
+fn hosted_searches_get_thirty_seconds() {
+    // Loogle took 15 s to answer `_ + 0 = _` live, so 15 s timed it out.
+    assert_eq!(LeanConfig::default().query_timeout_ms, 30_000);
+}
+
+#[test]
 fn variables_override_and_blank_ones_do_not() {
     let config = LeanConfig::from_lookup(|name| match name {
         "LEAN_URL" => Some(" http://lean:3150/ ".to_owned()),

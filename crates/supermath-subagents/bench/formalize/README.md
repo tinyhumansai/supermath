@@ -1,7 +1,8 @@
 # Formalization benchmark
 
 Thirty informal statements, each a Mathlib theorem with a known
-formalization, for comparing Surplus models on `agent_formalize`.
+formalization, and twelve labelled results from arXiv papers, for comparing
+Surplus models on `agent_formalize`.
 `statements.json` is an array of `{id, area, statement, expected}`:
 
 - `id` is a unique slug; the benchmark writes `lean/Supermath/Bench/<Id>.lean`.
@@ -13,11 +14,20 @@ formalization, for comparing Surplus models on `agent_formalize`.
   review and for a later proof-depth run.
 
 The set covers arithmetic, number theory, algebra, group theory, linear
-algebra, combinatorics, topology, set theory, and real analysis. It does not
-yet hold statements from arXiv: those need labels checked against real
-e-prints, and are added as `{arxiv_id, label}` cases once the literature
-backend can resolve them.
+algebra, combinatorics, topology, set theory, and real analysis.
+
+`arxiv.json` is an array of `{id, area, arxiv_id, label}`. Each case names a
+theorem, lemma, or proposition by its `\label` in a version-pinned paper, so
+the tool is given `{arxiv_id, label}` and has to fetch the e-print and find
+the statement itself before the child formalizes it. Every label was checked
+against `lit_extract_statements` on that version. The cases are self-contained
+results (they need no definition from earlier in the paper) in number theory,
+analysis, additive combinatorics, group theory, and graph theory, from
+Legendre's formula, which Mathlib already has, to spectral and homomorphism
+inequalities, which it does not. There is no `expected` name: most have no
+Mathlib counterpart.
 
 Run it against a real stack with
 `cargo test -p supermath-agent --test live live_subagents_formalize_bench`
 (see the variables in that test's header); without them it is skipped.
+`SUPERMATH_BENCH_SET` picks `statements` (the default), `arxiv`, or `all`.

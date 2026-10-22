@@ -88,7 +88,7 @@ fn declarations(text: &str) -> HashMap<String, Declaration> {
             env.clone(),
             Declaration {
                 env,
-                title: title.split_whitespace().collect::<Vec<_>>().join(" "),
+                title: printed_title(title),
                 starred,
                 shared,
                 within,
@@ -97,6 +97,28 @@ fn declarations(text: &str) -> HashMap<String, Declaration> {
         i = after;
     }
     found
+}
+
+/// A `\newtheorem` title as it prints. `LyX` writes `{\protect\theoremname}`
+/// with the name macro defined later; the flattener expands most such macros
+/// but leaves `\the…` ones for counters, and expanding one right after
+/// `\protect` glues them into `\protectLemma`. So a leading `\protect` is
+/// dropped, and a `\<kind>name` still standing is read as `<kind>`.
+fn printed_title(title: &str) -> String {
+    let title = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut rest = title.as_str();
+    while let Some(after) = rest.strip_prefix("\\protect") {
+        rest = after.trim_start();
+    }
+    match rest
+        .strip_prefix('\\')
+        .and_then(|word| word.strip_suffix("name"))
+    {
+        Some(kind) if !kind.is_empty() && kind.bytes().all(|b| b.is_ascii_alphabetic()) => {
+            kind.to_owned()
+        }
+        _ => rest.to_owned(),
+    }
 }
 
 /// A `[word]` at `i` (after whitespace), and where reading resumes.

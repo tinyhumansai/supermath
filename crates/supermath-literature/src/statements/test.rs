@@ -203,3 +203,26 @@ fn the_title_is_the_kind_lowercased_with_whitespace_collapsed() {
     let found = extract_statements("\\newtheorem{mt}{Main   Theorem}\\begin{mt}x\\end{mt}");
     assert_eq!(found.statements[0].kind, "main theorem");
 }
+
+#[test]
+fn lyx_protected_theorem_names_read_as_their_kind() {
+    // LyX writes this preamble (arXiv 1505.05143): titles are `\protect`ed
+    // name macros defined after the declarations.
+    let source = "\\newtheorem{thm}{\\protect\\theoremname}[section]\n\
+        \\newtheorem{question}[thm]{\\protect\\questionname}\n\
+        \\newtheorem{lem}[thm]{\\protect\\lemmaname}\n\
+        \\providecommand{\\lemmaname}{Lemma}\n\
+        \\providecommand{\\questionname}{Question}\n\
+        \\providecommand{\\theoremname}{Theorem}\n\
+        \\begin{document}\\section{A}\n\
+        \\begin{thm}x\\end{thm}\\begin{question}y\\end{question}\\begin{lem}z\\end{lem}";
+    let mut tree = crate::SourceTree::new();
+    tree.insert("main.tex", source.to_owned());
+    let flat = crate::flatten_latex(&tree);
+    let kinds: Vec<String> = extract_statements(&flat.text)
+        .statements
+        .into_iter()
+        .map(|s| s.kind)
+        .collect();
+    assert_eq!(kinds, ["theorem", "question", "lemma"]);
+}

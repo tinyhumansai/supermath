@@ -6,6 +6,8 @@
 //! project per model, builds the `agent_*` tools over its registry, runs the thirty
 //! statements of `crates/supermath-subagents/bench/formalize/` through
 //! `agent_formalize` once per model, and prints the `checked` rate per model.
+//! The twelve arXiv cases beside them name a labelled result in a pinned paper
+//! instead, so they also exercise fetching the e-print and finding the label.
 //! It makes real model calls and real Lean checks, so it is never part of
 //! `cargo test` by default.
 //!
@@ -15,7 +17,8 @@
 //! | `SURPLUS_API_KEY` | Surplus Intelligence's key; `SURPLUS_URL` optionally overrides its API root |
 //! | `LEAN_URL`, `SUPERMATH_PROJECTS` | the Lean service and the directory it mounts |
 //! | `SUPERMATH_BENCH_RUNGS` | comma-separated Surplus models; default `deepseek-v4-pro` |
-//! | `SUPERMATH_BENCH_LIMIT` | run only the first N cases |
+//! | `SUPERMATH_BENCH_SET` | `statements` (default), `arxiv`, or `all` |
+//! | `SUPERMATH_BENCH_LIMIT` | run only the first N cases of each set |
 //!
 //! Every other toolkit variable (`PYTHON_URL`, `CORTEX_*`, ...) is read
 //! as the agent reads it; an unset one leaves its tools answering
@@ -26,7 +29,7 @@
 use openhuman_embed::{Provider, Runtime, RuntimeConfig, Workspace};
 use supermath_agent::DEFAULT_SURPLUS_URL;
 use supermath_mcp::{Config, Toolkit};
-use supermath_subagents::bench::{formalize_cases, run_formalize};
+use supermath_subagents::bench::{BenchReport, arxiv_cases, formalize_cases, run_formalize};
 use supermath_subagents::{Models, Subagents, SubagentsConfig};
 use supermath_tool::{Budget, CallContext};
 
@@ -50,10 +53,20 @@ async fn bench() {
     let surplus_url = env("SURPLUS_URL").unwrap_or_else(|| DEFAULT_SURPLUS_URL.into());
     let surplus_key = env("SURPLUS_API_KEY").expect("SURPLUS_API_KEY");
     let rungs = env("SUPERMATH_BENCH_RUNGS").unwrap_or_else(|| "deepseek-v4-pro".into());
+    let set = env("SUPERMATH_BENCH_SET").unwrap_or_else(|| "statements".into());
+    let (statements, arxiv) = match set.as_str() {
+        "statements" => (true, false),
+        "arxiv" => (false, true),
+        "all" => (true, true),
+        other => panic!("SUPERMATH_BENCH_SET must be statements, arxiv, or all, not {other}"),
+    };
+    let limit: usize = env("SUPERMATH_BENCH_LIMIT")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(usize::MAX);
     let mut cases = formalize_cases().unwrap();
-    if let Some(limit) = env("SUPERMATH_BENCH_LIMIT").and_then(|v| v.parse().ok()) {
-        cases.truncate(limit);
-    }
+    cases.truncate(if statements { limit } else { 0 });
+    let mut papers = arxiv_cases().unwrap();
+    papers.truncate(if arxiv { limit } else { 0 });
     let config = Config::from_env().unwrap();
 
     let scratch = tempfile::tempdir().unwrap();
@@ -107,13 +120,23 @@ async fn bench() {
                 ..Budget::agentic(64, 1_000_000)
             },
         );
-        let report = run_formalize(formalize.as_ref(), &ctx, rung, &cases).await;
-        println!("{}", report.summary());
-        for result in report.results.iter().filter(|r| !r.checked()) {
-            println!(
-                "  not checked: {} ({:?}, {:?})",
-                result.id, result.outcome, result.verdict
-            );
+        if !cases.is_empty() {
+            let report = run_formalize(formalize.as_ref(), &ctx, rung, &cases).await;
+            print_report("statements", &report);
         }
+        if !papers.is_empty() {
+            let report = run_formalize(formalize.as_ref(), &ctx, rung, &papers).await;
+            print_report("arxiv", &report);
+        }
+    }
+}
+
+fn print_report(set: &str, report: &BenchReport) {
+    println!("{set} {}", report.summary());
+    for result in report.results.iter().filter(|r| !r.checked()) {
+        println!(
+            "  not checked: {} ({:?}, {:?}, {:?})",
+            result.id, result.outcome, result.verdict, result.error
+        );
     }
 }

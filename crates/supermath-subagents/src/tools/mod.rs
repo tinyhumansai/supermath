@@ -32,6 +32,8 @@ pub(crate) use shared::{Agentic, Shared, parse_args};
 pub(crate) use verify::describe;
 
 #[cfg(test)]
+pub(crate) use digest::valid_arxiv_id as valid_arxiv_id_for_tests;
+#[cfg(test)]
 pub(crate) use formalize::valid_lean_path as valid_lean_path_for_tests;
 
 #[cfg(test)]
