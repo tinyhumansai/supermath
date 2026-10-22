@@ -45,6 +45,21 @@ impl Earned {
         self
     }
 
+    /// Keeps the status and origin `old` already holds, for a supplied call
+    /// that would otherwise write a lower revision over it.
+    pub(super) fn keep(self, old: &Entry) -> Self {
+        Self {
+            status: old.status,
+            origin: old.evidence_origin,
+            lean: old.lean.clone(),
+            notes: self.notes,
+        }
+        .note(format!(
+            "the claim's {} status was kept; supplied evidence cannot lower it",
+            old.status.as_str()
+        ))
+    }
+
     /// What any source earns when the call's evidence is supplied.
     fn supplied() -> Self {
         Self::new(Status::Asserted, EvidenceOrigin::Supplied)
