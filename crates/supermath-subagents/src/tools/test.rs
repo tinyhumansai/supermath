@@ -679,6 +679,7 @@ fn outline_names_are_matched_to_targets_in_file_order() {
         targets: vec!["A.foo".into(), "B.foo".into(), "top".into()],
         errors: 0,
         sorries: 0,
+        debt: Vec::new(),
         reason: None,
     };
     let names: Vec<Option<String>> = outline
