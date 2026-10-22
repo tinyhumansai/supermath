@@ -54,8 +54,8 @@ gated by an environment variable.
 3. **Lean service.** `docker/lean/Dockerfile`, `lakefile.toml`,
    `lean-toolchain`, and the HTTP wrapper (kimina-lean-server if the
    evaluation in ADR 0003 holds). Add the `lean` service to `compose.yaml`
-   with `network_mode: none` replaced by an internal-only network, and
-   `LEAN_URL` to `Config` and `.env.example`.
+   on an `internal: true` network the agent shares, so it has no egress,
+   and add `LEAN_URL` to `Config` and `.env.example`.
 4. **Verdicts.** Tests first in `lean/test.rs`, one per row of the verdict
    table in [`lean.md`](../specs/toolkit/lean.md#verdicts), against a stub
    that replays recorded REPL answers. Then `lean/mod.rs`.
