@@ -153,11 +153,17 @@ Every revision is one experience; `status:` and `kind:` labels are for
 humans browsing CortexDB, the ledger itself reads the JSON.
 
 `id` is `clm_` followed by the FNV-1a digest the memory client already uses
-for idempotency keys, over the kind, statement, and source. Recording the
-same finding twice is a no-op that returns the existing id: a repeat that
-earns the same status, with no new `uses`, writes nothing. A repeat that
-earns a different one (a re-check, a changed verdict) writes the next
-revision, which is how `any → lower` is recorded; a repeat with new `uses`
+for idempotency keys, over the kind, statement, and source. A claim with a
+`lean` source is the exception: its digest is over the kind, the file path,
+and the declaration only, so rewording the statement or changing the file
+keeps the claim (one declaration had collected 18 `result` claims, one per
+run's wording, each with its own duel directory). Recording the same
+finding twice is a no-op that returns the existing id: a repeat that earns
+the same status, from the same source, with no new `uses`, writes nothing
+and keeps the first statement. A repeat that earns a different status (a
+re-check, a changed verdict) or cites a different source (a Lean file at a
+new digest) writes the next revision, which is how `any → lower` is
+recorded; a repeat with new `uses`
 writes the next revision with the union of old and new, after the cycle
 rule in [Edges](#edges).
 
