@@ -7,9 +7,9 @@
 //! toolkit's call log, so calls the `agent_*` children make (the duel's
 //! prover and refuter among them) are reported too.
 
-use std::collections::HashSet;
 use std::num::NonZeroUsize;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use openhuman_embed::AgentProgress;
@@ -71,15 +71,18 @@ pub async fn solve(
     turns: NonZeroUsize,
     report: Arc<dyn Fn(String) + Send + Sync>,
 ) -> Result<Transcript> {
+    let log = solver.host().toolkit().call_log();
+    let reported = Arc::new(AtomicUsize::new(0));
     let watcher = tokio::spawn(watch(
-        solver.host().toolkit().call_log(),
+        Arc::clone(&log),
+        Arc::clone(&reported),
         Arc::clone(&report),
     ));
     let result = run_turns(solver, prompt, turns, &report).await;
     watcher.abort();
-    // One last sweep, so the calls of the final turn's tail are reported.
-    let mut seen = HashSet::new();
-    let _ = &mut seen;
+    // One last sweep, so calls logged since the watcher's last look are
+    // reported too.
+    sweep(log.as_ref(), &reported, report.as_ref());
     result
 }
 
@@ -124,15 +127,23 @@ async fn run_turns(
 }
 
 /// Reports every call-log record once, as it appears.
-async fn watch(log: Arc<dyn CallLog>, report: Arc<dyn Fn(String) + Send + Sync>) {
-    let mut reported = 0;
+async fn watch(
+    log: Arc<dyn CallLog>,
+    reported: Arc<AtomicUsize>,
+    report: Arc<dyn Fn(String) + Send + Sync>,
+) {
     loop {
-        let records = log.all();
-        for record in records.iter().skip(reported) {
-            report(call_line(record));
-        }
-        reported = records.len();
+        sweep(log.as_ref(), &reported, report.as_ref());
         tokio::time::sleep(WATCH_EVERY).await;
+    }
+}
+
+/// Reports the records past `reported` and moves it to the end of the log.
+fn sweep(log: &dyn CallLog, reported: &AtomicUsize, report: &(dyn Fn(String) + Send + Sync)) {
+    let records = log.all();
+    let from = reported.swap(records.len(), Ordering::Relaxed);
+    for record in records.iter().skip(from) {
+        report(call_line(record));
     }
 }
 
