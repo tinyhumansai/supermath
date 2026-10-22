@@ -15,7 +15,7 @@ use super::guard::WriteGuard;
 use super::guard::within;
 use super::post::{DuelBoard, DuelPost, MAX_POSTS};
 use super::side_scope;
-use super::target::{Target, module_of};
+use super::target::{Target, module_of, review_accepts};
 use super::types::{Item, PostKind, Side};
 use crate::belt::{Belt, CallNote};
 use crate::child::{ChildKind, TurnControl};
@@ -257,7 +257,10 @@ fn only_an_accepting_review_of_the_same_claim_and_declaration_stands_in_for_alig
     assert_eq!(review_accepts("clm_1", &lean, &review("accepted")), Ok(()));
 
     let mut cases = vec![
-        ("disputed", review("disputed. Mismatch (reviewer's words): n = 0")),
+        (
+            "disputed",
+            review("disputed. Mismatch (reviewer's words): n = 0"),
+        ),
         ("lead", {
             let mut r = review("accepted");
             r["kind"] = json!("lead");
@@ -281,7 +284,10 @@ fn only_an_accepting_review_of_the_same_claim_and_declaration_stands_in_for_alig
     ];
     for (why, entry) in cases.drain(..) {
         let error = review_accepts("clm_1", &lean, &entry).unwrap_err();
-        assert!(error.contains("not an accepting alignment review"), "{why}: {error}");
+        assert!(
+            error.contains("not an accepting alignment review"),
+            "{why}: {error}"
+        );
     }
 }
 

@@ -35,7 +35,7 @@ use crate::tools::{Agentic, describe};
 
 pub(crate) use board::Board;
 pub(crate) use post::{DuelBoard, DuelPost, Offline};
-pub(crate) use target::Target;
+pub(crate) use target::{Target, review_accepts};
 pub(crate) use types::{Side, SideReport, Win};
 
 use board::{Bucket, Event};
