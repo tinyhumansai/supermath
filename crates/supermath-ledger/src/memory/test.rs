@@ -374,13 +374,11 @@ async fn notes_labelled_lists_exactly_the_labelled_notes_across_pages() {
     assert_eq!(notes.len(), 105);
     assert_eq!(notes[0], "note 0");
     assert_eq!(notes[104], "note 104");
-    assert!(
-        memory
-            .notes_labelled(&project(), "claim:clm_none")
-            .await
-            .unwrap()
-            .is_empty()
-    );
+    let none = memory
+        .notes_labelled(&project(), "claim:clm_none")
+        .await
+        .unwrap();
+    assert_eq!(none.len(), 0);
 }
 
 #[tokio::test]

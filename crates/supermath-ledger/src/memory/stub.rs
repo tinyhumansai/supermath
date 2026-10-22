@@ -272,7 +272,7 @@ fn handle(state: &Mutex<State>, seen: &Seen) -> (u16, String) {
         let limit = match state.rank_recall {
             Some(cap) => {
                 ranked.retain(|(score, _)| *score > 0);
-                ranked.sort_by(|a, b| b.0.cmp(&a.0));
+                ranked.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
                 limit.min(cap)
             }
             None => limit,
