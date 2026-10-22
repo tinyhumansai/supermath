@@ -65,6 +65,12 @@ and a `path` and the service reads the file itself from the `projects` volume
 | --- | --- |
 | `ok` | the operation ran to completion |
 | `timeout`, `memory`, `output_limit` | it hit a limit and the REPL was killed |
+
+A REPL that dies on its own while `/check` runs (Lean aborts with SIGABRT on
+a stack overflow, typically deep `decide` or kernel reduction) is not a
+limit: `/check` answers `ok` with one error at line 1 naming the crash, so the
+file fails with a reason the caller can act on. Only the memory limit's
+SIGKILL stays `memory`.
 | `no_sorry`, `bad_position`, `bad_predicate`, `not_found` | the operation's own refusals, named below |
 
 `404` means the project file does not exist and `400` that the request was
