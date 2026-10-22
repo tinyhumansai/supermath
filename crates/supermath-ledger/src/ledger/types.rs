@@ -2,6 +2,7 @@
 
 use serde_json::Number;
 
+use super::Effective;
 use crate::types::{BoundSpec, Direction, Entry, Kind, Source};
 
 /// A claim to record. It carries no status and no evidence origin: both are
@@ -91,6 +92,12 @@ pub struct BoundOutcome {
     pub improved: bool,
     /// The best bound so far, or the offered one if nothing better exists.
     pub best: Entry,
+    /// The best bound's effective status, the one `ledger_claims` would
+    /// report: no stronger than what it uses or its Lean file allows now.
+    pub best_effective: Effective,
+    /// Whether the read that found the best bound filled the window, so an
+    /// older, better bound may have been missed.
+    pub window_full: bool,
     /// What recording the offer did: a `bound` if it improved, otherwise a
     /// `fact`.
     pub recorded: Recorded,

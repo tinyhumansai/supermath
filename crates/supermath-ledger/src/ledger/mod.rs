@@ -315,10 +315,14 @@ impl Ledger {
     /// and returns the best bound either way.
     ///
     /// A bound that does not improve is kept as a `fact`, not as the bound.
+    /// The best bound is found among the bounds one read of the window
+    /// recalls; [`BoundOutcome::window_full`] says when that read may have
+    /// missed an older one.
     ///
     /// # Errors
     ///
-    /// The errors of [`Ledger::record`].
+    /// The errors of [`Ledger::record`], and the memory errors of
+    /// [`Ledger::effective`] for the best bound.
     pub async fn bound(&self, ctx: &CallContext, request: BoundRequest) -> Result<BoundOutcome> {
         let slug = ctx.project.slug();
         let quantity = request
@@ -344,9 +348,9 @@ impl Ledger {
             direction: request.direction,
             value: request.value.clone(),
         };
-        let bounds: Vec<Entry> = self
-            .entries(slug, &quantity)
-            .await?
+        let recalled = self.recall(slug, &quantity).await?;
+        let bounds: Vec<Entry> = recalled
+            .entries
             .into_iter()
             .filter(|e| e.kind == Kind::Bound)
             .filter(|e| {
@@ -399,9 +403,17 @@ impl Ledger {
         } else {
             best_before.unwrap_or_else(|| recorded.entry.clone())
         };
+        let best_effective = self
+            .effective(slug, std::slice::from_ref(&best))
+            .await?
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| Effective::of(&best));
         Ok(BoundOutcome {
             improved: improved && !already_recorded,
             best,
+            best_effective,
+            window_full: recalled.window_full,
             recorded,
         })
     }
