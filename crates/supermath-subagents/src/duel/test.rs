@@ -678,7 +678,7 @@ fn the_duel_tools_are_direct_primitives_with_closed_schemas() {
         assert_eq!(tool.kind(), supermath_tool::Kind::Primitive);
         assert_eq!(tool.schema()["additionalProperties"], false);
         assert!(tool.errors().contains(&ErrorCode::InvalidInput));
-        assert!(!tool.description().is_empty());
+        assert!(tool.description().len() > 20, "{}", tool.name());
     }
     assert_eq!(tools[0].permission(), supermath_tool::Permission::Write);
     assert_eq!(tools[1].permission(), supermath_tool::Permission::Read);
