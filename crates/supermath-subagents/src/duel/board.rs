@@ -291,8 +291,8 @@ impl Board {
             .iter()
             .min_by_key(|(_, score)| **score)
             .map(|(path, score)| format!("{path} at {score} errors and sorries"));
-        let frames = (!state.frames.is_empty())
-            .then(|| format!("{} frames exhausted", state.frames.len()));
+        let frames =
+            (!state.frames.is_empty()).then(|| format!("{} frames exhausted", state.frames.len()));
         match (file, frames) {
             (Some(file), Some(frames)) => format!("{file}; {frames}"),
             (Some(one), None) | (None, Some(one)) => one,

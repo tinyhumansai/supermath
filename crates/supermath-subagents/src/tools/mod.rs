@@ -25,9 +25,9 @@ mod verify;
 pub use digest::AgentDigestPaper;
 pub use formalize::AgentFormalize;
 pub use refute::AgentRefute;
+pub(crate) use refute::{frame_of, witness_of};
 pub use review::AgentReviewAlignment;
 pub use settle::AgentSettle;
-pub(crate) use refute::{frame_of, witness_of};
 pub(crate) use shared::{Agentic, Shared, parse_args};
 pub(crate) use verify::describe;
 

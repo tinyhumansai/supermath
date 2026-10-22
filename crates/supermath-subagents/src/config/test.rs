@@ -65,7 +65,11 @@ fn duel_settings_default_to_the_documented_values() {
     let settings = DuelSettings::from_lookup(|_| None).unwrap();
     assert_eq!(settings, DuelSettings::default());
     assert_eq!(
-        (settings.drift_calls, settings.max_rounds, settings.digest_every),
+        (
+            settings.drift_calls,
+            settings.max_rounds,
+            settings.digest_every
+        ),
         (12, 4, 8)
     );
 }
@@ -79,7 +83,11 @@ fn each_duel_variable_overrides_only_its_own_setting() {
     })
     .unwrap();
     assert_eq!(
-        (settings.drift_calls, settings.max_rounds, settings.digest_every),
+        (
+            settings.drift_calls,
+            settings.max_rounds,
+            settings.digest_every
+        ),
         (20, 4, 3)
     );
 }

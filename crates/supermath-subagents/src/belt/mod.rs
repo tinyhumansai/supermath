@@ -24,8 +24,8 @@ use serde_json::Value;
 use supermath_tool::{CallContext, CallLog, Envelope, ToolRegistry};
 
 pub use host::HostTool;
-pub use types::{CallNote, Progress};
 pub(crate) use types::Watcher;
+pub use types::{CallNote, Progress};
 
 /// Most journal entries kept per turn; the oldest are dropped past it.
 const MAX_NOTES: usize = 2000;

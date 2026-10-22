@@ -225,9 +225,8 @@ impl Agentic {
         end: ChildEnd,
     ) -> Turn {
         let usage = self.usage_of(turn.as_ref(), belt, started);
-        let (reply, session_id, unapplied) = turn.map_or_else(Default::default, |t| {
-            (t.reply, t.session_id, t.unapplied)
-        });
+        let (reply, session_id, unapplied) =
+            turn.map_or_else(Default::default, |t| (t.reply, t.session_id, t.unapplied));
         Turn {
             reply,
             session_id,

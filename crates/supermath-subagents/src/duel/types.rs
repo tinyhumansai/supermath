@@ -4,7 +4,6 @@
 use serde_json::{Value, json};
 use supermath_tool::Usage;
 
-
 /// One side of the duel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub(crate) enum Side {

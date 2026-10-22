@@ -110,7 +110,10 @@ fn every_prompt_names_the_reply_the_tool_parses() {
 #[test]
 fn the_duel_sides_share_a_tool_and_a_budget_but_not_an_agent() {
     let [prover, refuter] = ChildKind::DUEL.map(ChildKind::spec);
-    assert_eq!((prover.tool, refuter.tool), ("agent_settle", "agent_settle"));
+    assert_eq!(
+        (prover.tool, refuter.tool),
+        ("agent_settle", "agent_settle")
+    );
     assert_eq!(prover.defaults, refuter.defaults);
     assert_eq!(prover.defaults, Limits::DUEL);
     assert_eq!(

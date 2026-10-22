@@ -9,9 +9,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value;
-use supermath_tool::{
-    CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool,
-};
+use supermath_tool::{CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool};
 
 /// Whether `path` lies under one of `areas` without escaping it.
 pub(crate) fn within(path: &str, areas: &[String]) -> bool {

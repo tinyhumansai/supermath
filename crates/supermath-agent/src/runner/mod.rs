@@ -180,6 +180,7 @@ impl Runner {
             toolkit.project(),
             &SubagentsConfig {
                 models: self.config.models.clone(),
+                duel: self.config.duel,
                 ..SubagentsConfig::default()
             },
         )?;

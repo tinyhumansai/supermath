@@ -25,9 +25,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use serde_json::{Value, json};
-use supermath_tool::{
-    CallContext, Cancellation, Envelope, ErrorCode, Tool, ToolRegistry, Usage,
-};
+use supermath_tool::{CallContext, Cancellation, Envelope, ErrorCode, Tool, ToolRegistry, Usage};
 use tokio::sync::mpsc;
 
 use crate::child::{ChildEnd, TurnControl};
@@ -443,7 +441,9 @@ impl Duel<'_> {
                 .await;
             match recorded {
                 Ok(entry) => settled.board.keep_entry(Bucket::Bound, entry.to_json()),
-                Err(why) => unknowns.push(format!("the frame {} was not recorded: {why}", frame.frame)),
+                Err(why) => {
+                    unknowns.push(format!("the frame {} was not recorded: {why}", frame.frame))
+                }
             }
         }
         let Verdict::Won(win) = &settled.verdict else {
@@ -474,7 +474,10 @@ impl Duel<'_> {
         match core.record(self.ctx, args).await {
             Ok(entry) => entry.to_json(),
             Err(why) => {
-                unknowns.push(format!("the {} win was not recorded: {why}", win.side.name()));
+                unknowns.push(format!(
+                    "the {} win was not recorded: {why}",
+                    win.side.name()
+                ));
                 Value::Null
             }
         }

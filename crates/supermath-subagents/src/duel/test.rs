@@ -7,17 +7,15 @@
 use std::sync::Arc;
 
 use serde_json::{Value, json};
-use supermath_tool::{
-    Budget, CallContext, Envelope, ErrorCode, InMemoryCallLog, Outcome, Tool,
-};
+use supermath_tool::{Budget, CallContext, Envelope, ErrorCode, InMemoryCallLog, Outcome, Tool};
 use tokio::sync::Notify;
 
 use super::board::{Board, Event};
 use super::guard::within;
 use super::post::{DuelPost, MAX_POSTS};
+use super::side_scope;
 use super::target::{Target, module_of};
 use super::types::{Item, PostKind, Side};
-use super::side_scope;
 use crate::belt::{Belt, CallNote};
 use crate::child::{ChildKind, TurnControl};
 use crate::config::DuelSettings;
@@ -246,7 +244,10 @@ fn a_claim_without_an_accepted_lean_statement_is_refused_with_the_next_step() {
 fn long_claim_ids_are_cut_to_a_short_path_segment() {
     let target = Target::from_claim("clm_0123456789abcdef0123", &claim("accepted")).unwrap();
     assert_eq!(target.dir(), "lean/Supermath/Duel/C0123456789abcdef");
-    assert_eq!(module_of("lean/Supermath/A/B.lean").unwrap(), "Supermath.A.B");
+    assert_eq!(
+        module_of("lean/Supermath/A/B.lean").unwrap(),
+        "Supermath.A.B"
+    );
     assert_eq!(module_of("python/work/a.py"), None);
 }
 
@@ -263,7 +264,10 @@ fn every_side_goal_names_its_theorem_and_file() {
 fn only_clean_paths_under_an_area_are_within_it() {
     let areas = target().areas(Side::Prover);
     assert!(within(PROVE, &areas));
-    assert!(within("lean/Supermath/Duel/C1/Prove/Lemmas/Even.lean", &areas));
+    assert!(within(
+        "lean/Supermath/Duel/C1/Prove/Lemmas/Even.lean",
+        &areas
+    ));
     for outside in [
         REFUTE,
         STATEMENT,
@@ -435,7 +439,11 @@ async fn a_checked_main_file_is_announced_to_the_controller() {
     let (board, mut events) = Board::new(target(), DuelSettings::default());
     let watcher = board.watcher(Side::Refuter);
     watcher.observed(&checked(REFUTE, "checked_with_sorry", 0));
-    watcher.observed(&checked("lean/Supermath/Duel/C1/Refute/Aux.lean", "checked", 0));
+    watcher.observed(&checked(
+        "lean/Supermath/Duel/C1/Refute/Aux.lean",
+        "checked",
+        0,
+    ));
     assert!(events.try_recv().is_err());
     watcher.observed(&checked(REFUTE, "checked", 0));
     assert_eq!(events.try_recv().unwrap(), Event::Checked(Side::Refuter));
@@ -534,7 +542,11 @@ async fn a_bound_relays_each_new_exhausted_frame_once() {
     assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
     let inbox = board.take_inbox(Side::Prover);
     assert_eq!(inbox.len(), 1);
-    assert!(inbox[0].line.contains("VERIFIED bound: no counterexample in 0 <= n < 1000"));
+    assert!(
+        inbox[0]
+            .line
+            .contains("VERIFIED bound: no counterexample in 0 <= n < 1000")
+    );
     let bounds = records_of(&world, "bound");
     assert_eq!(bounds.len(), 1);
     assert_eq!(bounds[0]["frame"], "0 <= n < 1000");
@@ -551,11 +563,17 @@ async fn hints_are_relayed_as_unverified_leads_from_the_right_side_only() {
     let prover = post(&world, Side::Prover, &board);
     let refuter = post(&world, Side::Refuter, &board);
     let ok = prover
-        .call(&ctx(), json!({"kind": "obstruction", "text": "induction fails for odd n"}))
+        .call(
+            &ctx(),
+            json!({"kind": "obstruction", "text": "induction fails for odd n"}),
+        )
         .await;
     assert_eq!(ok.outcome, Outcome::Ok);
     let ok = refuter
-        .call(&ctx(), json!({"kind": "candidate", "text": "n = 40 is close"}))
+        .call(
+            &ctx(),
+            json!({"kind": "candidate", "text": "n = 40 is close"}),
+        )
         .await;
     assert_eq!(ok.outcome, Outcome::Ok);
     assert_eq!(
@@ -564,11 +582,19 @@ async fn hints_are_relayed_as_unverified_leads_from_the_right_side_only() {
     );
     assert!(!board.take_inbox(Side::Prover)[0].verified);
     assert_eq!(records_of(&world, "lead").len(), 2);
-    for (poster, kind) in [(&prover, "bound"), (&prover, "candidate"), (&refuter, "obstruction")] {
-        let refused = poster.call(&ctx(), json!({"kind": kind, "text": "x"})).await;
+    for (poster, kind) in [
+        (&prover, "bound"),
+        (&prover, "candidate"),
+        (&refuter, "obstruction"),
+    ] {
+        let refused = poster
+            .call(&ctx(), json!({"kind": kind, "text": "x"}))
+            .await;
         assert_eq!(refused.code(), Some(ErrorCode::InvalidInput), "{kind}");
     }
-    let unknown_kind = prover.call(&ctx(), json!({"kind": "rumour", "text": "x"})).await;
+    let unknown_kind = prover
+        .call(&ctx(), json!({"kind": "rumour", "text": "x"}))
+        .await;
     assert_eq!(unknown_kind.code(), Some(ErrorCode::InvalidInput));
     assert!(PostKind::parse("rumour").is_none());
 }
@@ -802,7 +828,10 @@ async fn both_sides_get_equal_limits_and_a_later_turn_gets_only_what_is_left() {
     assert_eq!(answer.data["outcome"], "unknown");
     assert_eq!(prover.limits()[0], Limits::DUEL);
     assert_eq!(refuter.limits()[0], prover.limits()[0]);
-    assert_eq!(prover.limits()[1].max_iterations, Limits::DUEL.max_iterations - 3);
+    assert_eq!(
+        prover.limits()[1].max_iterations,
+        Limits::DUEL.max_iterations - 3
+    );
     assert_eq!(prover.limits()[1].max_tokens, Limits::DUEL.max_tokens - 120);
     let opening = &prover.prompts()[0];
     assert!(opening.starts_with("Duel on ledger claim clm_1"));
@@ -811,7 +840,10 @@ async fn both_sides_get_equal_limits_and_a_later_turn_gets_only_what_is_left() {
     assert!(second.contains("turn 2 of at most 4"), "{second}");
     assert!(second.contains("Your last turn ended: finished"));
     assert!(second.contains("UNVERIFIED lead (candidate from the refuter): look at n = 40"));
-    assert!(!prover.prompts()[2].contains("look at n = 40"), "delivered once");
+    assert!(
+        !prover.prompts()[2].contains("look at n = 40"),
+        "delivered once"
+    );
 }
 
 #[tokio::test]
@@ -843,11 +875,7 @@ async fn preconditions_are_checked_before_any_side_runs() {
             |w| w.set_verdict(STATEMENT, "failed"),
             ErrorCode::BackendUnavailable,
         ),
-        (
-            "accepted",
-            |w| w.forget_claim("clm_1"),
-            ErrorCode::NotFound,
-        ),
+        ("accepted", |w| w.forget_claim("clm_1"), ErrorCode::NotFound),
     ];
     for (alignment, setup, code) in cases {
         let world = world_with(alignment);
@@ -880,7 +908,11 @@ async fn the_budget_is_admitted_for_both_sides_at_once() {
     });
     let refused = tool.call(&small, json!({"claim_id": "clm_1"})).await;
     assert_eq!(refused.code(), Some(ErrorCode::BudgetExceeded));
-    let bad = call(&tool, json!({"claim_id": "clm_1", "budget": {"max_iterations": 0}})).await;
+    let bad = call(
+        &tool,
+        json!({"claim_id": "clm_1", "budget": {"max_iterations": 0}}),
+    )
+    .await;
     assert_eq!(bad.code(), Some(ErrorCode::InvalidInput));
     let stray = call(&tool, json!({"claim_id": "clm_1", "rounds": 2})).await;
     assert_eq!(stray.code(), Some(ErrorCode::InvalidInput));
@@ -904,8 +936,16 @@ async fn two_failed_backends_are_backend_unavailable_and_one_is_noted() {
     let tool = settle_tool(&world, &failing(), &quitter());
     let answer = call(&tool, json!({"claim_id": "clm_1"})).await;
     assert_eq!(answer.outcome, Outcome::Unknown);
-    assert!(answer.unknowns.iter().any(|u| u.contains("prover's model backend failed")));
-    assert_eq!(answer.data["sides"]["prover"]["ended"], json!(["backend failed"]));
+    assert!(
+        answer
+            .unknowns
+            .iter()
+            .any(|u| u.contains("prover's model backend failed"))
+    );
+    assert_eq!(
+        answer.data["sides"]["prover"]["ended"],
+        json!(["backend failed"])
+    );
 }
 
 #[tokio::test]
@@ -930,7 +970,10 @@ async fn a_drifting_side_is_restarted_in_a_fresh_turn() {
     }));
     let tool = settle_tool(&world, &prover, &quitter());
     let answer = call(&tool, json!({"claim_id": "clm_1"})).await;
-    let ended = answer.data["sides"]["prover"]["ended"].as_array().unwrap().clone();
+    let ended = answer.data["sides"]["prover"]["ended"]
+        .as_array()
+        .unwrap()
+        .clone();
     assert_eq!(ended[0], "drift");
     assert_eq!(ended[1], "finished");
     assert!(prover.prompts()[1].contains("Your last turn ended: drift"));

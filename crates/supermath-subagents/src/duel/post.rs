@@ -11,9 +11,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{Value, json};
-use supermath_tool::{
-    CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool,
-};
+use supermath_tool::{CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool};
 
 use super::board::{Board, Bucket};
 use super::guard::within;

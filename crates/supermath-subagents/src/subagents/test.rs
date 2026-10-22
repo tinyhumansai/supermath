@@ -68,11 +68,19 @@ fn a_tool_whose_primitives_are_missing_is_left_out_and_reported() {
         .iter()
         .find(|u| u.tool == "agent_settle")
         .unwrap();
-    assert!(settle.missing.contains(&"py_search_counterexample".to_owned()));
+    assert!(
+        settle
+            .missing
+            .contains(&"py_search_counterexample".to_owned())
+    );
     assert!(settle.missing.contains(&"lean_try_tactics".to_owned()));
     assert!(!settle.missing.iter().any(|name| name.starts_with("duel_")));
     assert_eq!(
-        settle.missing.iter().filter(|name| *name == "lean_check").count(),
+        settle
+            .missing
+            .iter()
+            .filter(|name| *name == "lean_check")
+            .count(),
         1,
         "a primitive both sides need is listed once"
     );
@@ -218,7 +226,9 @@ fn an_agentic_primitive_only_a_duel_side_needs_is_refused() {
         .filter(|name| !matches!(*name, "lit_get_paper" | "lean_try_tactics"))
         .collect();
     let mut registry = world.registry_of(&names);
-    registry.register(built_with_agentic("lean_try_tactics")).unwrap();
+    registry
+        .register(built_with_agentic("lean_try_tactics"))
+        .unwrap();
     let error = subagents_result(&registry).unwrap_err();
     assert!(matches!(error, Error::NotPrimitive(name) if name == "lean_try_tactics"));
 }

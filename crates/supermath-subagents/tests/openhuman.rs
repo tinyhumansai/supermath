@@ -570,7 +570,10 @@ async fn a_drifting_duel_side_is_nudged_then_cut_through_openhuman(rig: &Rig) {
     );
     let answer = rig.call("agent_settle", json!({"claim_id": id})).await;
     assert_eq!(answer.outcome, Outcome::Unknown, "{answer:?}");
-    assert_eq!(answer.data["sides"]["prover"]["ended"][0], "drift", "{answer:?}");
+    assert_eq!(
+        answer.data["sides"]["prover"]["ended"][0], "drift",
+        "{answer:?}"
+    );
     let seen = rig.model.seen_for("duel-prover");
     assert!(
         seen.iter().any(|s| s.nudges == 2),
@@ -579,7 +582,10 @@ async fn a_drifting_duel_side_is_nudged_then_cut_through_openhuman(rig: &Rig) {
     );
     let mut scope = scope_of(&seen[0]);
     scope.sort();
-    assert_eq!(scope, primitives(supermath_subagents::ChildKind::DuelProver));
+    assert_eq!(
+        scope,
+        primitives(supermath_subagents::ChildKind::DuelProver)
+    );
     assert_eq!(seen[0].model.as_deref(), Some("duel-rung"));
 }
 
@@ -600,7 +606,9 @@ async fn the_duel_prover_wins_and_the_refuter_is_stopped(rig: &Rig) {
     );
     rig.model.queue(
         "duel-refuter",
-        (0..4).map(|_| Step::Call("duel_board", json!({}))).collect(),
+        (0..4)
+            .map(|_| Step::Call("duel_board", json!({})))
+            .collect(),
     );
     let answer = rig.call("agent_settle", json!({"claim_id": id})).await;
     assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
@@ -611,5 +619,8 @@ async fn the_duel_prover_wins_and_the_refuter_is_stopped(rig: &Rig) {
         .into_iter()
         .rfind(|r| r["kind"] == "result")
         .unwrap();
-    assert_eq!(result["source"]["lean"]["path"], format!("{dir}/Proved.lean"));
+    assert_eq!(
+        result["source"]["lean"]["path"],
+        format!("{dir}/Proved.lean")
+    );
 }

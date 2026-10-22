@@ -117,6 +117,7 @@ fn the_agent_scope_lists_the_toolkit_the_agent_tools_and_tool_search_and_refuses
             "agent_formalize",
             "agent_refute",
             "agent_review_alignment",
+            "agent_settle",
             "tool_search",
         ]
     );
