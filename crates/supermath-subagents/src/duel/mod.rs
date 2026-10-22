@@ -236,7 +236,7 @@ impl Duel<'_> {
     }
 
     /// Runs both sides and the controller to the end.
-    pub(crate) async fn run(self) -> Settled {
+    pub(crate) async fn run(&self) -> Settled {
         let (board, events) = Board::new(self.target.clone(), self.settings);
         let scopes = Side::BOTH.map(|side| side_scope(self.core(side), side, &board));
         let done = Cancellation::new();

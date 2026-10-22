@@ -256,8 +256,7 @@ impl Subagents {
                 missing,
             }));
         }
-        let mut cores = Vec::with_capacity(2);
-        for kind in ChildKind::DUEL {
+        let mut build = |kind: ChildKind| -> Result<Arc<Agentic>> {
             let spec = kind.spec();
             if let Some(agentic) = spec
                 .required()
@@ -285,23 +284,17 @@ impl Subagents {
                 shared.progress.clone(),
             ));
             let runner = make(&spec, &build_belt)?;
-            cores.push(Arc::new(Agentic::new(
+            Ok(Arc::new(Agentic::new(
                 Arc::clone(shared),
                 spec,
                 runner,
                 scope,
-            )));
-        }
-        let refuter = cores.pop();
-        let prover = cores.pop();
-        Ok(match (prover, refuter) {
-            (Some(prover), Some(refuter)) => Ok([prover, refuter]),
-            // Both were pushed above; this arm only satisfies the types.
-            _ => Err(Unavailable {
-                tool: "agent_settle",
-                missing: Vec::new(),
-            }),
-        })
+            )))
+        };
+        Ok(Ok([
+            build(ChildKind::DuelProver)?,
+            build(ChildKind::DuelRefuter)?,
+        ]))
     }
 
     /// The tools that could be built, in catalogue order.
