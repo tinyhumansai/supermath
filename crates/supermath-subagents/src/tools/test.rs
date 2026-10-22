@@ -415,7 +415,7 @@ async fn a_ledger_that_cannot_be_read_back_is_unknown_never_missing() {
             && said.contains("cortex is down"),
         "{said}"
     );
-    assert!(answer.next.is_empty());
+    assert_eq!(answer.next, Vec::<String>::new());
 }
 
 #[tokio::test]
