@@ -326,6 +326,35 @@ fn arxiv(label: Option<&str>, section: Option<&str>) -> Source {
 }
 
 #[tokio::test]
+async fn an_arxiv_source_needs_a_version_and_exactly_one_locator() {
+    let h = harness().await;
+    let blank_version = Source::Arxiv {
+        id: "2012.04125".into(),
+        version: " ".into(),
+        label: Some("thm:main".into()),
+        section: None,
+    };
+    for source in [
+        arxiv(None, None),
+        arxiv(Some("thm:main"), Some("2")),
+        arxiv(Some("  "), None),
+        blank_version,
+    ] {
+        let claim = Claim::new(Kind::Fact, "located?", source.clone());
+        let error = h.ledger.record(&ctx(), claim).await.unwrap_err();
+        assert!(matches!(error, Error::InvalidArguments(_)), "{source:?}");
+    }
+    assert_eq!(h.cortex.events().len(), 0);
+    for source in [arxiv(Some("thm:main"), None), arxiv(None, Some("2"))] {
+        let claim = Claim::new(Kind::Fact, "located", source);
+        assert_eq!(
+            h.ledger.record(&ctx(), claim).await.unwrap().entry.status,
+            Status::Cited
+        );
+    }
+}
+
+#[tokio::test]
 async fn supplied_evidence_never_earns_cited() {
     let h = harness().await;
     let supplied_ctx = ctx().with_evidence_origin(EvidenceOrigin::Supplied);

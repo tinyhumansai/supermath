@@ -350,6 +350,30 @@ async fn asserted_and_supplied_pin_an_arxiv_claim_below_cited() {
 }
 
 #[tokio::test]
+async fn an_arxiv_source_without_one_locator_is_invalid_input() {
+    let w = world().await;
+    let tool = LedgerRecord::new(w.ledger.clone());
+    for arxiv in [
+        json!({"id": "2012.04125", "version": "v3"}),
+        json!({"id": "2012.04125", "version": "v3", "label": "thm:main", "section": "2"}),
+    ] {
+        let sent = call(
+            &tool,
+            json!({"kind": "fact", "statement": "x", "source": {"arxiv": arxiv}}),
+        )
+        .await;
+        assert_eq!(sent.code(), Some(ErrorCode::InvalidInput), "{arxiv}");
+    }
+    let schema = tool.schema();
+    let arxiv = &schema["properties"]["source"]["oneOf"][0]["properties"]["arxiv"];
+    assert_eq!(
+        arxiv["oneOf"],
+        json!([{"required": ["label"]}, {"required": ["section"]}]),
+        "the schema asks for exactly one locator"
+    );
+}
+
+#[tokio::test]
 async fn a_lean_timeout_is_unknown_not_an_error() {
     let w = world().await;
     w.lean.set(
