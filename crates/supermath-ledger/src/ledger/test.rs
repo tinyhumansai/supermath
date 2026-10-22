@@ -917,6 +917,36 @@ async fn reads_skip_notes_that_are_not_entries_and_stay_inside_the_project() {
 }
 
 #[tokio::test]
+async fn a_claim_stays_findable_by_id_after_entries_that_cite_it_outrank_it() {
+    // CortexDB recall ranks by similarity and returns only the best few.
+    // Reviews and leads that cite a claim mention its id more often than the
+    // claim's own JSON does, so a lookup by recalling the id lost the claim
+    // once it had been reviewed: a live duel's second `agent_settle` answered
+    // NOT_FOUND for the claim the first one had just settled on.
+    let h = harness().await;
+    let claim = h
+        .ledger
+        .record(&ctx(), supplied("every primorial has a prime partner"))
+        .await
+        .unwrap()
+        .entry;
+    for review in 0..3 {
+        let mut fact = Claim::new(
+            Kind::Fact,
+            format!("Review {review} of {} ({}): accepted.", claim.id, claim.id),
+            Source::Supplied("a reviewer".into()),
+        );
+        fact.uses = vec![claim.id.clone()];
+        h.ledger.record(&ctx(), fact).await.unwrap();
+    }
+    h.cortex.rank_recall(Some(2));
+
+    let found = h.ledger.get(SLUG, &claim.id).await.unwrap();
+    assert_eq!(found.map(|entry| entry.id), Some(claim.id.clone()));
+    assert!(h.ledger.get(SLUG, "clm_0000000000000000").await.unwrap().is_none());
+}
+
+#[tokio::test]
 async fn the_window_bounds_a_read_and_a_dead_server_is_an_error() {
     let h = harness().await;
     for n in 0..3 {
