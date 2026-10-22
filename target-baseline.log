@@ -169,3 +169,270 @@ info: cargo-llvm-cov currently setting cfg(coverage); you can opt-out it by pass
    Compiling errno v0.3.14
    Compiling mio v1.2.3
    Compiling socket2 v0.6.5
+   Compiling filetime v0.2.29
+   Compiling dirs-sys v0.5.0
+   Compiling markup5ever v0.14.1
+   Compiling fs2 v0.4.3
+   Compiling signal-hook-registry v1.4.8
+   Compiling wait-timeout v0.2.1
+   Compiling digest v0.11.3
+   Compiling rand_core v0.9.5
+   Compiling parking_lot v0.12.5
+   Compiling uuid v1.26.1
+   Compiling rand v0.10.2
+   Compiling dirs v6.0.0
+   Compiling num-bigint v0.4.8
+   Compiling crypto-common v0.1.7
+   Compiling rustc_version v0.4.1
+   Compiling sha2 v0.11.0
+   Compiling event-listener v5.4.2
+   Compiling ahash v0.8.12
+   Compiling pastey v0.2.3
+   Compiling cap-fs-ext v4.0.3
+   Compiling digest v0.10.7
+   Compiling universal-hash v0.5.1
+   Compiling aead v0.5.2
+   Compiling crossbeam-utils v0.8.23
+   Compiling num-iter v0.1.46
+   Compiling poly1305 v0.8.0
+   Compiling num-complex v0.4.6
+   Compiling unsafe-libyaml-norway v0.2.15
+   Compiling regex-automata v0.4.18
+   Compiling lazy_static v1.5.0
+   Compiling sha2 v0.10.9
+   Compiling hmac v0.12.1
+   Compiling sha1 v0.10.7
+   Compiling indexmap v2.14.2
+   Compiling serde_path_to_error v0.1.20
+   Compiling serde_spanned v1.1.1
+   Compiling toml_datetime v1.1.1+spec-1.1.0
+   Compiling curve25519-dalek v4.1.3
+   Compiling event-listener-strategy v0.5.4
+   Compiling hkdf v0.12.4
+   Compiling sharded-slab v0.1.7
+   Compiling polyval v0.6.2
+   Compiling async-lock v3.4.2
+   Compiling thread_local v1.1.10
+   Compiling unicode-general-category v1.1.0
+   Compiling time-core v0.1.9
+   Compiling toml v1.1.6+spec-1.1.0
+   Compiling base64ct v1.8.3
+   Compiling bit-vec v0.8.0
+   Compiling deranged v0.5.8
+   Compiling jsonschema-value v0.58.6
+   Compiling powerfmt v0.2.0
+   Compiling starship-battery v0.12.0
+   Compiling num-conv v0.2.2
+   Compiling nu-ansi-term v0.50.3
+   Compiling heck v0.5.0
+   Compiling borrow-or-share v0.2.4
+   Compiling ghash v0.5.1
+   Compiling bit-set v0.8.0
+   Compiling blake2 v0.10.6
+   Compiling uom v0.38.0
+   Compiling bytecount v0.6.9
+   Compiling openhuman v0.64.18 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/crates/openhuman-core)
+   Compiling password-hash v0.5.0
+   Compiling crossbeam-channel v0.5.17
+   Compiling symlink v0.1.0
+   Compiling num-cmp v0.1.0
+   Compiling vsimd v0.8.0
+   Compiling lazycell v1.3.0
+   Compiling outref v0.5.2
+   Compiling micromap v0.3.0
+   Compiling serde_ignored v0.1.14
+   Compiling jsonschema-regex v0.58.6
+   Compiling directories v6.0.0
+   Compiling hostname v0.4.2
+   Compiling sysinfo v0.33.1
+   Compiling tracing-log v0.2.0
+   Compiling urlencoding v2.1.3
+   Compiling zip v9.0.5
+   Compiling dotenvy v0.15.7
+   Compiling ring v0.17.14
+   Compiling zstd-sys v2.1.1+zstd.1.5.7
+   Compiling libsqlite3-sys v0.38.2
+   Compiling argon2 v0.5.3
+   Compiling num-rational v0.4.2
+   Compiling uuid-simd v0.8.0
+   Compiling tempfile v3.27.0
+   Compiling xattr v1.6.1
+   Compiling fs4 v1.1.0
+   Compiling fs-set-times v0.20.3
+   Compiling rustix-linux-procfs v0.1.1
+   Compiling tar v0.4.46
+   Compiling num v0.4.3
+   Compiling time v0.3.55
+   Compiling fraction v0.17.0
+   Compiling ppv-lite86 v0.2.21
+   Compiling synstructure v0.14.0
+   Compiling serde_derive_internals v0.30.0
+   Compiling regex v1.13.1
+   Compiling matchers v0.2.0
+   Compiling rand_chacha v0.9.0
+   Compiling fancy-regex v0.19.2
+   Compiling zeroize_derive v1.5.0
+   Compiling tracing-attributes v0.1.31
+   Compiling axum-macros v0.5.1
+   Compiling phf_macros v0.11.3
+   Compiling cssparser-macros v0.6.1
+   Compiling derive_more v0.99.20
+   Compiling serde_derive v1.0.229
+   Compiling tokio-macros v2.7.2
+   Compiling thiserror-impl v2.0.20
+   Compiling async-trait v0.1.92
+   Compiling zerofrom-derive v0.1.8
+   Compiling yoke-derive v0.8.3
+   Compiling zerovec-derive v0.11.6
+   Compiling displaydoc v0.2.7
+   Compiling futures-macro v0.3.34
+   Compiling rand v0.9.5
+   Compiling ref-cast-impl v1.0.27
+   Compiling schemars_derive v1.2.2
+   Compiling match_token v0.1.0
+   Compiling tinybus-macros v0.1.6 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinybus/crates/tinybus-macros)
+   Compiling curve25519-dalek-derive v0.1.1
+   Compiling zeroize v1.9.0
+   Compiling tinyredact v2.0.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinymemory/crates/tinyredact)
+   Compiling phf v0.11.3
+   Compiling tokio v1.53.1
+   Compiling rustls-pki-types v1.15.1
+   Compiling cipher v0.4.4
+   Compiling strum_macros v0.28.0
+   Compiling cssparser v0.34.0
+   Compiling chacha20 v0.9.1
+   Compiling ctr v0.9.2
+   Compiling ulid v1.2.1
+   Compiling futures-util v0.3.34
+   Compiling aes v0.8.4
+   Compiling webpki-roots v1.0.10
+   Compiling tracing v0.1.44
+   Compiling rustls-native-certs v0.8.4
+   Compiling zerofrom v0.1.8
+   Compiling chacha20poly1305 v0.10.1
+   Compiling webpki-roots v0.26.11
+   Compiling yoke v0.8.3
+   Compiling axum-core v0.5.6
+   Compiling tracing-subscriber v0.3.23
+   Compiling aes-gcm v0.10.3
+   Compiling zerovec v0.11.8
+   Compiling zerotrie v0.2.5
+   Compiling x25519-dalek v2.0.1
+   Compiling tinystr v0.8.4
+   Compiling potential_utf v0.1.6
+   Compiling icu_collections v2.3.0
+   Compiling icu_locale_core v2.3.0
+   Compiling strum v0.28.0
+   Compiling tracing-appender v0.2.5
+   Compiling serde_urlencoded v0.7.1
+   Compiling tinystoragedrivers-schema v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-schema)
+   Compiling chrono v0.4.45
+   Compiling tinytools v0.6.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools)
+   Compiling serde_spanned v0.6.9
+   Compiling toml_datetime v0.6.11
+   Compiling string_cache v0.8.9
+   Compiling serde_norway v0.9.42
+   Compiling fluent-uri v0.4.1
+   Compiling icu_provider v2.3.1
+   Compiling email_address v0.2.9
+   Compiling tinyvoice-bus v0.1.4 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyvoice/crates/tinyvoice-bus)
+   Compiling tinycomputer-bus v0.15.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinycomputer/crates/tinycomputer-bus)
+   Compiling futures-executor v0.3.34
+   Compiling tinydocs-bus v0.2.4 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinydocs/crates/tinydocs-bus)
+   Compiling tinyhosts-bus v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyhosts/crates/tinyhosts-bus)
+   Compiling toml_edit v0.22.27
+   Compiling futures v0.3.34
+   Compiling icu_properties v2.3.0
+   Compiling icu_normalizer v2.3.0
+   Compiling referencing v0.58.6
+   Compiling tokio-util v0.7.19
+   Compiling tower v0.5.3
+   Compiling supermath-tool v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-tool)
+   Compiling schemars v1.2.2
+   Compiling html5ever v0.29.1
+   Compiling process-wrap v10.0.1
+   Compiling tinyflows-bus v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyflows/crates/tinyflows-bus)
+   Compiling tinytools-agent v0.6.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools-agent)
+   Compiling jsonschema v0.58.6
+   Compiling idna_adapter v1.2.2
+   Compiling idna v1.1.0
+   Compiling h2 v0.4.19
+   Compiling supermath-files v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-files)
+   Compiling tokio-stream v0.1.19
+   Compiling toml v0.8.23
+   Compiling scraper v0.23.1
+   Compiling supermath-calc v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-calc)
+   Compiling tinysearch-bus v0.5.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinysearch/crates/tinysearch-bus)
+   Compiling tinytools-jev v0.6.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools-jev)
+   Compiling url v2.5.8
+   Compiling tinyagents-definition v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-definition)
+   Compiling tower-http v0.6.11
+   Compiling tinyinference-core v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core)
+   Compiling tinyskills v0.5.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyskills/crates/tinyskills)
+   Compiling rustls-webpki v0.103.16
+   Compiling tinymemory-api v2.0.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinymemory/crates/tinymemory-api)
+   Compiling hyper v1.11.1
+   Compiling rusqlite v0.40.2
+   Compiling tinymemory-tools v2.0.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinymemory/crates/tinymemory-tools)
+   Compiling hyper-util v0.1.20
+   Compiling tokio-rustls v0.26.5
+   Compiling tungstenite v0.29.0
+   Compiling ureq v3.4.2
+warning: use of deprecated method `std::sync::atomic::Atomic::<usize>::fetch_update`: renamed to `try_update` for consistency
+  --> vendor/openhuman/vendor/tinymemory/crates/tinymemory-tools/src/prefetch/mod.rs:78:14
+   |
+78 |             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |free| {
+   |              ^^^^^^^^^^^^
+   |
+   = note: `#[warn(deprecated)]` on by default
+help: replace the use of the deprecated method
+   |
+78 -             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |free| {
+78 +             .try_update(Ordering::AcqRel, Ordering::Acquire, |free| {
+   |
+
+   Compiling tokio-tungstenite v0.29.0
+   Compiling hyper-rustls v0.27.9
+   Compiling axum v0.8.9
+   Compiling reqwest v0.12.28
+   Compiling zstd v0.13.3
+warning: `tinymemory-tools` (lib) generated 1 warning (run `cargo fix --lib -p tinymemory-tools` to apply 1 suggestion)
+   Compiling tinystoragedrivers-core v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-core)
+   Compiling supermath-lean v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-lean)
+   Compiling tinyinference-embeddings v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings)
+   Compiling tinytools-std v0.6.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinytools/crates/tinytools-std)
+   Compiling supermath-literature v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-literature)
+   Compiling supermath-python v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-python)
+   Compiling supermath-ledger v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-ledger)
+   Compiling supermath-web v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-web)
+   Compiling tinymemory-integrations v2.0.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinymemory/crates/tinymemory-integrations)
+   Compiling tinyinference-decisions v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-decisions)
+   Compiling tinyhumans-sdk v0.2.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyhumans-sdk)
+   Compiling tinyjevclient v0.2.1 (https://github.com/tinyhumansai/tinyjevclient?rev=84b3983c7e1e14f7515658ceafabb6c4e7967c94#84b3983c)
+   Compiling tinystoragedrivers-bus v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-bus)
+   Compiling tinybus-module v0.1.6 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinybus/crates/tinybus-module)
+   Compiling tinystoragedrivers-secrets v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-secrets)
+   Compiling tinyinference-image v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-image)
+   Compiling tinystoragedrivers-sqlite v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-sqlite)
+   Compiling tinystoragedrivers-file v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-file)
+   Compiling tinywallet-bus v0.24.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinywallet/crates/tinywallet-bus)
+   Compiling tinyconnectors-bus v0.21.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyconnectors/crates/tinyconnectors-bus)
+   Compiling tinyjuice-bus v0.10.8 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyjuice/crates/tinyjuice-bus)
+   Compiling tiny-artifacts v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tiny-artifacts/crates/tiny-artifacts)
+   Compiling tinymcp-bus v0.20.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinymcp/crates/tinymcp-bus)
+   Compiling tinymemes-bus v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinymemes/crates/tinymemes-bus)
+   Compiling supermath-mcp v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-mcp)
+   Compiling tinyinference-providers v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-providers)
+   Compiling tinystoragedrivers-client v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-client)
+   Compiling tinyinference-video v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-video)
+   Compiling tinychannels-bus v0.1.38 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinychannels/crates/tinychannels-bus)
+   Compiling tinybox-bus v0.1.40 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinybox/crates/tinybox-bus)
+   Compiling tinyinference-llm v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm)
+   Compiling tinyeventqueues-bus v0.1.2 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyeventqueues/crates/tinyeventqueues-bus)
+   Compiling tinyskills-drivers v0.5.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyskills/crates/tinyskills-drivers)
+   Compiling tinystoragedrivers v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers)
+   Compiling tinyflows-import v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyflows/crates/tinyflows-import)
+   Compiling tinystoragedrivers-busproxy v1.0.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinystoragedrivers/crates/tinystoragedrivers-busproxy)
+   Compiling tinyagents-harness v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-harness)
+   Compiling tinyinference-local v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local)
+   Compiling tinyinference-voice v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice)
