@@ -249,7 +249,7 @@ fn the_runners_catalogue_has_exactly_six_direct_tools_and_question_descriptions(
     let mut direct: Vec<&str> = adapted
         .iter()
         .filter(|tool| tool.exposure() == ToolExposure::Direct)
-        .map(|tool| tool.name())
+        .map(openhuman_embed::Tool::name)
         .collect();
     direct.sort_unstable();
     assert_eq!(
