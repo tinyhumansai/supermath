@@ -82,7 +82,7 @@ pub use child::{
     ChildEnd, ChildKind, ChildRequest, ChildRunner, ChildSpec, ChildTurn, ControlSignal,
     OpenHumanChild, TurnControl,
 };
-pub use config::Models;
+pub use config::{DuelSettings, Models};
 pub use error::{Error, Result};
 pub use limits::{BudgetArg, Limits, budget_schema};
 pub use subagents::{Runners, Subagents, SubagentsConfig, Unavailable};

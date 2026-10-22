@@ -8,7 +8,8 @@ use super::{TurnControl, prompts};
 use crate::belt::Belt;
 use crate::limits::Limits;
 
-/// Which of the four children.
+/// Which child: one of the four `agent_*` children, or one side of the
+/// `agent_settle` duel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ChildKind {
     /// Reads a paper and records facts (`agent_digest_paper`).
@@ -20,16 +21,26 @@ pub enum ChildKind {
     Reviewer,
     /// Looks for a counterexample (`agent_refute`).
     Refuter,
+    /// Proves the pinned conjecture, racing the duel refuter
+    /// (`agent_settle`).
+    DuelProver,
+    /// Refutes the pinned conjecture in Lean, racing the duel prover
+    /// (`agent_settle`).
+    DuelRefuter,
 }
 
 impl ChildKind {
-    /// All four kinds, in catalogue order.
+    /// The four children that each back one `agent_*` tool, in catalogue
+    /// order.
     pub const ALL: [Self; 4] = [
         Self::Reader,
         Self::Formalizer,
         Self::Reviewer,
         Self::Refuter,
     ];
+
+    /// The two sides of `agent_settle`, prover first.
+    pub const DUEL: [Self; 2] = [Self::DuelProver, Self::DuelRefuter];
 
     /// The static description of this child.
     #[must_use]
@@ -100,6 +111,51 @@ impl ChildKind {
                 prompt: prompts::REFUTER,
                 defaults: Limits::DEFAULT,
             },
+            Self::DuelProver => ChildSpec {
+                kind: self,
+                tool: "agent_settle",
+                suffix: "duel-prover",
+                primitives: &[
+                    "lean_search",
+                    "lean_decl",
+                    "lean_goals",
+                    "lean_try_tactics",
+                    "lean_check",
+                    "file_list",
+                    "file_read",
+                    "file_write",
+                    "file_edit",
+                    "recall_memory",
+                    "duel_post",
+                    "duel_board",
+                ],
+                verifies: &["ledger_claims", "ledger_record"],
+                prompt: prompts::DUEL_PROVER,
+                defaults: Limits::DUEL,
+            },
+            Self::DuelRefuter => ChildSpec {
+                kind: self,
+                tool: "agent_settle",
+                suffix: "duel-refuter",
+                primitives: &[
+                    "py_solvers",
+                    "py_run",
+                    "py_search_counterexample",
+                    "lean_search_counterexample",
+                    "lean_decl",
+                    "lean_check",
+                    "lit_oeis",
+                    "file_list",
+                    "file_read",
+                    "file_write",
+                    "file_edit",
+                    "duel_post",
+                    "duel_board",
+                ],
+                verifies: &["ledger_claims", "ledger_record"],
+                prompt: prompts::DUEL_REFUTER,
+                defaults: Limits::DUEL,
+            },
         }
     }
 }
@@ -114,7 +170,8 @@ pub struct ChildSpec {
     /// The suffix of its agent id: `supermath-<slug>-<suffix>`.
     pub suffix: &'static str,
     /// The primitives the child may call, and no others: never an `agent_*`
-    /// tool, so children do not spawn children.
+    /// tool, so children do not spawn children. A duel side's list also
+    /// names `duel_post` and `duel_board`, which the duel itself provides.
     pub primitives: &'static [&'static str],
     /// Primitives only the tool calls, to verify what the child produced.
     pub verifies: &'static [&'static str],
@@ -132,9 +189,14 @@ impl ChildSpec {
     }
 
     /// Every registry tool the `agent_*` tool needs: the child's primitives
-    /// and the ones it verifies with.
+    /// and the ones it verifies with, less the duel's own `duel_*` tools,
+    /// which no registry holds.
     pub fn required(&self) -> impl Iterator<Item = &'static str> {
-        self.primitives.iter().chain(self.verifies).copied()
+        self.primitives
+            .iter()
+            .chain(self.verifies)
+            .copied()
+            .filter(|name| !name.starts_with("duel_"))
     }
 }
 

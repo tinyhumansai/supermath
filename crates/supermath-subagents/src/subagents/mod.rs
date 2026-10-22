@@ -54,6 +54,10 @@ pub struct Runners {
     pub reviewer: Arc<dyn ChildRunner>,
     /// Runs the refuter.
     pub refuter: Arc<dyn ChildRunner>,
+    /// Runs the prover side of `agent_settle`.
+    pub duel_prover: Arc<dyn ChildRunner>,
+    /// Runs the refuter side of `agent_settle`.
+    pub duel_refuter: Arc<dyn ChildRunner>,
 }
 
 impl Runners {
@@ -63,6 +67,8 @@ impl Runners {
             ChildKind::Formalizer => Arc::clone(&self.formalizer),
             ChildKind::Reviewer => Arc::clone(&self.reviewer),
             ChildKind::Refuter => Arc::clone(&self.refuter),
+            ChildKind::DuelProver => Arc::clone(&self.duel_prover),
+            ChildKind::DuelRefuter => Arc::clone(&self.duel_refuter),
         }
     }
 }
@@ -122,6 +128,7 @@ impl Subagents {
                     ChildKind::Reader => &config.models.reader,
                     ChildKind::Formalizer | ChildKind::Refuter => &config.models.formalizer,
                     ChildKind::Reviewer => &config.models.reviewer,
+                    ChildKind::DuelProver | ChildKind::DuelRefuter => &config.models.duel,
                 };
                 let child = OpenHumanChild::build(
                     runtime,
