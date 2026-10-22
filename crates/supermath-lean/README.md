@@ -64,5 +64,6 @@ through the public API against a loopback stub (`tests/support`) replaying
 service answers recorded in `tests/fixtures` (hand-written to the HTTP API in
 the spec, in the shape `docker/lean/normalize.py` produces from the REPL's
 JSON; none came from a live Lean here). `tests/live.rs` has `live_lean_check`,
-which skips unless `LEAN_URL` is set. `tests/compose.rs` asserts the `lean`
+which skips unless `LEAN_URL` and `SUPERMATH_PROJECTS` (the directory the
+service mounts at `/projects`) are both set. `tests/compose.rs` asserts the `lean`
 service has no network in `compose.yaml`.
