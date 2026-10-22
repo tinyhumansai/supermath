@@ -43,14 +43,19 @@ impl openhuman_embed::Tool for HostTool {
     }
 
     fn policy(&self) -> ToolPolicy {
-        match self.tool.permission() {
+        let mut policy = match self.tool.permission() {
             Permission::Read => ToolPolicy::read_only(),
             Permission::Write => {
                 let mut policy = ToolPolicy::classified();
                 policy.side_effects.writes_files = true;
                 policy
             }
-        }
+        };
+        // A child's call runs under the budget of the call that started the
+        // child, which the primitive enforces itself; OpenHuman's 120 s
+        // default would cut a long `py_run` or Lean build short.
+        policy.runtime.timeout_ms = Some(self.belt.wall_time_ms());
+        policy
     }
 
     fn permission_level(&self) -> PermissionLevel {

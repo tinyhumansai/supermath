@@ -55,6 +55,11 @@ impl std::fmt::Debug for Belt {
 }
 
 impl Belt {
+    /// The wall time, in milliseconds, of the call this belt serves.
+    pub(crate) fn wall_time_ms(&self) -> u64 {
+        self.base.budget.wall_time_ms
+    }
+
     /// A belt for the turn that `parent` (an `agent_*` tool) runs under
     /// `base`, reaching only the tools in `registry`.
     #[must_use]

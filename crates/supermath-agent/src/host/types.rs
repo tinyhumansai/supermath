@@ -51,14 +51,21 @@ impl openhuman_embed::Tool for HostTool {
     }
 
     fn policy(&self) -> ToolPolicy {
-        match self.tool.permission() {
+        let mut policy = match self.tool.permission() {
             Permission::Read => ToolPolicy::read_only(),
             Permission::Write => {
                 let mut policy = ToolPolicy::classified();
                 policy.side_effects.writes_files = true;
                 policy
             }
+        };
+        // An `agent_*` tool runs under the agentic budget's wall time and
+        // enforces it itself; OpenHuman's 120 s default would cut it short.
+        // Primitives run under a smaller budget and keep the default.
+        if self.tool.kind().is_agentic() {
+            policy.runtime.timeout_ms = Some(super::AGENT_WALL_TIME_MS);
         }
+        policy
     }
 
     fn permission_level(&self) -> PermissionLevel {
