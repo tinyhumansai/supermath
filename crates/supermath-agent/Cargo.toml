@@ -25,7 +25,7 @@ openhuman-embed = { path = "../../vendor/openhuman/crates/openhuman-embed", feat
 # Nothing hosted is installed: no TinyHumans login, transport, or provider.
 openhuman-tinyhumans = { path = "../../vendor/openhuman/crates/openhuman-tinyhumans", default-features = false, features = ["jev"] }
 # The OpenAI-compatible embedding client the Jev ranker's retriever uses to
-# reach the ladder's `vectors` model. The same vendored path OpenHuman builds,
+# reach Surplus's embedding model. The same vendored path OpenHuman builds,
 # so its `EmbeddingModel` trait is the one the ranker expects.
 tinyinference-embeddings = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-embeddings" }
 # Host tools implement OpenHuman's asynchronous `Tool` trait.
