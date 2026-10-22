@@ -11,7 +11,7 @@
 //! | --- | --- | --- |
 //! | [`AgentDigestPaper`] | `SUPERMATH_READER_MODEL` (`deepseek-v4.1-flash`) | ledger ids recorded from a paper |
 //! | [`AgentFormalize`] | `SUPERMATH_FORMALIZER_MODEL` (`deepseek-v4-pro`) | Lean files with verdicts |
-//! | [`AgentReviewAlignment`] | `SUPERMATH_REVIEWER_MODEL` (`deepseek-v4-pro`) | `accepted` or `disputed` |
+//! | [`AgentReviewAlignment`] | `SUPERMATH_REVIEWER_MODEL` (`glm-5.3`) | `accepted` or `disputed` |
 //! | [`AgentRefute`] | `SUPERMATH_FORMALIZER_MODEL` | a Lean-confirmed counterexample, or the frames searched |
 //!
 //! # The rule that makes them trustworthy

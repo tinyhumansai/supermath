@@ -4,7 +4,7 @@
 //! | --- | --- | --- |
 //! | `SUPERMATH_READER_MODEL` | `deepseek-v4.1-flash` | `agent_digest_paper` |
 //! | `SUPERMATH_FORMALIZER_MODEL` | `deepseek-v4-pro` | `agent_formalize`, `agent_refute` |
-//! | `SUPERMATH_REVIEWER_MODEL` | `deepseek-v4-pro` | `agent_review_alignment` |
+//! | `SUPERMATH_REVIEWER_MODEL` | `glm-5.3` | `agent_review_alignment` |
 //!
 //! The values are Surplus Intelligence model names, so a change of model is a
 //! change to these variables, never to this crate.
@@ -27,7 +27,7 @@ impl Default for Models {
         Self {
             reader: "deepseek-v4.1-flash".into(),
             formalizer: "deepseek-v4-pro".into(),
-            reviewer: "deepseek-v4-pro".into(),
+            reviewer: "glm-5.3".into(),
         }
     }
 }

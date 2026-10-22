@@ -11,7 +11,7 @@ fn defaults_are_the_documented_surplus_models() {
     assert_eq!(models, Models::default());
     assert_eq!(models.reader, "deepseek-v4.1-flash");
     assert_eq!(models.formalizer, "deepseek-v4-pro");
-    assert_eq!(models.reviewer, "deepseek-v4-pro");
+    assert_eq!(models.reviewer, "glm-5.3");
 }
 
 #[test]

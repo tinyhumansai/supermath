@@ -96,7 +96,7 @@ services:
       # The Surplus model each `agent_*` child runs on.
       SUPERMATH_READER_MODEL: ${SUPERMATH_READER_MODEL:-deepseek-v4.1-flash}
       SUPERMATH_FORMALIZER_MODEL: ${SUPERMATH_FORMALIZER_MODEL:-deepseek-v4-pro}
-      SUPERMATH_REVIEWER_MODEL: ${SUPERMATH_REVIEWER_MODEL:-deepseek-v4-pro}
+      SUPERMATH_REVIEWER_MODEL: ${SUPERMATH_REVIEWER_MODEL:-glm-5.3}
       # Jev's decision calls, and nothing else.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       CORTEX_API_URL: http://cortexdb:3141
