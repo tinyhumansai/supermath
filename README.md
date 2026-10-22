@@ -37,6 +37,13 @@ export SURPLUS_API_KEY=... OPENROUTER_API_KEY=... CORTEX_API_KEY=supermath-local
 cargo run -p supermath-agent -- check
 ```
 
+Run the agent on a problem, for up to four turns of one session, with every
+tool call (the `agent_*` children's included) reported on stderr:
+
+```sh
+cargo run -p supermath-agent -- solve my-project problem.md 4
+```
+
 OpenHuman's logs go to `$SUPERMATH_WORKSPACE/logs/` (default `.supermath/`).
 
 ## Use the tools from Claude Code (MCP)

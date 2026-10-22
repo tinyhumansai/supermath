@@ -60,6 +60,22 @@ supermath-agent check [project]     # default project: scratch
 
 Exit status `0` means the stack is ready.
 
+```sh
+supermath-agent solve <project> <prompt-file> [turns]   # default turns: 1
+```
+
+`solve` boots and registers the agent the same way (steps 1–3), then runs
+it on the problem in `prompt-file`:
+
+1. The prompt is the first turn of one session; each later turn, up to
+   `turns`, sends `CONTINUE_PROMPT` in the same session. A reply with the
+   line `STATUS: DONE` ends the run early.
+2. Each turn's tool calls are reported on stderr as they start and finish
+   (`AgentProgress`), and a watcher tails the toolkit's call log, so calls
+   the `agent_*` children make (the duel's sides among them) appear too.
+3. Each reply goes to stdout. A turn OpenHuman fails is `Error::Turn`; an
+   unreadable prompt file is `Error::Prompt`.
+
 ### Toolkit
 
 The tools are the domain crates' (`docs/specs/toolkit/README.md` has the
@@ -135,7 +151,9 @@ the server stored without indexing is an error.
   kind), the agent's pinned tool list, and the MCP command parsing.
 - `tests/check.rs` runs the binary against loopback stubs of Surplus,
   CortexDB, and the backend, asserts the tool listing, and asserts no
-  completion was requested.
+  completion was requested. It also runs `solve` against a scripted
+  completion: the run stops at the first reply that declares itself done,
+  and otherwise continues the session to the turn limit.
 - `tests/live.rs` holds `live_subagents_formalize_bench`, skipped unless
   `SUPERMATH_LIVE_SUBAGENTS=1`.
 - `docker compose config --quiet` passes.
