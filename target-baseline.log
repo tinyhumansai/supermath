@@ -448,3 +448,33 @@ warning: `tinymemory-tools` (lib) generated 1 warning (run `cargo fix --lib -p t
    Compiling supermath-subagents v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-subagents)
    Compiling openhuman-tinyhumans v0.64.18 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/crates/openhuman-tinyhumans)
    Compiling supermath-agent v0.1.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/crates/supermath-agent)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 03s
+     Running unittests src/lib.rs (target/llvm-cov-target/debug/deps/supermath_agent-bb2c43a94d5036fb)
+
+running 27 tests
+test config::test::names_each_missing_required_setting ... ok
+test config::test::rejects_a_reasoning_effort_openhuman_does_not_accept ... ok
+test config::test::fills_defaults_when_only_required_settings_are_given ... ok
+test config::test::reads_overrides_and_strips_trailing_slashes ... ok
+test config::test::rejects_a_child_model_that_is_not_a_model_name ... ok
+test error::test::messages_are_lowercase_and_name_the_failing_piece ... ok
+test error::test::wrapped_errors_keep_the_inner_message ... ok
+test config::test::defaults_call_surplus_directly_with_concrete_model_names ... ok
+test config::test::debug_output_never_shows_credentials ... ok
+test config::test::rejects_embedding_dims_that_are_not_a_positive_integer ... ok
+test config::test::treats_a_blank_value_as_unset ... ok
+test config::test::rejects_an_invalid_toolkit_setting ... ok
+test runner::test::a_blank_command_line_is_no_server ... ok
+test runner::test::a_command_line_becomes_a_stdio_server_per_configured_command ... ok
+test runner::test::runtime_config_routes_tool_search_through_jev_on_openrouter ... ok
+test runner::test::the_ranker_reads_the_runner_config_and_only_the_openrouter_key ... ok
+test host::test::every_adapted_tool_matches_its_toolkit_tool ... ok
+test host::test::rejects_an_agent_tool_that_shadows_a_toolkit_tool ... ok
+test host::test::an_error_envelope_is_a_reported_failure ... ok
+test host::test::an_agent_tool_is_dispatched_by_the_host_under_its_own_call_id ... ok
+test host::test::rejects_two_agent_tools_with_one_name ... ok
+test host::test::the_belt_boxes_every_adapted_tool_and_debug_names_a_tool ... ok
+test host::test::an_unknown_tool_answers_not_found ... ok
+test host::test::the_catalogue_has_reads_writes_and_both_exposures ... ok
+test host::test::a_primitive_call_returns_the_envelope_with_its_call_id_and_is_logged ... ok
+test host::test::tool_names_list_the_toolkit_then_the_agent_tools ... ok
