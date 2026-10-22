@@ -171,6 +171,10 @@ pub enum SearchOutcome {
         witness: Value,
         /// The witness as lossless JSON text, big integers intact.
         witness_json: String,
+        /// Where the witness held tuples, which JSON turned into lists: each
+        /// a path of indices and keys from the root (`[]` is the witness
+        /// itself). Empty from a service that does not report them.
+        witness_tuples: Vec<Value>,
         /// How many values passed before it.
         checked: u64,
     },
@@ -295,6 +299,8 @@ struct Detail {
     #[serde(default)]
     witness_json: Option<String>,
     #[serde(default)]
+    witness_tuples: Vec<Value>,
+    #[serde(default)]
     input: Value,
     #[serde(default)]
     exception: Option<Exception>,
@@ -366,6 +372,7 @@ impl Answer {
                 witness_json: detail
                     .witness_json
                     .ok_or_else(|| decode("a found answer carries no witness_json"))?,
+                witness_tuples: detail.witness_tuples,
                 checked: need_checked()?,
             },
             "exhausted" => SearchOutcome::Exhausted {
