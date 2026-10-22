@@ -554,7 +554,7 @@ async fn a_drifting_duel_side_is_nudged_then_cut_through_openhuman(rig: &Rig) {
     rig.model.queue(
         "duel-prover",
         (0..6)
-            .map(|_| Step::Call("file_list", json!({})))
+            .map(|n| Step::Call("file_list", json!({"page": n})))
             .chain([Step::Say("STATUS: lost"), Step::Say("STATUS: still lost")])
             .collect(),
     );
