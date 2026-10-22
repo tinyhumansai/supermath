@@ -1,33 +1,33 @@
-//! Which ladder rung each child runs on, read from the environment.
+//! Which Surplus model each child runs on, read from the environment.
 //!
 //! | Variable | Default | Used by |
 //! | --- | --- | --- |
-//! | `SUPERMATH_READER_MODEL` | `flash` | `agent_digest_paper` |
-//! | `SUPERMATH_FORMALIZER_MODEL` | `formalize` | `agent_formalize`, `agent_refute` |
-//! | `SUPERMATH_REVIEWER_MODEL` | `reasoning` | `agent_review_alignment` |
+//! | `SUPERMATH_READER_MODEL` | `deepseek-v4.1-flash` | `agent_digest_paper` |
+//! | `SUPERMATH_FORMALIZER_MODEL` | `deepseek-v4-pro` | `agent_formalize`, `agent_refute` |
+//! | `SUPERMATH_REVIEWER_MODEL` | `deepseek-v4-pro` | `agent_review_alignment` |
 //!
-//! The values are ladder names, so a change of model is a change to the
-//! ladder's config and these variables, never to this crate.
+//! The values are Surplus Intelligence model names, so a change of model is a
+//! change to these variables, never to this crate.
 
 use crate::error::{Error, Result};
 
 /// The model each child runs on.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Models {
-    /// The paper reader's rung (`SUPERMATH_READER_MODEL`).
+    /// The paper reader's model (`SUPERMATH_READER_MODEL`).
     pub reader: String,
-    /// The formalizer's and the refuter's rung (`SUPERMATH_FORMALIZER_MODEL`).
+    /// The formalizer's and the refuter's model (`SUPERMATH_FORMALIZER_MODEL`).
     pub formalizer: String,
-    /// The alignment reviewer's rung (`SUPERMATH_REVIEWER_MODEL`).
+    /// The alignment reviewer's model (`SUPERMATH_REVIEWER_MODEL`).
     pub reviewer: String,
 }
 
 impl Default for Models {
     fn default() -> Self {
         Self {
-            reader: "flash".into(),
-            formalizer: "formalize".into(),
-            reviewer: "reasoning".into(),
+            reader: "deepseek-v4.1-flash".into(),
+            formalizer: "deepseek-v4-pro".into(),
+            reviewer: "deepseek-v4-pro".into(),
         }
     }
 }
