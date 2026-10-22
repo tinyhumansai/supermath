@@ -297,9 +297,13 @@ reimplemented ([`crates.md`](crates.md#consuming-other-mcp-servers)).
 - Every domain crate passes the [contract checker](tool/README.md#contract-tests)
   over its tools, and its own tests run with `cargo test -p <crate>`.
 - A test asserts the direct/deferred split and that every description's first
-  sentence names a question.
-- An end-to-end test drives `supermath-mcp serve` and gets the same envelope
-  as the runner's host tool for the same arguments.
+  sentence names a question: over the composed toolkit
+  (`supermath-mcp`, `toolkit/test.rs`) and over the runner's catalogue with
+  the `agent_*` tools (`supermath-agent`, `host/test.rs`).
+- An end-to-end test drives `supermath-mcp`'s server (the code `serve` runs,
+  over an in-memory pipe) and gets the same envelope as the runner's host
+  tool for the same arguments, an error included
+  (`supermath-agent/tests/parity.rs`).
 - `live_*` tests, gated by environment variables, exercise the real Lean
   service, the Python service, arXiv, Gemini, and CortexDB.
 

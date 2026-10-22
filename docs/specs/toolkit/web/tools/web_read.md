@@ -17,11 +17,16 @@ actually says. It is a plain HTTP fetch; no model reads the page.
 - `url` must be `https`, or `http` upgraded to `https`, on a public host.
   Private, loopback, and link-local addresses are refused after DNS
   resolution, so a page cannot point the tool at the operator's network.
+  The check runs on every redirect hop, not only the URL given, and the
+  connection is pinned to the addresses checked.
 - arXiv URLs are refused with `INVALID_INPUT` and a `next` hint to
   [`lit_get_paper`](../../literature/tools/lit_get_paper.md), which reads the LaTeX source.
-- The response must be HTML or plain text, at most 5 MB. PDFs are refused
-  in this phase; `unknowns` says so and suggests finding an HTML or arXiv
-  version.
+  A redirect to arXiv is refused the same way, with the same code and
+  message, before arXiv is requested. A URL refused before the fetch (a
+  malformed URL, a direct arXiv URL) spends none of the daily cap.
+- The response must be HTML or plain text, at most 5 MB. A PDF is refused
+  with `INVALID_INPUT`, as an error and not an `unknowns` entry; the error
+  message suggests finding an HTML or arXiv version.
 
 ## Returns
 
@@ -56,7 +61,7 @@ actually says. It is a plain HTTP fetch; no model reads the page.
 
 | Code | When |
 | --- | --- |
-| `INVALID_INPUT` | a malformed URL, a private address, an arXiv URL, an unsupported content type |
+| `INVALID_INPUT` | a malformed URL, a private address or a redirect to one, an arXiv URL or a redirect to one, a PDF or other unsupported content type, a page over 5 MB |
 | `NOT_FOUND` | 404 or 410 |
 | `FORBIDDEN` | 401 or 403, or `robots.txt` disallows the path |
 | `RATE_LIMITED` | 429; `retry_after_ms` is set |

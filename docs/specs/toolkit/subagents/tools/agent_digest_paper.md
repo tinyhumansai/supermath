@@ -39,7 +39,10 @@ The child records:
   recorded with [`ledger_claims`](../../ledger/tools/ledger_claims.md) and returns those that
   exist, grouped by kind. An id the child claims but the ledger lacks is
   dropped and counted in `unknowns`; a status above `cited` is flagged there
-  too.
+  too. An id the ledger could not be asked about (an outage, not an
+  absence) is never counted as missing: it is listed in `data.unverified`
+  and counted in `unknowns` with the ledger's error, and when no id could
+  be confirmed the outcome is `unknown`.
 - **Passed through, as untrusted prose:** a one-paragraph account of what
   the paper proves, at most 120 words.
 - **Discarded:** everything else the child read or said. Its session id is
@@ -50,7 +53,10 @@ Every fact it records is `cited`, never higher: reading is not checking.
 
 ## Errors
 
-`INVALID_INPUT` for a malformed id; `NOT_FOUND` when arXiv has no such
-paper (checked before the turn starts); `BUDGET_EXCEEDED` when the
-project's budget cannot admit a turn. A turn that runs out of budget is
+`INVALID_INPUT` for a malformed id, bad arguments, or a `budget` out of
+range; `NOT_FOUND` when arXiv has no such paper (checked before the turn
+starts); `BUDGET_EXCEEDED` when the project's budget cannot admit a turn;
+`FORBIDDEN` for a call from another project than the one the tool serves;
+`BACKEND_UNAVAILABLE` when `lit_get_paper` fails other than with
+`NOT_FOUND`, or the child's model backend fails. A turn that runs out of budget is
 `outcome: "unknown"` with whatever was recorded.

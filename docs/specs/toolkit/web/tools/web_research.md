@@ -24,8 +24,12 @@ before starting on a conjecture
 - `question` names the problem or asks the question, at most 500
   characters.
 - `facets` picks which searches to run, from a fixed set; the default is
-  all five below. One Gemini request per facet, at most six requests per
-  call.
+  the first five below. One Gemini request per facet, at most six requests
+  per call.
+- `prefer` names [source classes](../README.md#source-classes) listed first
+  in the merged `sources`. Unlike `web_search`, it only ranks: the facet
+  prompts are fixed and do not mention it, it filters nothing, and it
+  decides which sources survive the 30-source limit.
 
 | Facet | Asks |
 | --- | --- |
@@ -83,15 +87,27 @@ between sources.
 ```
 
 - Sources are shared across facets and numbered once.
-- **Disagreements** are surfaced, not resolved: when two facets or two
-  sources give different statuses, dates, or bounds for the same thing,
-  both are listed. The tool detects them by comparing the findings'
-  numbers and status words; it does not ask a model to adjudicate.
+- **Disagreements** are surfaced, not resolved: when two findings of the
+  same facet give different statuses, dates, or bounds for the same thing,
+  both are listed. Findings in different facets are not compared. The tool
+  detects them by comparing the findings' numbers and status words; it
+  does not ask a model to adjudicate.
 - A facet with no grounded finding says "no source found", which is
   `unknown` for that facet, not evidence of absence. The call's outcome is
   `ok` when at least one facet found something, `unknown` otherwise.
-- At most eight findings per facet and 30 sources in all; the brief stays
-  under about 1,500 words.
+- At most eight findings per facet and 30 sources in all, and the
+  findings' text totals at most 1,500 words. Nothing is cut silently:
+  - findings past the eighth of a facet are counted in `unknowns`
+    (`facet status: 4 findings omitted by the limit of 8 per facet`);
+  - a finding whose every source fell outside the 30 kept is dropped and
+    counted (`2 findings omitted by the source limit`);
+  - the word cap cuts whole findings, round by round across facets (every
+    facet's first finding, then every facet's second, …); the first that
+    does not fit ends the brief, and the cut is counted
+    (`15 findings omitted to keep the brief under 1,500 words`).
+  A facet left with no findings by a cut says so in its `note`
+  (`findings omitted by the source limit` or `… by the word limit`)
+  instead of "no source found".
 - It records nothing in the ledger itself. `next` suggests `lit_get_paper`
   for the arXiv sources it found; the agent, or a sub-agent, decides what is
   worth keeping and records it.

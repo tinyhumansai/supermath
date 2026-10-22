@@ -183,7 +183,9 @@ never evidence, and that the side's only goal is its own theorem.
 - `bounds`, `lemmas`, `leads`: the ledger entries the duel recorded. When
   the duel ends, every exhausted frame of the refuter's that was never
   posted is recorded as a `bound` too, so an empty search always says how
-  far it went.
+  far it went. At most 10 such closing bounds are recorded per call, which
+  bounds the ledger writes one duel makes; any frames beyond that are
+  counted in `unknowns`, never silently dropped.
 - `sides.prover` and `sides.refuter`: `{rounds, tool_calls, turns,
   input_tokens, output_tokens, ended: [reason per turn], sessions}`.
 - `statement`: the pinned file and its digest.
@@ -210,6 +212,11 @@ The unit tests, run on scripted sides and fake primitives, cover:
 - a `sorry` proof, or a theorem of the wrong type, not counting as a win;
 - both sides verifying giving `inconsistent`;
 - both sides running out giving `unknown`, with bounds;
+- more than 10 unposted frames: 10 closing bounds recorded and the rest
+  counted in `unknowns`;
+- the `native_decide` debt `lean_check` names on the verdict file passed
+  through in `settled.debt`;
+- no new turn starting with fewer than 10,000 tokens or 30 s left;
 - a write outside a side's area being `FORBIDDEN`;
 - every `duel_post` kind accepted and refused;
 - the digest's rate limit and cap, and undelivered posts carrying into the

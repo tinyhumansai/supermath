@@ -108,8 +108,14 @@ nothing more.
 
 Responses are cached under `$SUPERMATH_CACHE/web` for 24 hours, keyed by
 model and prompt (which holds the arguments), so a repeated question costs
-no Gemini request. A cached answer says so in `coverage.cached_age`. The
-daily cap counts every `web_*` call, cached or not, in memory per UTC day.
+no Gemini request. A cached answer says so in `coverage.cached_age` (for
+`web_research`, the age of the oldest cached facet). The daily cap counts
+every admitted `web_*` call, cached or not, in memory per UTC day: a call
+is admitted once its arguments have parsed and passed validation (and, for
+`web_search` and `web_research`, a key is set). A call refused as
+`INVALID_INPUT` before admission, including `web_read` on an arXiv URL,
+spends nothing; one that fails after admission (a timeout, a 404, a
+redirect into a private address) does.
 
 ### Terms
 
