@@ -1797,3 +1797,26 @@ async fn agent_refute_keeps_the_tool_contract() {
         .await
         .unwrap();
 }
+
+#[tokio::test]
+async fn the_fake_ledger_applies_the_real_arxiv_rules() {
+    let world = World::new();
+    let ledger = world.registry();
+    let record = |source: Value, extra: Value| {
+        let ledger = ledger.clone();
+        async move {
+            let mut args = json!({"kind": "fact", "statement": "Thm 2", "source": source});
+            if let (Some(args), Some(extra)) = (args.as_object_mut(), extra.as_object()) {
+                args.extend(extra.clone());
+            }
+            ledger.dispatch(&ctx(), "ledger_record", args).await
+        }
+    };
+    let no_locator = json!({"arxiv": {"id": "2012.04125", "version": "v2"}});
+    let refused = record(no_locator, json!({})).await;
+    assert_eq!(refused.error.map(|e| e.code), Some(ErrorCode::InvalidInput));
+    let cited = record(arxiv_source(), json!({})).await;
+    assert_eq!(cited.data["status"], "cited", "{cited:?}");
+    let pinned = record(arxiv_source(), json!({"status": "asserted"})).await;
+    assert_eq!(pinned.data["status"], "asserted", "{pinned:?}");
+}
