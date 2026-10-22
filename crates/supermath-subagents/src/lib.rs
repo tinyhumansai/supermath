@@ -13,6 +13,15 @@
 //! | [`AgentFormalize`] | `SUPERMATH_FORMALIZER_MODEL` (`deepseek-v4-pro`) | Lean files with verdicts |
 //! | [`AgentReviewAlignment`] | `SUPERMATH_REVIEWER_MODEL` (`glm-5.3`) | `accepted` or `disputed` |
 //! | [`AgentRefute`] | `SUPERMATH_FORMALIZER_MODEL` | a Lean-confirmed counterexample, or the frames searched |
+//! | [`AgentSettle`] | `SUPERMATH_DUEL_MODEL` (`deepseek-v4-pro`), two children | `proved`, `refuted`, or `unknown` with the bounds searched |
+//!
+//! [`AgentSettle`] is the one tool with two children. A prover and a refuter
+//! run in parallel on one pinned conjecture, with equal budgets, in one
+//! workspace where each writes only to its own area. They exchange posts the
+//! tool checks before relaying, the tool nudges or restarts a side that
+//! stops making progress, and the first theorem it verifies against the
+//! pinned statement cancels the other side
+//! (`docs/specs/toolkit/subagents/tools/agent_settle.md`).
 //!
 //! # The rule that makes them trustworthy
 //!
@@ -29,7 +38,9 @@
 //! - [`Subagents::new`] builds the children on an `OpenHuman` [`Runtime`] and
 //!   the tools that drive them, for one project.
 //! - [`Subagents::register_into`] adds the tools to a registry.
-//! - [`Models`] reads the three model variables.
+//! - [`Models`] reads the four model variables, and [`DuelSettings`] how
+//!   `agent_settle` paces its sides.
+//! - [`TurnControl`] steers or cancels a running child turn.
 //! - [`ChildRunner`] is the port tests and hosts substitute for `OpenHuman`.
 //!
 //! # Example
