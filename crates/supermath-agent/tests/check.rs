@@ -1,4 +1,4 @@
-//! `supermath-agent check` end to end, against loopback stubs of the ladder,
+//! `supermath-agent check` end to end, against loopback stubs of Surplus,
 //! `CortexDB`, and the `OpenHuman` backend. Nothing reaches the network.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
