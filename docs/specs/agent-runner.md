@@ -102,6 +102,14 @@ call log under a `call_id`, which the adapted result carries so a ledger
 `tool` source can quote it. The `agent_*` tools get `agent-N` ids and an
 agentic budget (64 iterations, 1,000,000 tokens, one hour).
 
+An envelope reaches OpenHuman through `supermath_subagents::tool_result`,
+for the top-level agent and every child alike. A refusal (`INVALID_INPUT`,
+`NOT_FOUND`, `FORBIDDEN`, `CONFLICT`, `BUDGET_EXCEEDED`, `TIMEOUT`) is the
+tool's answer and goes back as a result, `outcome: "error"` intact: as a
+failure, OpenHuman's classifier read `FORBIDDEN` as rejected credentials and
+ended the turn. Only `BACKEND_UNAVAILABLE` and `RATE_LIMITED` are failures,
+carrying `status_code` 503 or 429 so the harness retries them as transient.
+
 ### Memory scopes
 
 ```text
