@@ -23,7 +23,7 @@ no field for caveats; it names what was searched).
   following pages (`start=10`, `20`, …) until the limit is met, the matches
   run out, or the `count` OEIS reported is reached. `cursor` is always the
   offset just past the last row returned, whichever request it came from.
-  A cached page's age is the oldest of the pages read.
+  `coverage.cached_age` is that of the oldest cached page read.
 - A term too large for a JSON integer is returned as a decimal string.
 - `unknowns` carries the subsequence caveat for a `terms` search, and says
   that no match is silent about sequences the OEIS does not hold.
