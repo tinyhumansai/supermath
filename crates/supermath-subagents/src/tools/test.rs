@@ -926,6 +926,45 @@ async fn an_edited_file_is_read_back_at_its_newest_digest() {
 }
 
 #[tokio::test]
+async fn a_file_rewritten_after_an_edit_is_read_back_at_the_rewrite() {
+    // Seen live: the child edited the file, then replaced it whole, and the
+    // tool reported the edit's digest as newest and refused with CONFLICT.
+    let world = World::new();
+    let runner = ScriptRunner::new(script(|_, belt| async move {
+        write(&belt, PATH, SORRY_FILE).await;
+        let edit = belt
+            .call(
+                "file_edit",
+                json!({
+                    "path": PATH,
+                    "edits": [{"old": "1 + 1", "new": "2 + 0"}],
+                    "if_sha256": digest(SORRY_FILE),
+                }),
+            )
+            .await;
+        assert_eq!(edit.outcome, Outcome::Ok, "{edit:?}");
+        let edited = edit.data["sha256"].as_str().unwrap().to_owned();
+        let rewrite = belt
+            .call(
+                "file_write",
+                json!({"path": PATH, "content": SORRY_FILE, "if_sha256": edited}),
+            )
+            .await;
+        assert_eq!(rewrite.outcome, Outcome::Ok, "{rewrite:?}");
+        Ok(turn("NOTE: none"))
+    }));
+    let built = subagents(&world.registry(), &runner);
+    let answer = call(
+        &built,
+        "agent_formalize",
+        json!({"source": {"statement": "x"}, "path": PATH}),
+    )
+    .await;
+    assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
+    assert_eq!(answer.data["verdict"], "checked_with_sorry");
+}
+
+#[tokio::test]
 async fn an_unreadable_file_and_an_unknown_verdict_are_reported_not_guessed() {
     let world = World::new();
     world.set_verdict(PATH, "unknown");
