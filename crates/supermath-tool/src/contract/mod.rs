@@ -163,13 +163,24 @@ fn check_name(name: &str, domain: &str, found: &mut Vec<Violation>) {
     }
 }
 
-fn check_description(tool: &dyn Tool, found: &mut Vec<Violation>) {
+/// The description rule alone: the one [`Violation`] `tool`'s description
+/// breaks, if any.
+///
+/// A catalogue test runs it over every composed tool without calling any.
+#[must_use]
+pub fn description_violation(tool: &dyn Tool) -> Option<Violation> {
     let description = tool.description().trim();
     if description.is_empty() {
-        found.push(Violation::EmptyDescription);
+        Some(Violation::EmptyDescription)
     } else if tool.kind().is_agentic() && !description.starts_with("Runs a") {
-        found.push(Violation::AgenticDescription);
+        Some(Violation::AgenticDescription)
+    } else {
+        None
     }
+}
+
+fn check_description(tool: &dyn Tool, found: &mut Vec<Violation>) {
+    found.extend(description_violation(tool));
 }
 
 fn check_schema(schema: &Value, found: &mut Vec<Violation>) {
