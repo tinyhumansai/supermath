@@ -671,6 +671,16 @@ async fn extract_statements_is_unknown_for_a_pdf_only_paper() {
     .await;
     assert_eq!(out.outcome, Outcome::Unknown);
     assert_eq!(out.data["statements"], json!([]));
+    let data = out.data.as_object().unwrap();
+    assert_eq!(
+        data.get("total"),
+        Some(&Value::Null),
+        "total is present and null: nothing was counted, which is not zero"
+    );
+    assert_eq!(
+        out.data["locator"],
+        json!({"arxiv_id": "2402.00002", "version": 1})
+    );
     assert!(out.unknowns[0].contains("PDF only"));
 }
 
