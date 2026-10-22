@@ -135,7 +135,9 @@ impl Ledger {
     ///
     /// [`Error::InvalidArguments`] for an empty statement or a `uses` that
     /// repeats; [`Error::ClaimNotFound`] when a `uses` id is not in the
-    /// ledger; [`Error::MissingFrame`], [`Error::UnrecordedCall`],
+    /// ledger; [`Error::LinkCycle`] when re-recording a claim with a new
+    /// `uses` id that is the claim itself or already reaches it, the rule
+    /// [`Ledger::link`] applies; [`Error::MissingFrame`], [`Error::UnrecordedCall`],
     /// [`Error::CallNotUsable`], [`Error::StaleDigest`], and the evidence
     /// errors from [`Ledger`]'s trust rules; and the memory errors.
     pub async fn record(&self, ctx: &CallContext, claim: Claim) -> Result<Recorded> {
@@ -156,9 +158,14 @@ impl Ledger {
             }
             uses.push(id.clone());
         }
-        let earned = self.earn(ctx, &claim).await?;
         let id = Self::claim_id(claim.kind, &statement, &claim.source);
         let existing = self.get(slug, &id).await?;
+        if let Some(old) = &existing {
+            for used in uses.iter().filter(|u| !old.uses.contains(u)) {
+                self.refuse_cycle(slug, &id, used, BTreeMap::new()).await?;
+            }
+        }
+        let earned = self.earn(ctx, &claim).await?;
         let (revision, supersedes, alignment, merged_uses) = match &existing {
             Some(old)
                 if old.status == earned.status && uses.iter().all(|u| old.uses.contains(u)) =>
@@ -224,14 +231,8 @@ impl Ledger {
         let Some(target) = self.get(slug, to).await? else {
             return Err(Error::ClaimNotFound(to.to_string()));
         };
-        let cache = BTreeMap::from([(target.id.clone(), target.clone())]);
-        let reach = self.closure(slug, &[to.to_string()], cache).await?;
-        if from == to || reach.contains_key(from) {
-            return Err(Error::LinkCycle {
-                from: from.to_string(),
-                to: to.to_string(),
-            });
-        }
+        let cache = BTreeMap::from([(target.id.clone(), target)]);
+        self.refuse_cycle(slug, from, to, cache).await?;
         if source.uses.iter().any(|used| used == to) {
             return Ok(Recorded {
                 entry: source,
@@ -385,6 +386,26 @@ impl Ledger {
         let labels = entry.labels();
         let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
         self.memory.remember(&project, &text, &labels).await
+    }
+
+    /// Refuses a `uses` edge from `from` to `to` that would close a cycle:
+    /// `to` is `from`, or `to` already reaches `from`. `cache` holds claims
+    /// already loaded.
+    async fn refuse_cycle(
+        &self,
+        slug: &str,
+        from: &str,
+        to: &str,
+        cache: BTreeMap<String, Entry>,
+    ) -> Result<()> {
+        let reach = self.closure(slug, &[to.to_string()], cache).await?;
+        if from == to || reach.contains_key(from) {
+            return Err(Error::LinkCycle {
+                from: from.to_string(),
+                to: to.to_string(),
+            });
+        }
+        Ok(())
     }
 
     /// Loads every claim reachable from `roots` through `uses`, taking

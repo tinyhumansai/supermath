@@ -59,6 +59,9 @@ async fn refuses_above_the_limit_without_a_partial_answer() {
     for args in [
         json!({ "n": FACTOR_LIMIT + 1 }),
         json!({ "n": "99999999999999999999999" }),
+        // A bare JSON number past u64 arrives as an f64; it is too large,
+        // not malformed.
+        serde_json::from_str(r#"{ "n": 99999999999999999999999 }"#).unwrap(),
     ] {
         let envelope = call(args.clone()).await;
         assert_eq!(envelope.code(), Some(ErrorCode::BudgetExceeded), "{args}");
