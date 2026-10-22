@@ -48,7 +48,9 @@ impl Transcript {
     /// Whether the last reply declared the run done.
     #[must_use]
     pub fn done(&self) -> bool {
-        self.replies.last().is_some_and(|reply| declares_done(reply))
+        self.replies
+            .last()
+            .is_some_and(|reply| declares_done(reply))
     }
 }
 

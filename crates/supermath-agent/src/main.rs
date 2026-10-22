@@ -139,13 +139,16 @@ async fn check(project: &str) -> supermath_agent::Result<()> {
     Ok(())
 }
 
-async fn solve(project: &str, prompt_file: &str, turns: NonZeroUsize) -> supermath_agent::Result<()> {
-    let prompt = std::fs::read_to_string(prompt_file).map_err(|error| {
-        supermath_agent::Error::Prompt {
+async fn solve(
+    project: &str,
+    prompt_file: &str,
+    turns: NonZeroUsize,
+) -> supermath_agent::Result<()> {
+    let prompt =
+        std::fs::read_to_string(prompt_file).map_err(|error| supermath_agent::Error::Prompt {
             path: prompt_file.to_owned(),
             reason: error.to_string(),
-        }
-    })?;
+        })?;
     let config = Config::from_env()?;
     openhuman_embed::process::init_for_embedded(&config.workspace, false);
     let runner = Runner::start(&config).await?;

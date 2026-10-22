@@ -13,7 +13,9 @@ use super::{Transcript, call_line, declares_done, excerpt, progress_line, sweep}
 
 #[test]
 fn a_reply_is_done_only_with_the_marker_on_its_own_line() {
-    assert!(declares_done("No counterexample below 10^6.\n\nSTATUS: DONE\n"));
+    assert!(declares_done(
+        "No counterexample below 10^6.\n\nSTATUS: DONE\n"
+    ));
     assert!(declares_done("  STATUS: DONE  "));
     assert!(!declares_done("I will write STATUS: DONE when finished."));
     assert!(!declares_done(""));
@@ -97,7 +99,13 @@ fn long_text_is_cut_to_one_short_line() {
 
 #[test]
 fn a_call_line_names_the_call_its_outcome_and_any_code() {
-    let ok = CallRecord::new("agent-1-p3", "lean_check", "erdos", &Envelope::ok(json!({})), 40);
+    let ok = CallRecord::new(
+        "agent-1-p3",
+        "lean_check",
+        "erdos",
+        &Envelope::ok(json!({})),
+        40,
+    );
     assert_eq!(call_line(&ok), "   log agent-1-p3 lean_check -> Ok (40 ms)");
     let refused = CallRecord::new(
         "c2",

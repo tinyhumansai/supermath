@@ -163,7 +163,7 @@ async fn reports_usage_and_configuration_errors() {
     assert!(help.status.success());
     assert!(text(&help.stdout).contains("usage: supermath-agent check"));
 
-    let bad = run(&["solve", "x"], Vec::new(), home.path()).await;
+    let bad = run(&["prove", "x"], Vec::new(), home.path()).await;
     assert_eq!(bad.status.code(), Some(1));
     assert!(text(&bad.stderr).contains("usage:"));
 
@@ -179,4 +179,122 @@ async fn reports_usage_and_configuration_errors() {
     let unnamed = run(&["check", "!!"], env(&stub, home.path()), home.path()).await;
     assert_eq!(unnamed.status.code(), Some(1));
     assert!(text(&unnamed.stderr).contains("invalid project name \"!!\""));
+}
+
+/// A stub that also answers every chat completion with `reply`.
+async fn chat_server(reply: &'static str) -> Stub {
+    Stub::start(Arc::new(move |seen: &Seen| {
+        if seen.path == "/v1/admin/ready" {
+            (200, json!({ "ready": true }))
+        } else if seen.path.ends_with("/chat/completions") {
+            (
+                200,
+                json!({
+                    "id": "chatcmpl-stub",
+                    "object": "chat.completion",
+                    "created": 0,
+                    "model": "deepseek-v4.1-flash",
+                    "choices": [{
+                        "index": 0,
+                        "message": { "role": "assistant", "content": reply },
+                        "finish_reason": "stop"
+                    }],
+                    "usage": { "prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15 }
+                }),
+            )
+        } else {
+            (200, json!({ "success": true, "data": {} }))
+        }
+    }))
+    .await
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn solve_stops_at_the_first_reply_that_declares_done() {
+    let stub = chat_server("Nothing is left to try.\nSTATUS: DONE").await;
+    let home = tempfile::tempdir().unwrap();
+    let prompt = home.path().join("problem.md");
+    std::fs::write(&prompt, "Is 2 prime?").unwrap();
+    let output = run(
+        &["solve", "erdos", prompt.to_str().unwrap(), "3"],
+        env(&stub, home.path()),
+        home.path(),
+    )
+    .await;
+    let (stdout, stderr) = (text(&output.stdout), text(&output.stderr));
+
+    assert!(
+        output.status.success(),
+        "stdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(
+        stdout.contains("## turn 1\n\nNothing is left to try."),
+        "{stdout}"
+    );
+    assert!(!stdout.contains("## turn 2"), "{stdout}");
+    assert!(
+        stderr.contains("solve: supermath-erdos on `deepseek-v4.1-flash`"),
+        "{stderr}"
+    );
+    assert!(stderr.contains("== turn 1/3"), "{stderr}");
+    assert!(stderr.contains("ended after 1 turns, done"), "{stderr}");
+    let asked = stub.seen().into_iter().any(|seen| {
+        seen.path.ends_with("/chat/completions") && seen.body.to_string().contains("Is 2 prime?")
+    });
+    assert!(asked, "the prompt never reached the model");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn solve_continues_the_session_until_the_turn_limit() {
+    let stub = chat_server("Checked n up to 100; more to do.").await;
+    let home = tempfile::tempdir().unwrap();
+    let prompt = home.path().join("problem.md");
+    std::fs::write(&prompt, "Settle the conjecture.").unwrap();
+    let output = run(
+        &["solve", "erdos", prompt.to_str().unwrap(), "2"],
+        env(&stub, home.path()),
+        home.path(),
+    )
+    .await;
+    let (stdout, stderr) = (text(&output.stdout), text(&output.stderr));
+
+    assert!(
+        output.status.success(),
+        "stdout: {stdout}\nstderr: {stderr}"
+    );
+    assert!(stdout.contains("## turn 2"), "{stdout}");
+    assert!(stderr.contains("ended after 2 turns\n"), "{stderr}");
+    let continued = stub.seen().into_iter().any(|seen| {
+        seen.path.ends_with("/chat/completions")
+            && seen.body.to_string().contains("Continue the work.")
+    });
+    assert!(continued, "the second turn never sent the continue prompt");
+}
+
+#[tokio::test]
+async fn solve_refuses_a_bad_turn_count_or_an_unreadable_prompt() {
+    let home = tempfile::tempdir().unwrap();
+
+    let zero = run(
+        &["solve", "erdos", "problem.md", "0"],
+        Vec::new(),
+        home.path(),
+    )
+    .await;
+    assert_eq!(zero.status.code(), Some(1));
+    assert!(text(&zero.stderr).contains("turns must be a positive number, not `0`"));
+
+    let missing = home.path().join("missing.md");
+    let unreadable = run(
+        &["solve", "erdos", missing.to_str().unwrap()],
+        Vec::new(),
+        home.path(),
+    )
+    .await;
+    assert_eq!(unreadable.status.code(), Some(1));
+    assert!(
+        text(&unreadable.stderr).contains("cannot read the prompt"),
+        "{}",
+        text(&unreadable.stderr)
+    );
 }
