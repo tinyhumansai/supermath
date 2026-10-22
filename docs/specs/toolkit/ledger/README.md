@@ -84,7 +84,10 @@ status from its arguments: a caller that sends `"status": "formalised"`
 accepted and only pin the claim down, with no check run: the claim is
 `asserted` whatever its source, an `arxiv` one included. A call whose
 `CallContext` carries `evidence_origin: supplied` likewise earns nothing
-above `asserted` (not even `cited`) and runs no check. Given a `lean` source, `ledger_record` runs `lean_check`
+above `asserted` (not even `cited`) and runs no check. Supplied evidence
+never lowers a claim either: recording a claim that already holds a higher
+status under supplied evidence keeps that status, and `unknowns` says so.
+Given a `lean` source, `ledger_record` runs `lean_check`
 on the declaration itself and records the status that check earns; given a
 `tool` source, it accepts only a call id from this process's own call log.
 A call id that is not in the log is `FORBIDDEN`, as is one that ran in

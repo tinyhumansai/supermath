@@ -28,6 +28,8 @@ reason. The status is computed, not passed.
   `section`; without that it is `INVALID_INPUT`. It earns `cited` only when
   the call's evidence is not supplied: `"status": "asserted"` or
   `"evidence_origin": "supplied"` pins it at `asserted`.
+  Supplied evidence never lowers a claim already recorded at a higher
+  status: that status is kept and `unknowns` says so.
 - `rationale`, `reason`, and `refutes` are stored on the entry and returned
   in full by [`ledger_claims`](ledger_claims.md) `{"id": …}`.
 - The answer is `{id, kind, status, evidence_origin, alignment, revision,
