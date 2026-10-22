@@ -30,7 +30,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 # The crate-wide error enum.
 thiserror = { workspace = true }
-# Timeouts on CortexDB calls.
+# Timeouts on CortexDB calls, and tasks that re-check Lean claims together.
 tokio = { workspace = true, features = ["time", "rt"] }
 # The CortexDB HTTP client. Rustls avoids a system OpenSSL dependency.
 reqwest = { workspace = true }

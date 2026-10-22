@@ -1148,10 +1148,18 @@ async fn one_read_checks_each_lean_declaration_once() {
     // checks now run together, and a declaration two claims share runs once.
     let h = harness().await;
     teach(&h, clean("aa"));
-    let result = h.ledger.record(&ctx(), lean_claim("thm", "aa")).await.unwrap().entry;
+    let result = h
+        .ledger
+        .record(&ctx(), lean_claim("thm", "aa"))
+        .await
+        .unwrap()
+        .entry;
     let fact = h
         .ledger
-        .record(&ctx(), Claim::new(Kind::Fact, "thm, as a fact", lean_source("aa")))
+        .record(
+            &ctx(),
+            Claim::new(Kind::Fact, "thm, as a fact", lean_source("aa")),
+        )
         .await
         .unwrap()
         .entry;

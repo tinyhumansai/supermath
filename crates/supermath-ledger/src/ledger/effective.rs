@@ -98,7 +98,10 @@ impl Ledger {
             let evidence = Arc::clone(&self.evidence);
             checks.spawn(async move {
                 let verdict = evidence.verify(&path, &declaration).await;
-                ((path, declaration), verdict.map_err(|error| error.to_string()))
+                (
+                    (path, declaration),
+                    verdict.map_err(|error| error.to_string()),
+                )
             });
         }
         let mut verdicts = BTreeMap::new();
