@@ -8,10 +8,12 @@
 //!
 //! `CortexDB` recall is by similarity and does not filter by label exactly
 //! (`docs/specs/toolkit/ledger/README.md`, open question 1), so every read
-//! recalls a window of the project's notes ranked closest to a query, parses each as an
-//! [`Entry`], skips notes that are not entries, and filters client-side. The
-//! window is [`DEFAULT_WINDOW`] notes; a ledger larger than that can hide
-//! older entries from a list, which `ledger_claims` reports in `unknowns`.
+//! recalls a window of the project's notes, ranked by similarity to a query,
+//! parses each as an [`Entry`], skips notes that are not entries, and filters
+//! client-side. The window is [`DEFAULT_WINDOW`] notes; a ledger larger than
+//! that can hide entries from a read, which `ledger_claims` and
+//! `ledger_bound` report in `unknowns`. Nothing records when an entry was
+//! written, so reads come in recall order, not time order.
 //! A single claim is looked up by recalling its id, which its own JSON
 //! contains.
 //!
