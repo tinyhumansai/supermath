@@ -1,6 +1,6 @@
 # 5. Search the web with Gemini and Google Search grounding
 
-- **Status:** Proposed
+- **Status:** Proposed; amended by 6 (the web tools live in `supermath-web`)
 - **Date:** 2026-10-22
 
 ## Context
@@ -23,7 +23,7 @@ provider.
 ## Decision
 
 - Add `web_search`, `web_research`, and `web_read` to `supermath-mcp`
-  ([`specs/toolkit/web.md`](../specs/toolkit/web.md)), backed by the Gemini
+  ([`specs/toolkit/web/`](../specs/toolkit/web/README.md)), backed by the Gemini
   API's `generateContent` with the `google_search` tool, keyed by
   `GEMINI_API_KEY`, on a pinned model named in `SUPERMATH_WEB_MODEL`.
 - Treat Gemini here as a search backend, not a reasoner. This amends ADR

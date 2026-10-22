@@ -1,6 +1,6 @@
 # 4. Split the toolkit into an MCP crate, separate from the runner
 
-- **Status:** Proposed
+- **Status:** Proposed; amended by 6 (tools move to domain crates)
 - **Date:** 2026-10-22
 
 ## Context
