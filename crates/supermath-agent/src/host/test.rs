@@ -103,7 +103,7 @@ fn every_adapted_tool_matches_its_toolkit_tool() {
             Permission::Read => {
                 assert_eq!(host_tool.permission_level(), PermissionLevel::ReadOnly);
                 let mut expected = ToolPolicy::read_only();
-                if tool.name().starts_with("agent_") {
+                if tool.kind().is_agentic() {
                     expected.runtime.timeout_ms = Some(3_600_000);
                 }
                 assert_eq!(host_tool.policy(), expected, "{}", tool.name());
@@ -253,7 +253,9 @@ fn agent_tools_ask_for_their_own_wall_time_and_primitives_inherit_the_default() 
     let host = host();
     for tool in host.adapt() {
         let asked = tool.policy().runtime.timeout_ms;
-        if tool.name().starts_with("agent_") {
+        // `web_research` is agentic too: it runs its own 180 s deadline,
+        // which the 120 s default cut short.
+        if tool.kind().is_agentic() {
             assert_eq!(asked, Some(3_600_000), "{}", tool.name());
         } else {
             assert_eq!(asked, None, "{}", tool.name());
