@@ -211,6 +211,8 @@ async fn a_child_that_outlives_its_wall_time_is_unknown_never_failed() {
     .await;
     assert_eq!(answer.outcome, Outcome::Unknown);
     assert!(unknowns(&answer).contains("wall time"), "{answer:?}");
+    let session = answer.data["session_id"].as_str().unwrap();
+    assert!(session.starts_with("supermath-demo-reader-"), "{session}");
     assert_eq!(answer.usage.unwrap().tool_calls, 1);
 }
 
@@ -229,6 +231,8 @@ async fn a_cancelled_call_stops_the_child_and_is_unknown() {
         .await;
     assert_eq!(answer.outcome, Outcome::Unknown);
     assert!(unknowns(&answer).contains("cancelled"), "{answer:?}");
+    let session = answer.data["session_id"].as_str().unwrap();
+    assert!(session.starts_with("supermath-demo-reader-"), "{session}");
 }
 
 // ------------------------------------------------------- agent_digest_paper

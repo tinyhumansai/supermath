@@ -48,7 +48,9 @@ entry is one finding.
 
 `source` is exactly one of:
 
-- `arxiv`: `{id, version, label}` or `{id, version, section}`;
+- `arxiv`: `{id, version, label}` or `{id, version, section}`: the version
+  and exactly one locator are required, and an `arxiv` source with neither
+  locator, both, or a blank field is `INVALID_INPUT`;
 - `lean`: `{path, declaration, file_sha256}`, for a claim stated in a file
   of the project's Lean package ([`lean/`](../lean/README.md#files-not-source));
 - `tool`: `{tool, call_id}`, for a computation, with its arguments' digest;
@@ -70,7 +72,7 @@ The statuses and what each needs are in
 | Transition | Allowed when |
 | --- | --- |
 | → `asserted` | always; the default on record |
-| → `cited` | `source` is `arxiv` |
+| → `cited` | `source` is `arxiv` with a version and one locator, and the call's evidence is not supplied |
 | → `checked` | `source` is a successful `calc_*`, `py_*`, or `lean_*` call this process logged for this project, with a stated `frame` (without one: `INVALID_INPUT`); any other tool's call stays `asserted` |
 | → `formalised` | the `LeanEvidence` port ran `lean_check` on `lean.path` at `lean.file_sha256` in this process and got `checked` with no debt for `lean.declaration` |
 | any → lower | a re-check failed or a Mathlib bump broke it; recorded with `supersedes` |
@@ -79,9 +81,10 @@ The statuses and what each needs are in
 status from its arguments: a caller that sends `"status": "formalised"`
 (or `cited`, or `checked`) or `"evidence_origin": "collected"` gets
 `FORBIDDEN`; `"status": "asserted"` and `"evidence_origin": "supplied"` are
-accepted and only pin the claim down, with no check run. A call whose
+accepted and only pin the claim down, with no check run: the claim is
+`asserted` whatever its source, an `arxiv` one included. A call whose
 `CallContext` carries `evidence_origin: supplied` likewise earns nothing
-above `asserted` and runs no check. Given a `lean` source, `ledger_record` runs `lean_check`
+above `asserted` (not even `cited`) and runs no check. Given a `lean` source, `ledger_record` runs `lean_check`
 on the declaration itself and records the status that check earns; given a
 `tool` source, it accepts only a call id from this process's own call log.
 A call id that is not in the log is `FORBIDDEN`, as is one that ran in
@@ -108,6 +111,12 @@ cited facts it records what a paper's proof relies on, from
 [`lit_extract_statements`](../literature/tools/lit_extract_statements.md). A claim
 is no stronger than the weakest claim it uses: the ledger reports a claim's
 **effective status** as the minimum over everything it reaches.
+
+The `uses` graph has no cycles. [`ledger_link`](tools/ledger_link.md)
+refuses an edge from a claim to itself or to a claim that already reaches
+it, and [`ledger_record`](tools/ledger_record.md) applies the same rule,
+with the same `INVALID_INPUT`, when recording an existing claim again adds
+`uses` ids it did not have.
 
 A stored `formalised` holds only for the digest it was earned at, so every
 read asks `LeanEvidence` again: a changed digest, a check that no longer
@@ -145,7 +154,9 @@ for idempotency keys, over the kind, statement, and source. Recording the
 same finding twice is a no-op that returns the existing id: a repeat that
 earns the same status, with no new `uses`, writes nothing. A repeat that
 earns a different one (a re-check, a changed verdict) writes the next
-revision, which is how `any → lower` is recorded.
+revision, which is how `any → lower` is recorded; a repeat with new `uses`
+writes the next revision with the union of old and new, after the cycle
+rule in [Edges](#edges).
 
 Besides the fields above an entry may carry `rationale` (a `lead`),
 `reason` (a `dead_end`), `refutes` (a `refutation`), `frame` (a `tool`
@@ -221,13 +232,18 @@ the shape [`../tools.md`](../tools.md) sets out.
 1. ~~Does CortexDB recall filter by label exactly?~~ **Settled: filter
    client-side.** Recall is by similarity and `/v1/recall` takes no label
    predicate we can rely on, so the ledger recalls a window of the project's
-   most recent events (`DEFAULT_WINDOW`, 200), parses each one's text as an
-   entry, skips what is not an entry, groups by `id`, keeps the highest
-   `revision`, and filters by kind, status, and alignment itself. A single
-   claim is found by recalling its id, which its own JSON contains. The
-   limit is the window: a ledger with more than 200 recent notes can hide
-   older entries from a list, and `ledger_claims` says so in `unknowns`. A
-   local index would remove the limit and is the next step if projects grow
-   past it. `status:` and `kind:` labels are still written, for people.
+   events (`DEFAULT_WINDOW`, 200) ranked by similarity to a query, parses
+   each one's text as an entry, skips what is not an entry, groups by `id`,
+   keeps the highest `revision`, and filters by kind, status, and alignment
+   itself. A single claim is found by recalling its id, which its own JSON
+   contains. The limit is the window: when a recall returns as many notes as
+   the window holds (counted before non-entries are skipped and revisions
+   merged), entries may be missing, and `ledger_claims` and `ledger_bound`
+   say so in `unknowns`. Nothing records when an entry was written (an
+   entry has no timestamp, the recalled notes carry only their text, and
+   `revision` counts within one claim), so reads come in recall order, not
+   time order. A local index would remove the limit and give a time order,
+   and is the next step if projects grow past it. `status:` and `kind:`
+   labels are still written, for people.
 2. When should a project's fact be promoted to the library: on
    `formalised` and `accepted`, or also on `cited`?
