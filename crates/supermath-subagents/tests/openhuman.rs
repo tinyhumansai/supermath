@@ -574,6 +574,18 @@ async fn a_drifting_duel_side_is_nudged_then_cut_through_openhuman(rig: &Rig) {
         answer.data["sides"]["prover"]["ended"][0], "drift",
         "{answer:?}"
     );
+    // The cancelled turn still names its session: the tool minted it before
+    // the turn started.
+    let prover = &answer.data["sides"]["prover"];
+    let sessions = prover["sessions"].as_array().unwrap();
+    assert_eq!(Some(sessions.len() as u64), prover["rounds"].as_u64(), "{prover}");
+    assert!(
+        sessions[0]
+            .as_str()
+            .unwrap()
+            .starts_with("supermath-demo-duel-prover-"),
+        "{prover}"
+    );
     let seen = rig.model.seen_for("duel-prover");
     assert!(
         seen.iter().any(|s| s.nudges == 2),
