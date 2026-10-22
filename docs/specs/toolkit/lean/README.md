@@ -139,8 +139,9 @@ closing tactic in → `lean_check` again.
 
 The allowlist is `propext`, `Classical.choice`, and `Quot.sound`.
 `Lean.ofReduceBool` (from `native_decide`) and `Lean.trustCompiler` are
-**named debt**: the verdict is `checked`, and `data.debt` lists each
-declaration that depends on them, so the ledger can refuse to call it
+**named debt**: the verdict is `checked`, and `provenance.debt` (in
+`lean_check`, `data.provenance.debt`; `lean_build` repeats it per file as
+`debt`) lists each declaration that depends on them, so the ledger can refuse to call it
 `formalised` until the debt is retired. Any other axiom, including one the
 source declares itself, makes the verdict `failed` with code
 `UNTRUSTED_AXIOM` in its diagnostics.

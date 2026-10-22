@@ -118,14 +118,22 @@ async fn recall_memory_keeps_the_tool_contract() {
         Fixture::with_ctx(ctx_for("empty"), json!({"query": "anything"})),
         fixture(json!({"query": "   "})),
         down(json!({"query": "q"})),
+        Fixture::with_ctx(ctx().with_budget(tight), json!({"query": "a long query"})),
     ];
     contract::check(&tool, "ledger", &fixtures).await.unwrap();
-    // The budget refusal is outside RecallMemory's declared codes only if it
-    // were returned as an error; it is a BUDGET_EXCEEDED, so check it apart.
-    let refused = tool
-        .call(&ctx().with_budget(tight), json!({"query": "a long query"}))
-        .await;
-    assert_eq!(refused.code(), Some(ErrorCode::BudgetExceeded));
+}
+
+#[tokio::test]
+async fn recall_memory_asks_cortexdb_for_the_granular_view_of_the_hosts_scope() {
+    let (url, seen) = crate::memory::stub::stub(404, r#"{"error_code":"NOT_FOUND"}"#).await;
+    let tool = RecallMemory::new(Memory::new(url, "k", "ws:t"));
+    let answer = call(&tool, json!({"query": "bounds"})).await;
+    assert_eq!(answer.data, json!({"notes": ""}));
+    let request = seen.await.unwrap();
+    assert!(request.head.starts_with("POST /v1/recall"), "{}", request.head);
+    assert_eq!(request.body["view"], "granular");
+    assert_eq!(request.body["scope"], "ws:t/project:sendov/app:brain");
+    assert_eq!(request.body["query"], "bounds");
 }
 
 #[tokio::test]

@@ -48,6 +48,8 @@ struct State {
     papers: BTreeMap<String, Vec<String>>,
     decls: BTreeMap<String, Option<String>>,
     overrides: BTreeMap<String, Envelope>,
+    answerers: BTreeMap<String, fn(&Value) -> Envelope>,
+    debt: BTreeMap<String, Vec<String>>,
     records: Vec<Value>,
     /// Every non-ledger call so far, by call id: the tool and how it ended.
     /// The real ledger accepts a `tool` source only from such a call.
@@ -136,6 +138,20 @@ impl World {
         self.with(|s| s.overrides.insert(tool.into(), envelope));
     }
 
+    /// Makes `tool` answer whatever `answer` makes of its arguments.
+    pub(crate) fn answer_with(&self, tool: &str, answer: fn(&Value) -> Envelope) {
+        self.with(|s| s.answerers.insert(tool.into(), answer));
+    }
+
+    /// Makes `lean_check` name `debt` in the provenance of every check of
+    /// `path`.
+    pub(crate) fn set_debt(&self, path: &str, debt: &[&str]) {
+        self.with(|s| {
+            s.debt
+                .insert(path.into(), debt.iter().map(|d| (*d).into()).collect())
+        });
+    }
+
     /// Makes `ledger_record` report this status for every entry.
     pub(crate) fn force_status(&self, status: &str) {
         self.with(|s| s.force_status = Some(status.into()));
@@ -183,6 +199,9 @@ impl World {
         }
         if let Some(envelope) = self.with(|s| s.overrides.get(name).cloned()) {
             return envelope;
+        }
+        if let Some(answer) = self.with(|s| s.answerers.get(name).copied()) {
+            return answer(args);
         }
         match name {
             "file_write" => self.file_write(args),
@@ -336,7 +355,7 @@ impl World {
             "provenance": {
                 "toolchain": "leanprover/lean4:v4.20.0", "mathlib": "abc123", "path": path,
                 "file_sha256": digest(&text), "imports_sha256": digest(""), "elapsed_ms": 1,
-                "axioms": {}, "debt": [],
+                "axioms": {}, "debt": self.with(|s| s.debt.get(path).cloned().unwrap_or_default()),
             },
             "targets": targets,
             "errors": errors,
