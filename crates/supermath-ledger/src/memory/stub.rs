@@ -258,7 +258,12 @@ fn handle(state: &Mutex<State>, seen: &Seen) -> (u16, String) {
             .iter()
             .rev()
             .filter(|e| e.scope == scope)
-            .map(|e| (matches(seen.body["query"].as_str().unwrap_or_default(), &e.text), e))
+            .map(|e| {
+                (
+                    matches(seen.body["query"].as_str().unwrap_or_default(), &e.text),
+                    e,
+                )
+            })
             .collect();
         let limit = match state.rank_recall {
             Some(cap) => {

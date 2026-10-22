@@ -12,8 +12,9 @@
 //! [`Entry`], skips notes that are not entries, and filters client-side. The
 //! window is [`DEFAULT_WINDOW`] notes; a ledger larger than that can hide
 //! older entries from a list, which `ledger_claims` reports in `unknowns`.
-//! A single claim is looked up by recalling its id, which its own JSON
-//! contains.
+//! A single claim is looked up exactly, by its `claim:` label
+//! (`GET /v1/events`), never by recall: entries that cite a claim mention its
+//! id more often than the claim itself and outrank it.
 //!
 //! # Trust
 //!
@@ -119,8 +120,18 @@ impl Ledger {
     ///
     /// The same as [`Ledger::entries`].
     pub async fn get(&self, slug: &str, id: &str) -> Result<Option<Entry>> {
-        let found = self.entries(slug, &format!("claim:{id} {id}")).await?;
-        Ok(found.into_iter().find(|entry| entry.id == id))
+        let project = MemoryProject::new(slug)?;
+        let notes = self
+            .memory
+            .notes_labelled(&project, &format!("claim:{id}"))
+            .await?;
+        Ok(latest_revisions(
+            notes
+                .iter()
+                .filter_map(|note| serde_json::from_str::<Entry>(note).ok()),
+        )
+        .into_iter()
+        .find(|entry| entry.id == id))
     }
 
     /// Records a claim and returns the entry that stands for it.

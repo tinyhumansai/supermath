@@ -943,7 +943,13 @@ async fn a_claim_stays_findable_by_id_after_entries_that_cite_it_outrank_it() {
 
     let found = h.ledger.get(SLUG, &claim.id).await.unwrap();
     assert_eq!(found.map(|entry| entry.id), Some(claim.id.clone()));
-    assert!(h.ledger.get(SLUG, "clm_0000000000000000").await.unwrap().is_none());
+    assert!(
+        h.ledger
+            .get(SLUG, "clm_0000000000000000")
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
