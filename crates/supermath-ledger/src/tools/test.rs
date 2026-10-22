@@ -593,6 +593,28 @@ async fn ledger_claims_says_when_the_window_may_hide_entries() {
 }
 
 #[tokio::test]
+async fn a_full_window_warns_even_when_revisions_collapse_to_fewer_claims() {
+    let w = world().await;
+    let narrow = Arc::new(Ledger::clone(&w.ledger).with_window(2));
+    let id = seed(&w, "one").await;
+    w.ledger
+        .set_alignment(&ctx(), &id, crate::types::Alignment::Accepted)
+        .await
+        .unwrap();
+    let listed = call(&LedgerClaims::new(narrow.clone()), json!({})).await;
+    assert_eq!(listed.data["claims"].as_array().unwrap().len(), 1);
+    assert!(
+        listed.unknowns.iter().any(|u| u.contains("window")),
+        "two notes filled a window of two: {:?}",
+        listed.unknowns
+    );
+
+    let roomy = Arc::new(Ledger::clone(&w.ledger).with_window(3));
+    let listed = call(&LedgerClaims::new(roomy), json!({})).await;
+    assert!(listed.unknowns.is_empty(), "{:?}", listed.unknowns);
+}
+
+#[tokio::test]
 async fn ledger_link_keeps_the_tool_contract() {
     let w = world().await;
     let a = seed(&w, "a").await;
