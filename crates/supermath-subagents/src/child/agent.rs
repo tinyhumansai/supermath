@@ -90,6 +90,7 @@ impl ChildRunner for OpenHumanChild {
     async fn run(&self, request: ChildRequest) -> std::result::Result<ChildTurn, String> {
         let ChildRequest {
             prompt,
+            session_id,
             limits,
             belt,
             control,
@@ -99,6 +100,7 @@ impl ChildRunner for OpenHumanChild {
         let mut turn = self
             .agent
             .turn(prompt)
+            .session(session_id.clone())
             .tools(move |_| HostTurnTools::advertised(turn_belt.host_tools()))
             .stop_hook(hook.clone())
             .timeout(limits.wall());
@@ -115,7 +117,7 @@ impl ChildRunner for OpenHumanChild {
         match sent {
             Err(CoreError::TurnCancelled { .. }) => Ok(ChildTurn {
                 reply: String::new(),
-                session_id: String::new(),
+                session_id,
                 turns: tally.iterations,
                 input_tokens: tally.input,
                 output_tokens: tally.output,
@@ -143,7 +145,7 @@ impl ChildRunner for OpenHumanChild {
             }
             Err(CoreError::DeadlineExceeded { .. }) => Ok(ChildTurn {
                 reply: String::new(),
-                session_id: String::new(),
+                session_id,
                 turns: tally.iterations,
                 input_tokens: tally.input,
                 output_tokens: tally.output,
@@ -197,9 +199,9 @@ where
 /// What a turn has spent so far, as the stop hook last saw it.
 #[derive(Debug, Clone, Copy, Default)]
 pub(super) struct Tally {
-    iterations: u32,
-    input: u64,
-    output: u64,
+    pub(super) iterations: u32,
+    pub(super) input: u64,
+    pub(super) output: u64,
 }
 
 /// Stops a turn before its next model call once a limit is reached.

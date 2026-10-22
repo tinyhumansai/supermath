@@ -117,6 +117,8 @@ struct Prepared {
     fact_id: Option<String>,
     /// How the prompt names the thing to formalize.
     subject: String,
+    /// What could not be checked before the turn, for `unknowns`.
+    notes: Vec<String>,
 }
 
 /// What the tool found on disk after the turn.
@@ -186,6 +188,7 @@ impl AgentFormalize {
             version: "v1".to_owned(),
             fact_id: None,
             subject: String::new(),
+            notes: Vec::new(),
         };
         match source {
             Source::Arxiv { id, label } => {
@@ -198,13 +201,21 @@ impl AgentFormalize {
                 if let Some(version) = paper.data.get("version").and_then(Value::as_str) {
                     version.clone_into(&mut prepared.version);
                 }
-                if core.has("lit_extract_statements")
-                    && self.lists_label(ctx, id, label).await == Some(false)
-                {
-                    return Err(Box::new(Envelope::error(
-                        ErrorCode::NotFound,
-                        format!("arXiv:{id} has no statement labelled {label}"),
-                    )));
+                // A registry without the statement list is a deliberate
+                // composition (no literature backend), not a failed check.
+                if core.has("lit_extract_statements") {
+                    match self.lists_label(ctx, id, label).await {
+                        Some(true) => {}
+                        Some(false) => {
+                            return Err(Box::new(Envelope::error(
+                                ErrorCode::NotFound,
+                                format!("arXiv:{id} has no statement labelled {label}"),
+                            )));
+                        }
+                        None => prepared.notes.push(format!(
+                            "the label {label} was not verified: the statement list of arXiv:{id} could not be read"
+                        )),
+                    }
                 }
                 prepared.subject =
                     format!("statement `{label}` of arXiv:{id}; locate it with lit_get_paper");
@@ -427,6 +438,7 @@ impl AgentFormalize {
             Ok(found) => found,
             Err(envelope) => return *envelope,
         };
+        found.unknowns.append(&mut prepared.notes);
         let recorded = match &found.target {
             Some(checked) => {
                 self.record_targets(

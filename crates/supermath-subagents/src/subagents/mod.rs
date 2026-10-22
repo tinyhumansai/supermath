@@ -114,8 +114,10 @@ impl Subagents {
     ///
     /// # Errors
     ///
-    /// [`Error::Agent`] when `OpenHuman` refuses a child;
-    /// [`Error::NotPrimitive`] when a primitive in the registry is agentic.
+    /// [`Error::ReviewerIsFormalizer`] when `config.models` puts the reviewer
+    /// on the formalizer's model; [`Error::Agent`] when `OpenHuman` refuses a
+    /// child; [`Error::NotPrimitive`] when a primitive in the registry is
+    /// agentic.
     pub fn new(
         runtime: &Runtime,
         registry: &ToolRegistry,
@@ -123,6 +125,7 @@ impl Subagents {
         project: &Project,
         config: &SubagentsConfig,
     ) -> Result<Self> {
+        config.models.check()?;
         Self::assemble(
             registry,
             log,

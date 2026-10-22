@@ -222,6 +222,10 @@ pub enum ChildEnd {
 pub struct ChildRequest {
     /// The user message that opens the turn.
     pub prompt: String,
+    /// The fresh `OpenHuman` session the turn runs in, minted by the tool
+    /// before the turn starts so a turn cut short by wall time or
+    /// cancellation still names the session holding its transcript.
+    pub session_id: String,
     /// What the turn may spend.
     pub limits: Limits,
     /// The primitives the child may call.
