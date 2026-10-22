@@ -177,7 +177,12 @@ def largest_free_family(n: int, k: int, seed: int) -> dict:
 | --- | --- |
 | `returned` | the function returned a JSON-serializable value |
 | `raised` | the function raised; the exception is reported |
-| `unknown` | the run exceeded a limit (time, memory, output) or the service refused it by budget |
+| `unknown` | the run exceeded a limit (time, CPU, memory, output) or crashed |
+
+A budget refusal is not an outcome: the host refuses a spent compute budget
+or a timeout over its cap with `BUDGET_EXCEEDED` before the service is
+called, and the service has no budget reply of its own (a `timeout_s` over
+its cap is a `400`, so `INVALID_INPUT`).
 
 A run that times out is `unknown`, never a negative answer about the
 mathematics.
