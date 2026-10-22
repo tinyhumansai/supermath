@@ -39,10 +39,35 @@ cargo run -p supermath-agent -- check
 
 OpenHuman's logs go to `$SUPERMATH_WORKSPACE/logs/` (default `.supermath/`).
 
+## Use the tools from Claude Code (MCP)
+
+`supermath-mcp` serves the whole toolkit (project files, Lean, Python, arXiv
+and web search, the claim ledger, exact arithmetic) over MCP on stdio. It does
+not build OpenHuman, so it installs in a minute rather than ten:
+
+```sh
+cargo install --path crates/supermath-mcp
+claude mcp add supermath -- supermath-mcp serve my-project
+supermath-mcp check            # Lean, Python, CortexDB, Gemini key, arXiv
+```
+
+The project comes from the command line, never from a tool argument. A
+service that is not configured keeps its tools in the list; they answer
+`BACKEND_UNAVAILABLE`. Point it at the stack with `LEAN_URL`, `PYTHON_URL`,
+`CORTEX_API_URL` and `CORTEX_API_KEY`, and `SUPERMATH_PROJECTS` for the
+project workspaces (see `.env.example`). From the compose stack instead:
+
+```sh
+claude mcp add supermath -- docker compose --profile mcp run --rm -T mcp serve my-project
+```
+
+Details: [`docs/specs/toolkit/mcp/README.md`](docs/specs/toolkit/mcp/README.md).
+
 ## Layout
 
 ```text
 Cargo.toml                 # workspace, lints, OpenHuman's [patch] table
+crates/supermath-mcp/      # composes the tool domains; `supermath-mcp serve`
 crates/supermath-agent/    # config, memory, toolkit, runner, `check` binary
 vendor/openhuman/          # OpenHuman, a git submodule
 compose.yaml, Dockerfile   # the stack

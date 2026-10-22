@@ -142,6 +142,13 @@ services:
       CORTEX_API_KEY: ${CORTEX_API_KEY:-supermath-local}
       CORTEX_SCOPE_ROOT: ${CORTEX_SCOPE_ROOT:-ws:supermath}
       SUPERMATH_WORKSPACE: /data/openhuman
+      # The toolkit's project workspaces, and the Lean and Python services
+      # that run what the agent writes there. Those two sit on `internal`
+      # only, so the agent joins `internal` as well as `default` (which it
+      # needs to reach the ladder, CortexDB and the internet).
+      SUPERMATH_PROJECTS: /projects
+      LEAN_URL: http://lean:3150
+      PYTHON_URL: http://python:3160
       RUST_LOG: ${RUST_LOG:-warn}
     command: ["check", "${PROJECT:-scratch}"]
     read_only: true
@@ -153,7 +160,163 @@ services:
       - no-new-privileges:true
     volumes:
       - agent-data:/data
+      - projects:/projects
+    networks:
+      - default
+      - internal
+
+  mcp:
+    # The toolkit over MCP, without the agent: `supermath-mcp serve` on
+    # stdio, for Claude Code and other MCP clients. Opt-in
+    # (`--profile mcp`); it is run on demand, not kept up:
+    #
+    #   claude mcp add supermath -- docker compose --profile mcp run --rm -T mcp serve my-project
+    #
+    # Built from docker/mcp/Dockerfile, which never compiles OpenHuman.
+    profiles: ["mcp"]
+    build:
+      context: .
+      dockerfile: docker/mcp/Dockerfile
+    image: supermath-mcp:local
+    stdin_open: true
+    depends_on:
+      cortexdb:
+        condition: service_healthy
+    environment:
+      SUPERMATH_PROJECTS: /projects
+      LEAN_URL: http://lean:3150
+      PYTHON_URL: http://python:3160
+      CORTEX_API_URL: http://cortexdb:3141
+      CORTEX_API_KEY: ${CORTEX_API_KEY:-supermath-local}
+      CORTEX_SCOPE_ROOT: ${CORTEX_SCOPE_ROOT:-ws:supermath}
+      SUPERMATH_CONTACT: ${SUPERMATH_CONTACT:-}
+      SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    volumes:
+      - projects:/projects
+    networks:
+      - default
+      - internal
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  python:
+    # The pinned Python solver service: one fresh, resource-limited subprocess
+    # per run, no egress (it sits only on the `internal` network), and the
+    # projects volume read-only. See docs/specs/toolkit/python/README.md.
+    build:
+      context: docker/python
+    image: supermath-python:local
+    restart: unless-stopped
+    environment:
+      SUPERMATH_PROJECTS: /projects
+      PY_MAX_TIMEOUT_S: ${SUPERMATH_PY_MAX_TIMEOUT:-900}
+      PY_MEMORY_MB: ${SUPERMATH_PY_MEMORY_MB:-4096}
+      PY_MAX_CONCURRENT: ${SUPERMATH_PY_CONCURRENCY:-2}
+    volumes:
+      - projects:/projects:ro
+    networks:
+      - internal
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=1g
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: ${SUPERMATH_PY_MEM_LIMIT:-8g}
+
+  python-gateway:
+    # Opt-in (`docker compose --profile host up`): publishes the python
+    # service on 127.0.0.1:3160 for tools running on the host, so PYTHON_URL's
+    # default http://localhost:3160 works. Docker does not forward published
+    # ports into an `internal` network, so the service itself publishes none.
+    profiles: ["host"]
+    image: alpine/socat:1.8.0.0
+    restart: unless-stopped
+    depends_on:
+      - python
+    command: ["TCP-LISTEN:3160,fork,reuseaddr", "TCP:python:3160"]
+    ports:
+      - "127.0.0.1:${PYTHON_PORT:-3160}:3160"
+    networks:
+      - internal
+      - default
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  lean:
+    # The pinned Lean service: a toolchain and Mathlib fixed in docker/lean,
+    # pooled REPLs behind a small HTTP API. Untrusted Lean runs here, so it
+    # sits only on the `internal` network (no egress), as an unprivileged user
+    # on a read-only root; the projects volume is the one writable path (it
+    # builds each project's `lean/` package there). The first build downloads
+    # Mathlib's cache and is slow. See docs/specs/toolkit/lean/README.md.
+    build:
+      context: docker/lean
+    image: supermath-lean:local
+    restart: unless-stopped
+    environment:
+      PROJECTS_DIR: /projects
+      LEAN_POOL_SIZE: ${SUPERMATH_LEAN_POOL:-2}
+      HOME: /tmp
+    volumes:
+      - projects:/projects
+    networks:
+      - internal
+    read_only: true
+    tmpfs:
+      - /tmp:rw,nosuid,nodev,size=2g
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 512
+    mem_limit: ${SUPERMATH_LEAN_MEM_LIMIT:-12g}
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3150/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+
+  lean-gateway:
+    # Opt-in (`docker compose --profile host up`): publishes the lean service
+    # on 127.0.0.1:3150 for tools running on the host, so LEAN_URL's
+    # http://localhost:3150 works. Docker does not forward published ports into
+    # an `internal` network, so the service itself publishes none.
+    profiles: ["host"]
+    image: alpine/socat:1.8.0.0
+    restart: unless-stopped
+    depends_on:
+      - lean
+    command: ["TCP-LISTEN:3150,fork,reuseaddr", "TCP:lean:3150"]
+    ports:
+      - "127.0.0.1:${LEAN_PORT:-3150}:3150"
+    networks:
+      - internal
+      - default
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   cortexdb-data:
   agent-data:
+  projects:
+
+networks:
+  # No egress: services on it reach each other and nothing else.
+  internal:
+    internal: true

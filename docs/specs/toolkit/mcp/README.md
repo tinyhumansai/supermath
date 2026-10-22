@@ -1,6 +1,6 @@
 # MCP: composing and serving the toolkit
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Crate:** `supermath-mcp`
 - **Parent:** [`../README.md`](../README.md)
 - **Decisions:** [`../../../adr/0004-split-the-toolkit-into-an-mcp-crate.md`](../../../adr/0004-split-the-toolkit-into-an-mcp-crate.md),
@@ -23,13 +23,34 @@ let toolkit = Toolkit::compose(&config, project)?;
 | `FileObserver` (Lean) | `supermath-files` | `supermath-lean`'s verdict cache |
 | `FileObserver` (Python) | `supermath-files` | `supermath-python`'s run log |
 | `LeanEvidence` | `supermath-ledger` | `supermath-lean`'s checker |
-| `CallLog` | `supermath-tool` | the process-wide call log every tool writes |
+| `ClaimIndex` | `supermath-lean` | the ledger claims recorded through this toolkit ([below](#the-claim-index)) |
+| `CallLog` | `supermath-tool` | the process-wide call log every dispatch writes, and the ledger reads |
 
 A domain whose service is not configured (no `LEAN_URL`, no `PYTHON_URL`,
 no `GEMINI_API_KEY`) still registers its tools; they answer
 `BACKEND_UNAVAILABLE`, so the catalogue does not change shape with the
-environment. `Toolkit::registry()` returns the primitives as a
-`ToolRegistry` for `supermath-subagents`.
+environment. `Toolkit::registry()` returns every domain tool (the primitives
+and `web_search` and `web_research`, which call Gemini) as a `ToolRegistry`
+for `supermath-subagents`; it holds no `agent_*` tool. `Toolkit::dispatch`
+runs a call in a context built from the composed project, records it in the
+call log, and returns the envelope with its `call_id`.
+
+`LeanEvidence` is `LeanBridge`: it runs the checker behind `lean_check` for
+the composed project. A missing file, an undeclared name, or a path that is
+not a Lean file is `EvidenceNotFound`; no service is `EvidenceUnavailable`; a
+check that timed out is `EvidenceTimeout`, which `ledger_record` answers as
+`unknown`.
+
+### The claim index
+
+`lean_blueprint` marks each declaration with the ledger claim that rests on
+it, through `lean`'s synchronous `ClaimIndex`. The ledger is asynchronous
+and remote, so the port cannot query it. `compose` wraps `ledger_record` so
+that every successful call with a `lean` source adds
+`(project, path, declaration) -> claim id` to an in-process index. It
+therefore covers claims recorded through this toolkit since the process
+started; a claim recorded earlier shows `claim_id: null` until it is
+recorded again, which is idempotent.
 
 ### The trust boundary
 
@@ -47,19 +68,29 @@ caller, our runner included:
 
 ```sh
 supermath-mcp serve [project]      # MCP over stdio
-supermath-mcp check                # Lean, Python, CortexDB, Gemini, and arXiv reachable
+supermath-mcp check [project]      # Lean, Python, CortexDB, Gemini, and arXiv reachable
 ```
 
 - `tools/list` serves each tool's name, description, and schema. MCP has no
-  deferral, so every tool is listed; `exposure` and `kind` are published in
-  the tool's annotations.
-- `tools/call` returns the envelope as JSON text content, and sets
-  `isError` on an `error` envelope.
+  deferral, so every tool is listed. MCP's annotations have no field for
+  exposure or kind, so they are published in the tool's `_meta`:
+  `{"supermath": {"exposure": "direct", "kind": "primitive"}}`, with kind
+  `agentic:gemini` for the two Gemini tools.
+- `tools/call` returns the envelope as JSON text content with the call's
+  id added as `call_id` (a `ledger_record` `tool` source quotes it), and
+  sets `isError` on an `error` envelope. An `unknown` envelope is an answer,
+  not an error.
 - The project comes from the command line, never from a tool argument.
 - Read-only tools are annotated `readOnlyHint: true`; `file_write`,
   `file_edit`, and the `ledger_*` writes are not.
 - The `agent_*` tools are not served: they need OpenHuman and live in
   `supermath-subagents`, which this crate does not depend on.
+
+`check` reports the Lean toolchain and Mathlib revision, the Python version
+and lock digest, whether CortexDB is ready, whether `GEMINI_API_KEY` is set
+(never its value), and whether arXiv answers a one-result search. A backend
+whose variable is unset is `skipped`; a configured one that does not answer
+is `FAILED` and the exit status is 1.
 
 Registering it with Claude Code:
 
@@ -80,13 +111,17 @@ The union of the domains' variables, read once and handed to each domain:
 | web | `GEMINI_API_KEY`, `SUPERMATH_WEB_MODEL`, `SUPERMATH_WEB_DAILY_CAP` |
 | ledger | `CORTEX_API_URL`, `CORTEX_API_KEY`, `CORTEX_SCOPE_ROOT` |
 
+Without `CORTEX_API_KEY` the ledger is built with a placeholder key that
+CortexDB refuses, so `recall_memory` and the `ledger_*` tools answer
+`BACKEND_UNAVAILABLE`; `check` reports CortexDB as skipped.
+
 ## Crate
 
 | | |
 | --- | --- |
 | Name | `supermath-mcp` |
-| Depends on | `supermath-tool` and every primitive domain crate (`files`, `lean`, `python`, `literature`, `web`, `ledger`, `calc`), `rmcp` (server and stdio features) |
-| Public API | `Toolkit`, `Config`, and the `serve` entry point |
+| Depends on | `supermath-tool` and every primitive domain crate (`files`, `lean`, `python`, `literature`, `web`, `ledger`, `calc`), `rmcp` 3 (features `server` and `transport-io`) |
+| Public API | `Toolkit` (`compose`, `registry`, `dispatch`, `dispatch_with`, `call_log`), `Config`, `LeanBridge`, `RecordedClaims`, `McpServer`, `serve`, `serve_on`, and the `check` and `cli` modules |
 | Tests | composition with every backend stubbed; the ports wired to the right domains; `tests/serve.rs` performs the MCP handshake, lists tools, and calls `calc_factor` and `file_write` |
 
 ## Acceptance criteria

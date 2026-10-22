@@ -1,0 +1,57 @@
+[package]
+name = "supermath-mcp"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Composes the supermath tool domains into one Toolkit per project, wires their ports, and serves them over MCP."
+readme = "README.md"
+keywords = ["agent", "mathematics", "mcp", "tools"]
+categories = ["science"]
+publish = false
+
+[[bin]]
+name = "supermath-mcp"
+path = "src/main.rs"
+
+[dependencies]
+# The contract: Tool, Envelope, ToolRegistry, CallLog, Project.
+supermath-tool = { path = "../supermath-tool" }
+# Every primitive domain the toolkit composes, and the ports it wires between
+# them (FileObserver, LeanEvidence, ClaimIndex).
+supermath-files = { path = "../supermath-files" }
+supermath-lean = { path = "../supermath-lean" }
+supermath-python = { path = "../supermath-python" }
+supermath-literature = { path = "../supermath-literature" }
+supermath-web = { path = "../supermath-web" }
+supermath-ledger = { path = "../supermath-ledger" }
+supermath-calc = { path = "../supermath-calc" }
+# The LeanEvidence adapter and the claim-recording tool decorator are async
+# trait impls, like the ports they implement.
+async-trait = { workspace = true }
+# Envelopes are serialised to JSON text for MCP, and tool arguments arrive as
+# JSON.
+serde_json = { workspace = true }
+# The crate-wide Error enum.
+thiserror = { workspace = true }
+# The runtime `serve` and `check` run on; `rt-multi-thread` for the binary,
+# `macros` for its entry point.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# The MCP server SDK. No macros: tools are dynamic, so the handler is written
+# by hand. `transport-io` is the stdio transport `serve` speaks.
+rmcp = { version = "3", default-features = false, features = ["server", "transport-io"] }
+
+[dev-dependencies]
+# A scratch projects directory per test.
+tempfile = { workspace = true }
+# Loopback stubs for the Lean service and CortexDB, and the test runtime.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util", "time", "process"] }
+# The ledger's FakeCortex and FakeLeanEvidence.
+supermath-ledger = { path = "../supermath-ledger", features = ["test-support"] }
+# The MCP client the serve tests handshake with, in-process and over a
+# spawned child's stdio.
+rmcp = { version = "3", default-features = false, features = ["server", "client", "transport-io", "transport-child-process"] }
+
+[lints]
+workspace = true
