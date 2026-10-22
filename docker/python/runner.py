@@ -148,6 +148,22 @@ def exact_json(value):
     return json.dumps(value, allow_nan=False, default=_tuple_to_list, separators=(",", ":"))
 
 
+def tuple_paths(value, path=()):
+    """Where `value` holds tuples, as lists of indices and keys from the root.
+
+    JSON has no tuples, so a witness file needs these to rebuild the value
+    the predicate actually saw; `[]` is the value itself.
+    """
+    found = [list(path)] if isinstance(value, tuple) else []
+    if isinstance(value, (list, tuple)):
+        for index, item in enumerate(value):
+            found.extend(tuple_paths(item, (*path, index)))
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            found.extend(tuple_paths(item, (*path, key)))
+    return found
+
+
 def _tuple_to_list(value):
     numpy = sys.modules.get("numpy")
     if numpy is not None and isinstance(value, numpy.generic):
@@ -273,6 +289,7 @@ def search_mode(request, module, progress_path):
                 "frame_size": size,
                 "witness": to_json(value),
                 "witness_json": exact_json(value),
+                "witness_tuples": tuple_paths(value),
             }
         checked += 1
         last_value = value
