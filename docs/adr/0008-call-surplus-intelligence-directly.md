@@ -48,8 +48,10 @@ embeddings, which is all OpenHuman and CortexDB need.
   rather than moving to another marketplace. On 2026-10-22 `venice-embed-1`
   answered `no_healthy_sellers`, so CortexDB could not embed until it
   recovered.
-- `venice-embed-1` is a different embedding space from the ladder's BGE-M3. A
-  CortexDB volume that was filled through the ladder must be recreated, not
-  pointed at the new model.
+- `venice-embed-1` is a different embedding space from the ladder's BGE-M3.
+  compose therefore mounts a new volume, `cortexdb-venice-embed-1`, instead of
+  the ladder-era `cortexdb-data`, so an upgraded deployment starts an empty
+  store rather than mixing spaces in one index. Memory recorded through the
+  ladder is not carried over.
 - Price ceilings and per-seller discounts were the ladder's job and are gone;
   Surplus prices each request at its own market rate.
