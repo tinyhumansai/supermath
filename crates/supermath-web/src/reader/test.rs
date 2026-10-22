@@ -61,17 +61,16 @@ fn ordinary_internet_addresses_are_public() {
 
 #[test]
 fn http_is_upgraded_and_other_schemes_are_refused() {
-    let config = WebConfig::default();
-    let upgraded = normalize(&config, Url::parse("http://example.com/a?b=1").unwrap()).unwrap();
+    let upgraded = normalize(false, Url::parse("http://example.com/a?b=1").unwrap()).unwrap();
     assert_eq!(upgraded.as_str(), "https://example.com/a?b=1");
-    assert!(normalize(&config, Url::parse("https://example.com/").unwrap()).is_ok());
+    assert!(normalize(false, Url::parse("https://example.com/").unwrap()).is_ok());
     for bad in [
         "ftp://example.com/",
         "file:///etc/passwd",
         "data:text/plain,hi",
     ] {
         assert!(matches!(
-            normalize(&config, Url::parse(bad).unwrap()),
+            normalize(false, Url::parse(bad).unwrap()),
             Err(Error::InvalidUrl(_))
         ));
     }
@@ -79,9 +78,7 @@ fn http_is_upgraded_and_other_schemes_are_refused() {
 
 #[test]
 fn private_mode_keeps_plain_http() {
-    let mut config = WebConfig::default();
-    config.allow_private_hosts = true;
-    let kept = normalize(&config, Url::parse("http://127.0.0.1:8080/x").unwrap()).unwrap();
+    let kept = normalize(true, Url::parse("http://127.0.0.1:8080/x").unwrap()).unwrap();
     assert_eq!(kept.scheme(), "http");
 }
 

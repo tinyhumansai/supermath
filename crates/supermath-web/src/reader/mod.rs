@@ -104,13 +104,8 @@ pub(crate) fn refuse_arxiv(url: &Url) -> Result<()> {
     Ok(())
 }
 
-/// Checks the scheme, upgrading `http` to `https` unless private hosts are
-/// allowed.
-pub(crate) fn normalize(config: &WebConfig, url: Url) -> Result<Url> {
-    normalize_with(config.allow_private_hosts, url)
-}
-
-fn normalize_with(private_ok: bool, mut url: Url) -> Result<Url> {
+/// Checks the scheme, upgrading `http` to `https` unless `private_ok`.
+pub(crate) fn normalize(private_ok: bool, mut url: Url) -> Result<Url> {
     match url.scheme() {
         "https" => {}
         "http" if private_ok => {}
@@ -303,12 +298,12 @@ pub(crate) async fn fetch_from(
     vetted: Option<&Origin>,
 ) -> Result<Page> {
     let private_ok = |url: &Url| config.allow_private_hosts || vetted == Some(&url.origin());
-    let mut current = normalize_with(private_ok(&url), url)?;
+    let mut current = normalize(private_ok(&url), url)?;
     for _ in 0..=MAX_REDIRECTS {
         refuse_arxiv(&current)?;
         match hop(config, private_ok(&current), current).await? {
             Hop::Page(page) => return Ok(page),
-            Hop::Redirect(next) => current = normalize_with(private_ok(&next), next)?,
+            Hop::Redirect(next) => current = normalize(private_ok(&next), next)?,
         }
     }
     Err(Error::TooManyRedirects)
