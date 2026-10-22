@@ -62,19 +62,58 @@ struct Args {
     if_sha256: Option<String>,
 }
 
+/// Why no ready `file_edit` call could be built for a closing tactic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum NoEdit {
+    /// The `sorry`'s line is past the end of the file.
+    PastTheEnd,
+    /// The `sorry`'s line holds no `sorry`.
+    NoSorryOnLine,
+    /// The line occurs more than once, so an edit's `old` would be ambiguous.
+    LineNotUnique,
+}
+
+impl NoEdit {
+    /// The note reported in `unknowns`.
+    fn note(self, line: u32) -> String {
+        let why = match self {
+            Self::PastTheEnd => format!("line {line} is past the end of the file"),
+            Self::NoSorryOnLine => format!("line {line} holds no sorry"),
+            Self::LineNotUnique => {
+                "the line holding the sorry is not unique in the file".to_owned()
+            }
+        };
+        format!("{why}, so no ready file_edit call was built")
+    }
+}
+
+/// The tactic that replaces the `sorry` for a closing result: `exact` with
+/// the term `exact?` found, otherwise the tactic as tried.
+fn closing_tactic(result: &TacticResult) -> String {
+    match result.term.as_deref().map(str::trim) {
+        Some(term) if !term.is_empty() => format!("exact {term}"),
+        _ => result.tactic.clone(),
+    }
+}
+
 /// The `file_edit` call that replaces the `sorry` at `position` with
-/// `tactic`, or `None` when the line is not unique in the file (an edit's
-/// `old` must occur exactly once).
+/// `tactic`, or why none can be built.
 fn edit_call(
     path: &str,
     text: &str,
     sha256: &str,
     position: &Position,
     tactic: &str,
-) -> Option<String> {
-    let line = text.lines().nth(position.line as usize - 1)?;
-    if line.is_empty() || text.matches(line).count() != 1 {
-        return None;
+) -> std::result::Result<String, NoEdit> {
+    let line = text
+        .lines()
+        .nth(position.line as usize - 1)
+        .ok_or(NoEdit::PastTheEnd)?;
+    if !line.contains("sorry") {
+        return Err(NoEdit::NoSorryOnLine);
+    }
+    if text.matches(line).count() != 1 {
+        return Err(NoEdit::LineNotUnique);
     }
     let chars: Vec<char> = line.chars().collect();
     let column = position.column as usize;
@@ -88,7 +127,7 @@ fn edit_call(
     } else {
         line.replacen("sorry", tactic, 1)
     };
-    Some(format!(
+    Ok(format!(
         "file_edit {}",
         json!({"path": path, "edits": [{"old": line, "new": replaced}], "if_sha256": sha256})
     ))
@@ -173,14 +212,10 @@ impl LeanTryTactics {
             "results": results,
         }));
         if let Some(winner) = results.iter().find(|r| r.result == "closes") {
-            let text = winner.term.as_deref().unwrap_or(&winner.tactic);
-            match edit_call(path.as_str(), &file.text, &file.sha256, &args.sorry, text) {
-                Some(call) => envelope = envelope.with_next([call]),
-                None => {
-                    envelope = envelope.with_unknown(
-                        "the line holding the sorry is not unique in the file, so no ready file_edit call was built",
-                    );
-                }
+            let tactic = closing_tactic(winner);
+            match edit_call(path.as_str(), &file.text, &file.sha256, &args.sorry, &tactic) {
+                Ok(call) => envelope = envelope.with_next([call]),
+                Err(why) => envelope = envelope.with_unknown(why.note(args.sorry.line)),
             }
         }
         Ok(envelope)

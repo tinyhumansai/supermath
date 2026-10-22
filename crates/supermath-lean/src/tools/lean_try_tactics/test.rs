@@ -7,7 +7,7 @@
     clippy::panic
 )]
 
-use super::{Position, edit_call, tidy};
+use super::{NoEdit, Position, closing_tactic, edit_call, tidy};
 use crate::client::TacticResult;
 
 fn at(line: u32, column: u32) -> Position {
@@ -33,11 +33,43 @@ fn a_sorry_not_at_the_column_is_still_replaced_in_its_line() {
 }
 
 #[test]
-fn no_call_is_built_when_the_line_repeats_or_is_missing() {
+fn no_call_is_built_when_the_line_repeats_is_missing_or_holds_no_sorry() {
     let text = "  sorry\n  sorry\n";
-    assert!(edit_call("p", text, "s", &at(1, 2), "rfl").is_none());
-    assert!(edit_call("p", text, "s", &at(9, 0), "rfl").is_none());
-    assert!(edit_call("p", "\n", "s", &at(1, 0), "rfl").is_none());
+    assert_eq!(
+        edit_call("p", text, "s", &at(1, 2), "rfl"),
+        Err(NoEdit::LineNotUnique)
+    );
+    assert_eq!(
+        edit_call("p", text, "s", &at(9, 0), "rfl"),
+        Err(NoEdit::PastTheEnd)
+    );
+    assert_eq!(
+        edit_call("p", "\n", "s", &at(1, 0), "rfl"),
+        Err(NoEdit::NoSorryOnLine)
+    );
+}
+
+#[test]
+fn each_reason_names_itself_in_the_note() {
+    assert!(NoEdit::PastTheEnd.note(9).starts_with("line 9 is past the end"));
+    assert!(NoEdit::NoSorryOnLine.note(3).starts_with("line 3 holds no sorry"));
+    assert!(NoEdit::LineNotUnique.note(1).contains("not unique"));
+}
+
+#[test]
+fn a_found_term_becomes_an_exact_tactic_and_otherwise_the_tactic_is_kept() {
+    let mut result = TacticResult {
+        tactic: "exact?".into(),
+        result: "closes".into(),
+        term: Some("Nat.add_comm a b".into()),
+        ..TacticResult::default()
+    };
+    assert_eq!(closing_tactic(&result), "exact Nat.add_comm a b");
+    result.term = Some("  ".into());
+    assert_eq!(closing_tactic(&result), "exact?");
+    result.term = None;
+    result.tactic = "omega".into();
+    assert_eq!(closing_tactic(&result), "omega");
 }
 
 #[test]
