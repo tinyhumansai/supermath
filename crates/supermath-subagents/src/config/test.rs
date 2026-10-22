@@ -18,13 +18,13 @@ fn defaults_are_the_documented_surplus_models() {
 fn each_variable_overrides_only_its_own_model() {
     let models = Models::from_lookup(|name| match name {
         "SUPERMATH_FORMALIZER_MODEL" => Some("kimi-k3".into()),
-        "SUPERMATH_REVIEWER_MODEL" => Some("glm-5.3".into()),
+        "SUPERMATH_REVIEWER_MODEL" => Some("kimi-k2.6".into()),
         _ => None,
     })
     .unwrap();
     assert_eq!(models.reader, "deepseek-v4.1-flash");
     assert_eq!(models.formalizer, "kimi-k3");
-    assert_eq!(models.reviewer, "glm-5.3");
+    assert_eq!(models.reviewer, "kimi-k2.6");
 }
 
 #[test]
