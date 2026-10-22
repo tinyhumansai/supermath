@@ -318,6 +318,37 @@ async fn asserted_and_supplied_only_pin_a_claim_down() {
     assert_eq!(w.lean.calls().len(), 0, "no check ran for either");
 }
 
+fn arxiv_source() -> Value {
+    json!({"arxiv": {"id": "2012.04125", "version": "v3", "label": "thm:main"}})
+}
+
+#[tokio::test]
+async fn asserted_and_supplied_pin_an_arxiv_claim_below_cited() {
+    let w = world().await;
+    let tool = LedgerRecord::new(w.ledger.clone());
+    let cited = call(
+        &tool,
+        json!({"kind": "fact", "statement": "cited", "source": arxiv_source()}),
+    )
+    .await;
+    assert_eq!(cited.data["status"], "cited");
+    let pinned = call(
+        &tool,
+        json!({"kind": "fact", "statement": "pinned",
+        "source": arxiv_source(), "status": "asserted"}),
+    )
+    .await;
+    assert_eq!(pinned.data["status"], "asserted");
+    let relabelled = call(
+        &tool,
+        json!({"kind": "fact", "statement": "relabelled",
+        "source": arxiv_source(), "evidence_origin": "supplied"}),
+    )
+    .await;
+    assert_eq!(relabelled.data["status"], "asserted");
+    assert_eq!(relabelled.data["evidence_origin"], "supplied");
+}
+
 #[tokio::test]
 async fn a_lean_timeout_is_unknown_not_an_error() {
     let w = world().await;

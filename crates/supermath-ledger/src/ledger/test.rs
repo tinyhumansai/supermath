@@ -316,6 +316,26 @@ async fn supplied_evidence_never_earns_checked_or_formalised() {
     );
 }
 
+fn arxiv(label: Option<&str>, section: Option<&str>) -> Source {
+    Source::Arxiv {
+        id: "2012.04125".into(),
+        version: "v3".into(),
+        label: label.map(str::to_string),
+        section: section.map(str::to_string),
+    }
+}
+
+#[tokio::test]
+async fn supplied_evidence_never_earns_cited() {
+    let h = harness().await;
+    let supplied_ctx = ctx().with_evidence_origin(EvidenceOrigin::Supplied);
+    let claim = Claim::new(Kind::Fact, "a cited lemma", arxiv(Some("thm:main"), None));
+    let recorded = h.ledger.record(&supplied_ctx, claim).await.unwrap();
+    assert_eq!(recorded.entry.status, Status::Asserted);
+    assert_eq!(recorded.entry.evidence_origin, EvidenceOrigin::Supplied);
+    assert_eq!(recorded.notes.len(), 1, "the reason the status is low");
+}
+
 #[tokio::test]
 async fn a_clean_lean_check_earns_formalised_with_alignment_not_reviewed() {
     let h = harness().await;
