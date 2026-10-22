@@ -478,3 +478,16 @@ test host::test::an_unknown_tool_answers_not_found ... ok
 test host::test::the_catalogue_has_reads_writes_and_both_exposures ... ok
 test host::test::a_primitive_call_returns_the_envelope_with_its_call_id_and_is_logged ... ok
 test host::test::tool_names_list_the_toolkit_then_the_agent_tools ... ok
+test runner::test::the_agent_scope_lists_the_toolkit_the_agent_tools_and_tool_search_and_refuses_an_unnameable_project ... ok
+
+test result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.55s
+
+     Running unittests src/main.rs (target/llvm-cov-target/debug/deps/supermath_agent-f0efd4b321990438)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/check.rs (target/llvm-cov-target/debug/deps/check-08a78c95b80de865)
+
+running 3 tests
