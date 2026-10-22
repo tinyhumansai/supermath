@@ -114,6 +114,40 @@ async fn only_search_is_direct_and_every_tool_is_a_read() {
     }
 }
 
+#[tokio::test]
+async fn a_limit_above_fifty_is_clamped_to_fifty_not_rejected() {
+    let (stub, literature) = setup().await;
+    let search = call(
+        &literature,
+        "lit_search_arxiv",
+        json!({"query": "Sendov", "limit": 500}),
+    )
+    .await;
+    assert!(search.is_ok(), "{search:?}");
+    assert_eq!(stub.requests()[0].query("max_results").as_deref(), Some("50"));
+    let citations = call(
+        &literature,
+        "lit_citations",
+        json!({"arxiv_id": "2401.00001", "direction": "references", "limit": 500}),
+    )
+    .await;
+    assert!(citations.is_ok(), "{citations:?}");
+    assert_eq!(stub.requests()[1].query("limit").as_deref(), Some("50"));
+    let statements = call(
+        &literature,
+        "lit_extract_statements",
+        json!({"arxiv_id": "2401.00001", "limit": 500}),
+    )
+    .await;
+    assert!(statements.is_ok(), "{statements:?}");
+
+    let oeis = Stub::start(oeis_pages(80)).await;
+    let literature = Literature::new(&config(&oeis.base)).unwrap();
+    let out = call(&literature, "lit_oeis", json!({"query": "many", "limit": 500})).await;
+    assert_eq!(out.data["sequences"].as_array().unwrap().len(), 50);
+    assert_eq!(out.cursor.as_deref(), Some("50"));
+}
+
 // --- lit_search_arxiv -----------------------------------------------------
 
 #[tokio::test]
