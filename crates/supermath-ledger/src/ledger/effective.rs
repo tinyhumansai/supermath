@@ -39,6 +39,36 @@ impl Ledger {
     /// The memory errors of [`Ledger::get`]. A Lean check that cannot run
     /// lowers the claim to `asserted` with a note; it is not an error.
     pub async fn effective(&self, slug: &str, entries: &[Entry]) -> Result<Vec<Effective>> {
+        let (nodes, standings) = self.graph(slug, entries).await?;
+        let mut memo = BTreeMap::new();
+        Ok(entries
+            .iter()
+            .map(|e| resolve(&e.id, &nodes, &standings, &mut memo, &mut Vec::new()))
+            .collect())
+    }
+
+    /// The effective status of one entry.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`Ledger::effective`].
+    pub(crate) async fn effective_of(&self, slug: &str, entry: &Entry) -> Result<Effective> {
+        let (nodes, standings) = self.graph(slug, std::slice::from_ref(entry)).await?;
+        Ok(resolve(
+            &entry.id,
+            &nodes,
+            &standings,
+            &mut BTreeMap::new(),
+            &mut Vec::new(),
+        ))
+    }
+
+    /// Everything `entries` reach, and each claim's own standing.
+    async fn graph(
+        &self,
+        slug: &str,
+        entries: &[Entry],
+    ) -> Result<(BTreeMap<String, Entry>, BTreeMap<String, Standing>)> {
         let roots: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
         let cache = entries.iter().map(|e| (e.id.clone(), e.clone())).collect();
         let nodes = self.closure(slug, &roots, cache).await?;
@@ -46,11 +76,7 @@ impl Ledger {
         for (id, entry) in &nodes {
             standings.insert(id.clone(), self.standing(entry).await);
         }
-        let mut memo = BTreeMap::new();
-        Ok(roots
-            .iter()
-            .map(|id| resolve(id, &nodes, &standings, &mut memo, &mut Vec::new()))
-            .collect())
+        Ok((nodes, standings))
     }
 
     /// Re-asks Lean about a `formalised` claim; every other status stands.

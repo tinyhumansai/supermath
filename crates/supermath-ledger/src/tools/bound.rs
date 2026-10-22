@@ -11,7 +11,7 @@ use supermath_tool::{
 
 use super::{failure, parse, source_schema};
 use crate::ledger::{BoundRequest, Ledger};
-use crate::types::{Direction, Entry, Source};
+use crate::types::{Direction, Entry, Source, Status};
 
 /// Records a bound if it improves on the best so far.
 #[derive(Debug, Clone)]
@@ -103,7 +103,7 @@ impl Tool for LedgerBound {
                 let recorded = &outcome.recorded.entry;
                 let mut envelope = Envelope::ok(json!({
                     "improved": outcome.improved,
-                    "best": best_json(&outcome.best),
+                    "best": best_json(&outcome.best, outcome.best_effective.status),
                     "recorded": {
                         "id": recorded.id,
                         "kind": recorded.kind,
@@ -111,8 +111,19 @@ impl Tool for LedgerBound {
                         "created": outcome.recorded.created,
                     },
                 }));
-                for note in outcome.recorded.notes {
+                let notes = outcome
+                    .recorded
+                    .notes
+                    .into_iter()
+                    .chain(outcome.best_effective.notes);
+                for note in notes {
                     envelope = envelope.with_unknown(note);
+                }
+                if outcome.window_full {
+                    envelope = envelope.with_unknown(format!(
+                        "{}, so an older, better bound may have been missed",
+                        self.ledger.window_note()
+                    ));
                 }
                 envelope
             }
@@ -121,11 +132,13 @@ impl Tool for LedgerBound {
     }
 }
 
-fn best_json(entry: &Entry) -> Value {
+/// The best bound as the tool answers with it. `status` is the effective
+/// status, as `ledger_claims` reports it.
+fn best_json(entry: &Entry, status: Status) -> Value {
     json!({
         "id": entry.id,
         "statement": entry.statement,
-        "status": entry.status,
+        "status": status,
         "value": entry.bound.as_ref().map(|b| &b.value),
     })
 }

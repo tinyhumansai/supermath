@@ -157,11 +157,7 @@ impl LedgerClaims {
             .get(slug, id)
             .await?
             .ok_or_else(|| Error::ClaimNotFound(id.to_string()))?;
-        let effective = self
-            .ledger
-            .effective(slug, std::slice::from_ref(&entry))
-            .await?
-            .remove(0);
+        let effective = self.ledger.effective_of(slug, &entry).await?;
         let mut envelope = Envelope::ok(json!({
             "claim": entry_json(&entry),
             "effective_status": effective.status,

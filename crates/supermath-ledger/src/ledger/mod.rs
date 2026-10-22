@@ -403,12 +403,7 @@ impl Ledger {
         } else {
             best_before.unwrap_or_else(|| recorded.entry.clone())
         };
-        let best_effective = self
-            .effective(slug, std::slice::from_ref(&best))
-            .await?
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| Effective::of(&best));
+        let best_effective = self.effective_of(slug, &best).await?;
         Ok(BoundOutcome {
             improved: improved && !already_recorded,
             best,
