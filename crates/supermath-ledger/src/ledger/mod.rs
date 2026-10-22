@@ -29,7 +29,7 @@ mod types;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use supermath_tool::{CallContext, CallLog};
+use supermath_tool::{CallContext, CallLog, EvidenceOrigin};
 
 use crate::error::{Error, Result};
 use crate::evidence::LeanEvidence;
