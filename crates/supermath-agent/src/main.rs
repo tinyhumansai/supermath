@@ -48,17 +48,17 @@ fn main() -> ExitCode {
             prompt_file: prompt_file.to_string(),
             turns: NonZeroUsize::MIN,
         },
-        ["solve", project, prompt_file, turns] => match turns.parse() {
-            Ok(turns) => Command::Solve {
+        ["solve", project, prompt_file, turns] => {
+            let Ok(turns) = turns.parse() else {
+                eprintln!("error: turns must be a positive number, not `{turns}`\n{USAGE}");
+                return ExitCode::from(1);
+            };
+            Command::Solve {
                 project: project.to_string(),
                 prompt_file: prompt_file.to_string(),
                 turns,
-            },
-            Err(_) => {
-                eprintln!("error: turns must be a positive number, not `{turns}`\n{USAGE}");
-                return ExitCode::from(1);
             }
-        },
+        }
         ["-h" | "--help"] => {
             println!("{USAGE}");
             return ExitCode::SUCCESS;

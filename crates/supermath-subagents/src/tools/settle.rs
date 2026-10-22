@@ -10,7 +10,7 @@ use supermath_tool::{
     Backend, CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool, Usage,
 };
 
-use super::shared::{Agentic, parse_args};
+use super::shared::{Agentic, Refusal, parse_args};
 use crate::config::DuelSettings;
 use crate::duel::{Duel, Settled, Side, Target, Verdict, Win, review_accepts};
 use crate::limits::{BudgetArg, Limits, budget_schema};
@@ -91,7 +91,7 @@ impl AgentSettle {
         ctx: &CallContext,
         claim_id: &str,
         review_id: Option<&str>,
-    ) -> Result<Value, Box<Envelope>> {
+    ) -> Result<Value, Refusal> {
         let mut claim = self.prover.claim(ctx, claim_id).await?;
         if let Some(review_id) = review_id
             && claim.get("alignment").and_then(Value::as_str) != Some("accepted")
