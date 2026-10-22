@@ -11,8 +11,8 @@ use supermath_tool::{Budget, CallContext, Envelope, ErrorCode, InMemoryCallLog, 
 use tokio::sync::Notify;
 
 use super::board::{Board, Event};
-use super::guard::within;
 use super::guard::WriteGuard;
+use super::guard::within;
 use super::post::{DuelBoard, DuelPost, MAX_POSTS};
 use super::side_scope;
 use super::target::{Target, module_of};
@@ -1029,6 +1029,8 @@ async fn a_drifting_side_is_restarted_in_a_fresh_turn() {
 async fn agent_settle_keeps_the_tool_contract() {
     let world = world_with("accepted");
     world.add_claim(claim("disputed"));
+    world.add_claim(claim("accepted"));
+    world.set_verdict("lean/Supermath/Duel/C3/Statement.lean", "failed");
     let tool = settle_tool(&world, &quitter(), &quitter());
     let fixture = |args: Value| supermath_tool::contract::Fixture::with_ctx(ctx(), args);
     let broke = ctx().with_budget(Budget::agentic(1, 1));
@@ -1040,6 +1042,7 @@ async fn agent_settle_keeps_the_tool_contract() {
     let fixtures = [
         fixture(json!({"claim_id": "clm_1"})),
         fixture(json!({"claim_id": "clm_2"})),
+        fixture(json!({"claim_id": "clm_3"})),
         fixture(json!({"claim_id": "clm_404"})),
         fixture(json!({})),
         supermath_tool::contract::Fixture::with_ctx(broke, json!({"claim_id": "clm_1"})),
