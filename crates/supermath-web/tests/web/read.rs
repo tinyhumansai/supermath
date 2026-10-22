@@ -364,7 +364,7 @@ async fn a_redirect_to_arxiv_is_refused_like_a_direct_arxiv_url() {
     );
     let listing = read(&stub, "/to-listing").await;
     assert_eq!(listing.code(), Some(ErrorCode::InvalidInput), "{listing:?}");
-    assert!(listing.next.is_empty());
+    assert_eq!(listing.next, Vec::<String>::new());
 }
 
 #[tokio::test]
