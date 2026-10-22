@@ -763,8 +763,9 @@ async fn an_exhausted_product_frame_is_ok_and_names_the_box() {
     let answer = search(&rig, args).await;
     assert_eq!(answer.outcome, Outcome::Ok);
     assert_eq!(data(&answer)["result"], "exhausted");
+    let description = data(&answer)["frame_description"].as_str().unwrap().to_owned();
     let coverage = answer.coverage.unwrap();
-    assert_eq!(coverage.searched, [data(&answer)["frame_description"].as_str().unwrap()]);
+    assert_eq!(coverage.searched, [description]);
     assert!(coverage.searched[0].contains("0 to 2"), "{:?}", coverage.searched);
 }
 
