@@ -29,7 +29,8 @@ selection, a toolkit, and memory.
 
 - How the agent attacks a problem: the loop, prompts, roles, and verdicts.
   They are designed later, with the research notes as input.
-- Formal proof checking.
+- The conjecture toolkit, including Lean checking. It is specified in
+  [`toolkit/`](toolkit/README.md).
 - Multi-tenant memory. One deployment owns one scope root.
 
 ## Behavior
@@ -112,5 +113,6 @@ the server stored without indexing is an error.
    reports.
 2. Should memory move behind OpenHuman's own memory-engine seam, so every
    OpenHuman agent sees CortexDB?
-3. Which tools come next: Jacobian over MCP, a Lean checker, or a sandboxed
-   Python?
+3. ~~Which tools come next?~~ Answered by [`toolkit/`](toolkit/README.md):
+   a pinned Lean service, literature tools, a claim ledger, sub-agents, and
+   Jacobian over MCP.

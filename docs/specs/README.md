@@ -20,4 +20,12 @@ After the specification is accepted, create a linked implementation plan in
 [`../plans/`](../plans/README.md). Keep code snippets small enough to clarify
 the contract; production code still belongs under `src/`.
 
-See [`agent-runner.md`](agent-runner.md) for an example.
+A specification that outgrows 500 lines becomes a directory with a
+`README.md`, as [`toolkit/`](toolkit/README.md) does.
+
+## Index
+
+- [`agent-runner.md`](agent-runner.md): the OpenHuman runner, ladder, Jev,
+  and CortexDB wiring.
+- [`toolkit/`](toolkit/README.md): the Lean-backed conjecture toolkit:
+  literature, Lean, the claim ledger, sub-agents, and MCP serving.

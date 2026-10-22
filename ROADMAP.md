@@ -10,8 +10,13 @@
 
 ## Next
 
+- the conjecture toolkit, in five phases
+  ([spec](docs/specs/toolkit/README.md), [plan](docs/plans/lean-toolkit.md)):
+  a pinned Lean service and `lean_check`; arXiv and OEIS; a claim ledger in
+  CortexDB; sub-agents that digest papers and formalize statements in Lean;
+  the toolkit served over MCP; Jacobian, counterexample search, and
+  refutation
 - design how the agent works on a problem, drawing on `docs/research/`
-- grow the toolkit (Jacobian over MCP, a Lean checker, or a sandboxed Python)
 
 ## Out Of Scope
 
