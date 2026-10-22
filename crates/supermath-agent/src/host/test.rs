@@ -101,12 +101,11 @@ fn every_adapted_tool_matches_its_toolkit_tool() {
         match tool.permission() {
             Permission::Read => {
                 assert_eq!(host_tool.permission_level(), PermissionLevel::ReadOnly);
-                assert_eq!(
-                    host_tool.policy(),
-                    ToolPolicy::read_only(),
-                    "{}",
-                    tool.name()
-                );
+                let mut expected = ToolPolicy::read_only();
+                if tool.name().starts_with("agent_") {
+                    expected.runtime.timeout_ms = Some(3_600_000);
+                }
+                assert_eq!(host_tool.policy(), expected, "{}", tool.name());
             }
             Permission::Write => {
                 assert_eq!(host_tool.permission_level(), PermissionLevel::Write);
@@ -253,7 +252,7 @@ fn agent_tools_ask_for_their_own_wall_time_and_primitives_inherit_the_default() 
     let host = host();
     for tool in host.adapt() {
         let asked = tool.policy().runtime.timeout_ms;
-        if tool.kind().is_agentic() {
+        if tool.name().starts_with("agent_") {
             assert_eq!(asked, Some(3_600_000), "{}", tool.name());
         } else {
             assert_eq!(asked, None, "{}", tool.name());
