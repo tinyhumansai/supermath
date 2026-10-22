@@ -1,0 +1,21 @@
+\documentclass{amsart}
+\usepackage{amsthm}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}{Definition}
+\newtheorem{conjecture}{Conjecture}
+\newtheorem{claim}{Claim}
+\newtheorem*{remark}{Remark}
+\newcommand{\R}{\mathbb{R}}
+% \newtheorem{ghost}{Ghost}
+\begin{document}
+\maketitle
+\input{sections/intro}
+\section{Main results}\label{sec:main}
+\input{sections/main.tex}
+\appendix
+\section{Details}
+\begin{lemma}\label{lem:app}
+An appendix lemma about $\R^n$.
+\end{lemma}
+\end{document}

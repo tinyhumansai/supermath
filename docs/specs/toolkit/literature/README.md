@@ -1,6 +1,6 @@
 # Literature tools
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Crate:** `supermath-literature`
 - **Parent:** [`README.md`](../README.md)
 
@@ -28,21 +28,40 @@ says so only for the sources it covered.
   queues requests to keep that rate for the whole process, not per tool
   call, and sends a `User-Agent` naming supermath and a contact address
   (`SUPERMATH_CONTACT`).
-- Responses are cached on disk under the workspace, keyed by URL, for 24
-  hours for searches and indefinitely for a versioned paper (`2310.01234v2`
-  does not change).
-- An HTTP 429 or 503 becomes `RATE_LIMITED` with `retry_after_ms`. The tool
-  never retries silently past its budget.
+- Responses are cached on disk under `$SUPERMATH_CACHE/literature`, keyed by
+  the SHA-256 of the URL, for 24 hours for searches (and for the metadata of
+  an unversioned id) and indefinitely for a versioned paper (`2310.01234v2`
+  does not change). `get_paper` and `extract_statements` pin the e-print to
+  the version the metadata names, so the source is fetched once. With
+  `SUPERMATH_CACHE` unset there is no cache. `coverage.cached_age` is the
+  age of a cached answer in seconds.
+- An HTTP 429 or 503 becomes `RATE_LIMITED` with `retry_after_ms`, from the
+  `Retry-After` header (seconds) or a per-source default (3 s arXiv, 1 s the
+  others). The tool never retries silently past its budget.
+- A timeout is `TIMEOUT`; a refused connection, any other bad status, or an
+  undecodable answer is `BACKEND_UNAVAILABLE`.
+
+### Reading the source
+
+An e-print is a gzipped tarball, a single gzipped `.tex`, a bare tarball, or
+a PDF; the reader tells them apart by magic bytes. `\input` and `\include`
+are followed (cycles and missing files go to `unknowns`), `%` comments are
+removed, and argument-free macros (`\newcommand`, `\providecommand`,
+`\def`, `\DeclareMathOperator`) are expanded. Macros with arguments and
+`\renewcommand` are left as written. **PDF text is not extracted**: no
+parser for it ships here, so a PDF-only paper (or an e-print arXiv does not
+serve) returns its metadata and an `unknowns` entry, and `unknown` when a
+section or statements were asked for.
 
 ## Crate
 
 | | |
 | --- | --- |
 | Name | `supermath-literature` |
-| Depends on | `supermath-tool`, `reqwest`, an Atom/XML parser, `flate2` and `tar` for e-prints, `serde_json`, `tokio` |
-| Public API | `ArxivClient`, `SemanticScholarClient`, `OeisClient`, `RateLimiter`, `ResponseCache`, `flatten_latex`, `extract_statements`, and the tools below |
-| Configuration | `SUPERMATH_CONTACT`, `SEMANTIC_SCHOLAR_API_KEY`, `SUPERMATH_CACHE` |
-| Tests | recorded fixtures served by a loopback stub; the rate limiter on a fake clock; `live_arxiv_search` gated by `SUPERMATH_LIVE_ARXIV` |
+| Depends on | `supermath-tool`, `reqwest`, `quick-xml` (the Atom feed), `flate2` and `tar` for e-prints, `serde_json`, `tokio` |
+| Public API | `Literature` (builds the clients and `tools()`), `LiteratureConfig`, `ArxivClient`, `SemanticScholarClient`, `OeisClient`, `RateLimiter`, `ResponseCache`, `Clock`, `flatten_latex`, `extract_statements`, and the tools below |
+| Configuration | `SUPERMATH_CONTACT`, `SEMANTIC_SCHOLAR_API_KEY`, `SUPERMATH_CACHE`; base URLs `SUPERMATH_ARXIV_API_URL`, `SUPERMATH_ARXIV_EPRINT_URL`, `SUPERMATH_SCHOLAR_URL`, `SUPERMATH_OEIS_URL` (tests point these at loopback stubs) |
+| Tests | recorded fixtures under `tests/fixtures/` served by a loopback stub; the rate limiter on a fake clock; `live_literature_arxiv` gated by `SUPERMATH_LIVE_ARXIV` |
 
 ## Tools
 
@@ -71,7 +90,7 @@ the shape [`../tools.md`](../tools.md) sets out.
 - `lit_extract_statements` is tested on a fixture with `\newtheorem` variants,
   shared counters, `\input` files, and an unlabeled theorem.
 - The rate limiter is tested with a fake clock, never wall time.
-- `live_arxiv_search`, gated by `SUPERMATH_LIVE_ARXIV`, searches arXiv once.
+- `live_literature_arxiv`, gated by `SUPERMATH_LIVE_ARXIV`, searches arXiv once.
 
 ## Open questions
 

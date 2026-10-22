@@ -1,0 +1,50 @@
+[package]
+name = "supermath-literature"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Literature tools for the supermath agent: arXiv search and LaTeX reading, statement extraction, Semantic Scholar citations, and OEIS."
+readme = "README.md"
+keywords = ["agent", "mathematics", "arxiv", "oeis"]
+categories = ["science"]
+publish = false
+
+[dependencies]
+# `#[async_trait]` on the `Tool` impls and the `Clock` port.
+async-trait = { workspace = true }
+# gzip and zlib decoding of arXiv e-prints (a gzipped tarball or one gzipped
+# `.tex` file); only this crate reads e-prints, so it is not a workspace dep.
+flate2 = "1"
+# Parses arXiv's Atom feed. Its pull reader is enough; no DOM is built.
+quick-xml = "0.38"
+# HTTP client for arXiv, Semantic Scholar and OEIS; rustls, no system OpenSSL.
+reqwest = { workspace = true }
+# Typed tool arguments and the OEIS and Semantic Scholar response shapes.
+serde = { workspace = true }
+# `Envelope::data` and untyped upstream JSON.
+serde_json = { workspace = true }
+# Keys the on-disk response cache by the SHA-256 of the request URL.
+sha2 = { workspace = true }
+# Hex-encodes those cache keys into file names.
+hex = { workspace = true }
+# Reads the files of an arXiv source tarball; only this crate unpacks them.
+tar = "0.4"
+# The crate-wide `Error` enum.
+thiserror = { workspace = true }
+# `time` for the rate limiter's sleep, `fs` for the cache, `sync` for its lock.
+tokio = { workspace = true, features = ["fs", "sync", "time"] }
+# Builds and validates the arXiv, Semantic Scholar and OEIS request URLs.
+url = { workspace = true }
+# The `Tool` trait, `Envelope`, and error codes every tool here speaks.
+supermath-tool = { path = "../supermath-tool" }
+
+[dev-dependencies]
+# Writes the cache directory in tests.
+tempfile = { workspace = true }
+# Runs async tests and the loopback stub server (`net`, `io-util`).
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "time"] }
+
+[lints]
+workspace = true
