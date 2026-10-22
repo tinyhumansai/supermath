@@ -232,25 +232,21 @@ the shape [`../tools.md`](../tools.md) sets out.
 
 ## Open questions
 
-1. ~~Does CortexDB recall filter by label exactly?~~ **Settled: filter
-   client-side.** Recall is by similarity and `/v1/recall` takes no label
-   predicate we can rely on, so the ledger recalls a window of the project's
-   events (`DEFAULT_WINDOW`, 200) ranked by similarity to a query, parses
-   each one's text as an entry, skips what is not an entry, groups by `id`,
-   keeps the highest `revision`, and filters by kind, status, and alignment
-   itself. A single claim is found exactly, by its `claim:<id>` label
-   through `GET /v1/events?labels=` (which does filter by label), never by
-   recalling its id: recall returns only the closest few events, and the
-   reviews and leads that cite a claim mention its id more often than the
-   claim does, so a reviewed claim fell out of its own lookup. The limit
-   on lists is the window: when a recall returns as many notes as
-   the window holds (counted before non-entries are skipped and revisions
-   merged), entries may be missing, and `ledger_claims` and `ledger_bound`
-   say so in `unknowns`. Nothing records when an entry was written (an
-   entry has no timestamp, the recalled notes carry only their text, and
-   `revision` counts within one claim), so reads come in recall order, not
-   time order. A local index would remove the limit and give a time order,
-   and is the next step if projects grow past it. `status:` and `kind:`
-   labels are still written, for people.
+1. ~~Does CortexDB recall filter by label exactly?~~ **Settled: read by
+   listing, not by recall.** Recall is by similarity and returns only the
+   closest few events: a list built on it came back empty on a live ledger
+   of 41 entries, and a claim looked up by recalling its id was outranked
+   by the reviews and leads citing it. `GET /v1/events` lists a scope
+   exactly, a page at a time, optionally by label. So a single claim is read
+   by its `claim:<id>` label, and a list reads the scope's events up to the
+   window (`DEFAULT_WINDOW`, 5,000), parses each one's text as an entry,
+   skips what is not an entry, groups by `id`, keeps the highest
+   `revision`, and filters by kind, status, and alignment itself. Rows come
+   newest first (the listing is in storage order); a query reorders them,
+   matches first, and never drops one. The listing cannot be sorted on the
+   server, so a ledger larger than the window loses its newest entries from
+   a read, and `ledger_claims` and `ledger_bound` say so in `unknowns`. A
+   local index would remove the limit and is the next step if projects grow
+   past it. `status:` and `kind:` labels are still written, for people.
 2. When should a project's fact be promoted to the library: on
    `formalised` and `accepted`, or also on `cited`?
