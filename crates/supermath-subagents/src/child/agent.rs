@@ -90,19 +90,36 @@ impl ChildRunner for OpenHumanChild {
             prompt,
             limits,
             belt,
+            control,
         } = request;
         let hook = Arc::new(LimitHook::new(limits, Arc::clone(&belt)));
         let turn_belt = Arc::clone(&belt);
-        let sent = self
+        let mut turn = self
             .agent
             .turn(prompt)
             .tools(move |_| HostTurnTools::advertised(turn_belt.host_tools()))
             .stop_hook(hook.clone())
-            .timeout(limits.wall())
-            .send()
-            .await;
+            .timeout(limits.wall());
+        let (sent, steering) = match control {
+            None => (turn.send().await, None),
+            Some(control) => {
+                let steering = turn.steering_handle();
+                let cancellation = turn.cancellation_handle();
+                let sent = drive(turn.send(), &control, &steering, cancellation).await;
+                (sent, Some(steering))
+            }
+        };
         let tally = hook.tally();
         match sent {
+            Err(CoreError::TurnCancelled { .. }) => Ok(ChildTurn {
+                reply: String::new(),
+                session_id: String::new(),
+                turns: tally.iterations,
+                input_tokens: tally.input,
+                output_tokens: tally.output,
+                end: ChildEnd::OutOfBudget("cancelled".into()),
+                unapplied: steering.map(|s| s.take_unapplied()).unwrap_or_default(),
+            }),
             Ok(outcome) => {
                 let (input_tokens, output_tokens) = outcome
                     .usage
