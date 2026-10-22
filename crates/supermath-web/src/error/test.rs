@@ -69,5 +69,5 @@ fn an_arxiv_refusal_suggests_lit_get_paper_when_it_names_a_paper() {
     .into_envelope();
     assert_eq!(named.next, [r#"lit_get_paper {"arxiv_id": "1908.08483"}"#]);
     let unnamed = Error::ArxivPaper { arxiv_id: None }.into_envelope();
-    assert!(unnamed.next.is_empty());
+    assert_eq!(unnamed.next, Vec::<String>::new());
 }

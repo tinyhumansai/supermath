@@ -17,7 +17,7 @@ use supermath_tool::{
 };
 use tokio::task::JoinSet;
 
-use crate::engine::{Engine, Finding, SourceTable, Turn, plural};
+use crate::engine::{Engine, Finding, Ranking, SourceTable, Turn, plural};
 use crate::error::{Error, Result};
 use crate::source::{SourceClass, parse_classes};
 use facet::{DEFAULT_FACETS, Facet};
@@ -115,6 +115,56 @@ async fn run_facets(engine: &Arc<Engine>, request: &Request) -> Vec<Result<Turn>
         .collect()
 }
 
+/// A facet's findings after the source and word caps, and for each facet
+/// the note to show if a cap left it empty.
+type Capped = (Vec<Vec<Finding>>, Vec<Option<&'static str>>);
+
+/// Drops findings the source limit left without a source, then cuts whole
+/// findings to the word cap, counting both cuts in `unknowns`.
+fn apply_caps(
+    slotted: Vec<Vec<(String, Vec<usize>)>>,
+    ranking: &Ranking,
+    unknowns: &mut Vec<String>,
+) -> Capped {
+    let mut source_cut = 0;
+    let mut kept: Vec<Vec<Finding>> = Vec::new();
+    let mut cut_notes: Vec<Option<&'static str>> = Vec::new();
+    for rows in slotted {
+        let before = rows.len();
+        let findings: Vec<Finding> = rows
+            .into_iter()
+            .filter_map(|(text, slots)| {
+                let sources = ranking.remap(&slots);
+                (!sources.is_empty()).then_some(Finding { text, sources })
+            })
+            .collect();
+        source_cut += before - findings.len();
+        cut_notes.push((before > findings.len()).then_some("findings omitted by the source limit"));
+        kept.push(findings);
+    }
+    let lengths: Vec<usize> = kept.iter().map(Vec::len).collect();
+    let word_cut = fit_words(&mut kept, MAX_BRIEF_WORDS);
+    for ((cut_note, findings), before) in cut_notes.iter_mut().zip(&kept).zip(lengths) {
+        if findings.len() < before {
+            *cut_note = Some("findings omitted by the word limit");
+        }
+    }
+    if source_cut > 0 {
+        unknowns.push(format!(
+            "{} omitted by the source limit",
+            plural(source_cut, "finding")
+        ));
+    }
+    if word_cut > 0 {
+        unknowns.push(format!(
+            "{} omitted to keep the brief under 1,500 words",
+            plural(word_cut, "finding")
+        ));
+    }
+
+    (kept, cut_notes)
+}
+
 fn brief(request: &Request, turns: &[Result<Turn>]) -> (Envelope, u32, usize, (u64, u64)) {
     let mut table = SourceTable::default();
     let mut slotted: Vec<Vec<(String, Vec<usize>)>> = Vec::new();
@@ -168,41 +218,7 @@ fn brief(request: &Request, turns: &[Result<Turn>]) -> (Envelope, u32, usize, (u
     }
 
     let ranking = table.rank(&request.prefer, MAX_SOURCES);
-    let mut source_cut = 0;
-    let mut kept: Vec<Vec<Finding>> = Vec::new();
-    let mut cut_notes: Vec<Option<&str>> = Vec::new();
-    for rows in slotted {
-        let before = rows.len();
-        let findings: Vec<Finding> = rows
-            .into_iter()
-            .filter_map(|(text, slots)| {
-                let sources = ranking.remap(&slots);
-                (!sources.is_empty()).then_some(Finding { text, sources })
-            })
-            .collect();
-        source_cut += before - findings.len();
-        cut_notes.push((before > findings.len()).then_some("findings omitted by the source limit"));
-        kept.push(findings);
-    }
-    let lengths: Vec<usize> = kept.iter().map(Vec::len).collect();
-    let word_cut = fit_words(&mut kept, MAX_BRIEF_WORDS);
-    for ((cut_note, findings), before) in cut_notes.iter_mut().zip(&kept).zip(lengths) {
-        if findings.len() < before {
-            *cut_note = Some("findings omitted by the word limit");
-        }
-    }
-    if source_cut > 0 {
-        unknowns.push(format!(
-            "{} omitted by the source limit",
-            plural(source_cut, "finding")
-        ));
-    }
-    if word_cut > 0 {
-        unknowns.push(format!(
-            "{} omitted to keep the brief under 1,500 words",
-            plural(word_cut, "finding")
-        ));
-    }
+    let (kept, cut_notes) = apply_caps(slotted, &ranking, &mut unknowns);
 
     let mut facets = Map::new();
     let mut by_facet: Vec<(&str, Vec<Finding>)> = Vec::new();
