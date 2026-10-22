@@ -349,3 +349,62 @@ async fn the_fake_cortex_can_refuse_or_skip_the_index() {
         .unwrap();
     assert_eq!(response.status(), 404);
 }
+
+#[tokio::test]
+async fn notes_labelled_lists_exactly_the_labelled_notes_across_pages() {
+    let cortex = FakeCortex::start().await;
+    let memory = Memory::new(cortex.url(), "k", "ws:t");
+    // More than one page of the label, and notes without it in between.
+    for n in 0..105 {
+        memory
+            .remember(&project(), &format!("note {n}"), &["claim:clm_a"])
+            .await
+            .unwrap();
+        if n % 50 == 0 {
+            memory
+                .remember(&project(), &format!("other {n}"), &["claim:clm_b"])
+                .await
+                .unwrap();
+        }
+    }
+    let notes = memory
+        .notes_labelled(&project(), "claim:clm_a")
+        .await
+        .unwrap();
+    assert_eq!(notes.len(), 105);
+    assert_eq!(notes[0], "note 0");
+    assert_eq!(notes[104], "note 104");
+    assert!(
+        memory
+            .notes_labelled(&project(), "claim:clm_none")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn notes_labelled_sends_the_scope_and_label_and_reads_an_unknown_scope_as_empty() {
+    let (url, seen) = stub(404, r#"{"error_code":"NOT_FOUND"}"#).await;
+    let memory = Memory::new(url, "secret", "ws:t");
+    let notes = memory
+        .notes_labelled(&project(), "claim:clm_a")
+        .await
+        .unwrap();
+    assert!(notes.is_empty());
+    let head = seen.await.unwrap().head;
+    assert!(head.starts_with("GET /v1/events?"), "{head}");
+    assert!(head.contains("labels=claim%3Aclm_a"), "{head}");
+    assert!(
+        head.contains("scope=ws%3At%2Fproject%3Aodd-sums%2Fapp%3Abrain"),
+        "{head}"
+    );
+
+    let (url, _seen) = stub(403, r#"{"error_code":"POLICY_DENIED","message":"no"}"#).await;
+    let memory = Memory::new(url, "k", "ws:t");
+    let error = memory
+        .notes_labelled(&project(), "claim:clm_a")
+        .await
+        .unwrap_err();
+    assert!(matches!(error, Error::MemoryRefused { .. }), "{error}");
+}
