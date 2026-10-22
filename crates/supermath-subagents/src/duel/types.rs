@@ -4,7 +4,6 @@
 use serde_json::{Value, json};
 use supermath_tool::Usage;
 
-use crate::child::ChildKind;
 
 /// One side of the duel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -32,14 +31,6 @@ impl Side {
         match self {
             Self::Prover => Self::Refuter,
             Self::Refuter => Self::Prover,
-        }
-    }
-
-    /// The child that plays this side.
-    pub(crate) const fn kind(self) -> ChildKind {
-        match self {
-            Self::Prover => ChildKind::DuelProver,
-            Self::Refuter => ChildKind::DuelRefuter,
         }
     }
 
