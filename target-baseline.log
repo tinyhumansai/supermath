@@ -436,3 +436,8 @@ warning: `tinymemory-tools` (lib) generated 1 warning (run `cargo fix --lib -p t
    Compiling tinyagents-harness v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-harness)
    Compiling tinyinference-local v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-local)
    Compiling tinyinference-voice v0.4.1 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-voice)
+   Compiling tinyagents-tasks v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-tasks)
+   Compiling tinyagents-registry v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-registry)
+   Compiling tinyagents-graph v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-graph)
+   Compiling tinyagents-session v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-session)
+   Compiling tinyagents-orchestration v2.10.0 (/home/ubuntu/work/others/supermath/worktrees/tools-complete/vendor/openhuman/vendor/tinyagents/crates/tinyagents-orchestration)
