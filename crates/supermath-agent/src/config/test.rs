@@ -51,6 +51,15 @@ fn fills_defaults_when_only_required_settings_are_given() {
 }
 
 #[test]
+fn defaults_call_surplus_directly_with_concrete_model_names() {
+    let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
+    assert_eq!(config.surplus_url, "https://api.surplusintelligence.ai/v1");
+    assert_eq!(config.model, "deepseek-v4.1-flash");
+    assert_eq!(config.embedding_model, "venice-embed-1");
+    assert_eq!(config.embedding_dims, 1024);
+}
+
+#[test]
 fn names_each_missing_required_setting() {
     for (missing, _) in REQUIRED {
         let pairs: Vec<_> = REQUIRED
@@ -75,32 +84,32 @@ fn treats_a_blank_value_as_unset() {
 #[test]
 fn reads_overrides_and_strips_trailing_slashes() {
     let config = Config::from_lookup(lookup(&with(&[
-        ("SURPLUS_URL", "http://ladder:6969/v1/"),
+        ("SURPLUS_URL", "http://surplus.test/v1/"),
         ("CORTEX_API_URL", "http://cortexdb:3141/"),
         ("CORTEX_SCOPE_ROOT", "ws:test"),
         ("SUPERMATH_BACKEND_URL", "http://backend"),
-        ("SUPERMATH_MODEL", "reasoning"),
+        ("SUPERMATH_MODEL", "deepseek-v4-pro"),
         ("SUPERMATH_REASONING_EFFORT", "high"),
         ("SUPERMATH_EMBEDDING_DIMS", "1536"),
-        ("SUPERMATH_READER_MODEL", "cheap"),
+        ("SUPERMATH_READER_MODEL", "glm-5.3-flash"),
         ("SUPERMATH_JACOBIAN_CMD", " jacobian-mcp --stdio "),
         ("SUPERMATH_LEAN_LSP_CMD", "uvx lean-lsp-mcp"),
     ])))
     .unwrap();
-    assert_eq!(config.surplus_url, "http://ladder:6969/v1");
+    assert_eq!(config.surplus_url, "http://surplus.test/v1");
     assert_eq!(config.toolkit.ledger.cortex_url, "http://cortexdb:3141");
     assert_eq!(config.toolkit.ledger.scope_root, "ws:test");
     assert_eq!(config.backend_url.as_deref(), Some("http://backend"));
-    assert_eq!(config.model, "reasoning");
+    assert_eq!(config.model, "deepseek-v4-pro");
     assert_eq!(config.reasoning_effort, "high");
     assert_eq!(config.embedding_dims, 1536);
-    assert_eq!(config.models.reader, "cheap");
+    assert_eq!(config.models.reader, "glm-5.3-flash");
     assert_eq!(config.jacobian_cmd.as_deref(), Some("jacobian-mcp --stdio"));
     assert_eq!(config.lean_lsp_cmd.as_deref(), Some("uvx lean-lsp-mcp"));
 }
 
 #[test]
-fn rejects_a_child_model_that_is_not_a_ladder_name() {
+fn rejects_a_child_model_that_is_not_a_model_name() {
     let error =
         Config::from_lookup(lookup(&with(&[("SUPERMATH_READER_MODEL", "two words")]))).unwrap_err();
     assert!(matches!(error, Error::Subagents(_)), "{error}");

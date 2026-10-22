@@ -91,7 +91,7 @@ async fn check_boots_the_runner_and_reports_a_ready_stack() {
         "stdout: {stdout}\nstderr: {stderr}"
     );
     assert!(
-        stdout.contains("model `flash` at medium effort; tool_search ranked by Jev"),
+        stdout.contains("model `deepseek-v4.1-flash` at medium effort; tool_search ranked by Jev"),
         "{stdout}"
     );
     assert!(
@@ -132,7 +132,7 @@ async fn check_boots_the_runner_and_reports_a_ready_stack() {
         stdout.contains("scope ws:supermath/project:twin-primes/app:brain"),
         "{stdout}"
     );
-    // Booting runs no turn: nothing asked the ladder for a completion.
+    // Booting runs no turn: nothing asked Surplus for a completion.
     assert!(
         !stub
             .seen()

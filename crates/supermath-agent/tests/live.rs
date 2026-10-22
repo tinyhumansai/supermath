@@ -1,20 +1,20 @@
 //! The formalization benchmark against a real stack, in process. Skipped
 //! unless `SUPERMATH_LIVE_SUBAGENTS=1`.
 //!
-//! `live_subagents_formalize_bench` boots an `OpenHuman` runtime on the model
-//! ladder, composes the real toolkit (`supermath-mcp`) for a bench project per
-//! rung, builds the `agent_*` tools over its registry, runs the thirty
+//! `live_subagents_formalize_bench` boots an `OpenHuman` runtime on Surplus
+//! Intelligence, composes the real toolkit (`supermath-mcp`) for a bench
+//! project per model, builds the `agent_*` tools over its registry, runs the thirty
 //! statements of `crates/supermath-subagents/bench/formalize/` through
-//! `agent_formalize` once per rung, and prints the `checked` rate per rung.
+//! `agent_formalize` once per model, and prints the `checked` rate per model.
 //! It makes real model calls and real Lean checks, so it is never part of
 //! `cargo test` by default.
 //!
 //! | Variable | Meaning |
 //! | --- | --- |
 //! | `SUPERMATH_LIVE_SUBAGENTS` | `1` to run |
-//! | `SURPLUS_URL`, `SURPLUS_API_KEY` | the OpenAI-compatible ladder |
+//! | `SURPLUS_URL`, `SURPLUS_API_KEY` | Surplus Intelligence's OpenAI-compatible API |
 //! | `LEAN_URL`, `SUPERMATH_PROJECTS` | the Lean service and the directory it mounts |
-//! | `SUPERMATH_BENCH_RUNGS` | comma-separated rungs; default `formalize` |
+//! | `SUPERMATH_BENCH_RUNGS` | comma-separated Surplus models; default `deepseek-v4-pro` |
 //! | `SUPERMATH_BENCH_LIMIT` | run only the first N cases |
 //!
 //! Every other toolkit variable (`PYTHON_URL`, `CORTEX_*`, ...) is read
@@ -48,7 +48,7 @@ fn live_subagents_formalize_bench() {
 async fn bench() {
     let surplus_url = env("SURPLUS_URL").expect("SURPLUS_URL");
     let surplus_key = env("SURPLUS_API_KEY").expect("SURPLUS_API_KEY");
-    let rungs = env("SUPERMATH_BENCH_RUNGS").unwrap_or_else(|| "formalize".into());
+    let rungs = env("SUPERMATH_BENCH_RUNGS").unwrap_or_else(|| "deepseek-v4-pro".into());
     let mut cases = formalize_cases().unwrap();
     if let Some(limit) = env("SUPERMATH_BENCH_LIMIT").and_then(|v| v.parse().ok()) {
         cases.truncate(limit);
