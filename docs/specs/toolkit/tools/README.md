@@ -3,7 +3,8 @@
 One file per tool, named for the tool. The catalogue in
 [`../README.md`](../README.md#catalogue) lists them all with their crate,
 exposure, and phase; the area specs ([`../lean.md`](../lean.md),
-[`../literature.md`](../literature.md), [`../ledger.md`](../ledger.md),
+[`../literature.md`](../literature.md), [`../web.md`](../web.md),
+[`../ledger.md`](../ledger.md),
 [`../agents.md`](../agents.md)) hold what a whole area shares: the Lean
 service and its verdicts, sources and politeness, statuses and storage,
 how a child agent runs.

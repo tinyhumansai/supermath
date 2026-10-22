@@ -49,6 +49,8 @@ entry is one finding.
 - `arxiv`: `{id, version, label}` or `{id, version, section}`;
 - `lean`: `{declaration, source_sha256}`, for a claim stated in Lean;
 - `tool`: `{tool, call_id}`, for a computation, with its arguments' digest;
+- `web`: `{url, title, class, retrieved_at}`, for a page a `web_*` tool
+  surfaced; it caps the claim at `asserted` ([`web.md`](web.md#status-rules));
 - `supplied`: free text, for anything that arrived as text.
 
 `lean`, when present, is the declaration that states the claim and the

@@ -23,6 +23,7 @@ crates/
 │       ├── tool/       # the Tool trait, Exposure, Permission
 │       ├── lean/       # Lean service client, verdict reduction
 │       ├── literature/ # arXiv, Semantic Scholar, OEIS; LaTeX flattening
+│       ├── web/        # Gemini grounded search, redirect resolution, page reading
 │       ├── memory/     # the CortexDB client (moved from supermath-agent)
 │       ├── ledger/     # entries, status transitions, effective status
 │       ├── calc/       # factor, gcd/lcm, counterexample search
@@ -43,10 +44,14 @@ crates/
 
 | Crate | Depends on | Never depends on |
 | --- | --- | --- |
-| `supermath-mcp` | `rmcp`, `reqwest`, `serde_json`, `tokio`, `thiserror` | OpenHuman, the ladder, any model |
+| `supermath-mcp` | `rmcp`, `reqwest`, `serde_json`, `tokio`, `thiserror` | OpenHuman, the ladder, any model except Gemini for web search |
 | `supermath-agent` | `supermath-mcp`, `openhuman-embed`, `openhuman-tinyhumans` (`jev`) | — |
 
-`supermath-mcp` calls no model. Everything that needs one (reading a paper
+`supermath-mcp` calls no model, with one exception: Gemini, as the backend
+of the `web_*` tools, whose prose is kept only where Google Search
+grounding ties it to a source ([`web.md`](web.md),
+[ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)).
+Everything else that needs a model (reading a paper
 for meaning, writing Lean, reviewing alignment) is an `agent_*` tool in
 `supermath-agent`. This keeps the toolkit deterministic and testable
 without a provider, and lets any MCP client use it without our ladder.
@@ -124,7 +129,10 @@ claude mcp add supermath -- supermath-mcp serve my-project
 | `CORTEX_API_URL`, `CORTEX_API_KEY`, `CORTEX_SCOPE_ROOT` | as today | CortexDB, moved from the runner |
 | `SUPERMATH_CONTACT` | required for arXiv | the contact in the arXiv `User-Agent` |
 | `SEMANTIC_SCHOLAR_API_KEY` | unset | raises the Semantic Scholar rate limit |
-| `SUPERMATH_CACHE` | `./.supermath/cache` | literature response cache |
+| `SUPERMATH_CACHE` | `./.supermath/cache` | literature and web response cache |
+| `GEMINI_API_KEY` | unset | Gemini API key; without it the `web_*` tools are unavailable |
+| `SUPERMATH_WEB_MODEL` | a pinned Gemini Flash model | the model behind grounded search |
+| `SUPERMATH_WEB_DAILY_CAP` | `200` | `web_*` calls per project per day |
 
 ## `supermath-agent`
 

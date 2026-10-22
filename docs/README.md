@@ -37,12 +37,14 @@ The agent runner is specified in
 [`adr/0002-build-on-openhuman.md`](adr/0002-build-on-openhuman.md) records why
 it embeds OpenHuman.
 
-The conjecture toolkit (literature, Lean, the claim ledger, and sub-agents),
+The conjecture toolkit (literature, web research, Lean, the claim ledger,
+and sub-agents),
 split into the `supermath-mcp` toolkit crate and the `supermath-agent`
 OpenHuman runner, is specified in [`specs/toolkit/`](specs/toolkit/README.md),
 planned in [`plans/lean-toolkit.md`](plans/lean-toolkit.md), and its
-decisions are ADRs [0003](adr/0003-run-lean-as-a-pinned-service.md) and
-[0004](adr/0004-split-the-toolkit-into-an-mcp-crate.md).
+decisions are ADRs [0003](adr/0003-run-lean-as-a-pinned-service.md),
+[0004](adr/0004-split-the-toolkit-into-an-mcp-crate.md), and
+[0005](adr/0005-search-the-web-with-gemini-grounding.md).
 
 ## Conventions
 

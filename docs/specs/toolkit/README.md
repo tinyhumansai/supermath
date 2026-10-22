@@ -3,7 +3,8 @@
 - **Status:** Draft
 - **Owner:** Maintainers
 - **Decisions:** [`../../adr/0003-run-lean-as-a-pinned-service.md`](../../adr/0003-run-lean-as-a-pinned-service.md),
-  [`../../adr/0004-split-the-toolkit-into-an-mcp-crate.md`](../../adr/0004-split-the-toolkit-into-an-mcp-crate.md)
+  [`../../adr/0004-split-the-toolkit-into-an-mcp-crate.md`](../../adr/0004-split-the-toolkit-into-an-mcp-crate.md),
+  [`../../adr/0005-search-the-web-with-gemini-grounding.md`](../../adr/0005-search-the-web-with-gemini-grounding.md)
 - **Plan:** [`../../plans/lean-toolkit.md`](../../plans/lean-toolkit.md)
 - **Research:** [`../../research/rea-and-jacobian/`](../../research/rea-and-jacobian/README.md),
   [`../../research/strategies/`](../../research/strategies/README.md),
@@ -21,7 +22,7 @@ trust no further than the evidence behind its answer.
 ## Goals
 
 - A toolkit an OpenHuman agent can use to work on a conjecture end to end:
-  literature, Lean formalization and checking, computation, a claim ledger in
+  literature, web research, Lean formalization and checking, computation, a claim ledger in
   CortexDB, and sub-agents for the long tasks.
 - Lean is the arbiter. A claim is `formalised` only when this harness ran the
   Lean kernel on it and saw no `sorry` and no axiom outside the allowlist.
@@ -47,6 +48,7 @@ trust no further than the evidence behind its answer.
 | --- | --- |
 | [`lean.md`](lean.md) | the pinned Lean service and the `lean_*` tools |
 | [`literature.md`](literature.md) | arXiv, Semantic Scholar, OEIS: the `lit_*` tools |
+| [`web.md`](web.md) | web research through Gemini with Google Search grounding: the `web_*` tools |
 | [`ledger.md`](ledger.md) | claims, facts, and edges in CortexDB: the `ledger_*` tools |
 | [`agents.md`](agents.md) | sub-agents behind the `agent_*` tools |
 | [`tools/`](tools/README.md) | one file per tool: arguments, behavior, errors |
@@ -62,15 +64,15 @@ what makes a tool cheap for an agent to choose, call, and believe.
 
 A tool is named `<area>_<verb>_<object>` for the question it answers, not the
 engine behind it: `lean_check`, `lit_search_arxiv`, `ledger_record`. Areas are
-`lit`, `lean`, `calc`, `ledger`, and `agent`. A tool establishes exactly one
+`lit`, `web`, `lean`, `calc`, `ledger`, and `agent`. A tool establishes exactly one
 postcondition, stated in its description as "given X, returns Y such that P".
 Workflows are composed by the agent or by an `agent_*` tool, never hidden in
 a primitive.
 
 ### Progressive disclosure
 
-Four tools are **direct**, always in the model's catalogue: `recall_memory`,
-`lit_search_arxiv`, `lean_check`, and `ledger_record`. Every other tool is
+Five tools are **direct**, always in the model's catalogue: `recall_memory`,
+`lit_search_arxiv`, `web_search`, `lean_check`, and `ledger_record`. Every other tool is
 **deferred** and found through `tool_search`, which Jev ranks. A description's
 first sentence is what Jev ranks on, so it names the question.
 
@@ -167,6 +169,9 @@ models and live in `supermath-agent`; MCP clients get everything but those.
 | [`lit_extract_statements`](tools/lit_extract_statements.md) | deferred | read | P3 | an arXiv id → numbered statements and their `\ref` edges |
 | [`lit_citations`](tools/lit_citations.md) | deferred | read | P5 | an arXiv id → references or citing papers |
 | [`lit_oeis`](tools/lit_oeis.md) | deferred | read | P3 | terms or a query → matching sequences |
+| [`web_search`](tools/web_search.md) | direct | read | P3 | a question → grounded findings with their sources |
+| [`web_research`](tools/web_research.md) | deferred | read | P3 | a research question → a sourced brief across several searches |
+| [`web_read`](tools/web_read.md) | deferred | read | P3 | a URL → the page's main text, paged |
 | [`lean_check`](tools/lean_check.md) | direct | read | P2 | Lean source → a [verdict](lean.md#verdicts) with provenance |
 | [`lean_search`](tools/lean_search.md) | deferred | read | P2 | a name, pattern, or phrase → Mathlib declarations |
 | [`lean_decl`](tools/lean_decl.md) | deferred | read | P2 | a declaration name → signature, docstring, module |
@@ -202,7 +207,9 @@ reimplemented ([`crates.md`](crates.md#consuming-other-mcp-servers)).
 - No memory scope comes from model output ([`agent-runner.md`](../agent-runner.md#memory-scopes)).
 - Tool names, argument schemas, and error codes are the same over OpenHuman
   and over MCP.
-- `supermath-mcp` depends on no OpenHuman crate and calls no model.
+- `supermath-mcp` depends on no OpenHuman crate and calls no model, except
+  Gemini as the web search backend ([ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)).
+- No web source raises a claim above `asserted`.
 
 ## Acceptance criteria
 

@@ -3,7 +3,8 @@
 - **Spec:** [`../specs/toolkit/README.md`](../specs/toolkit/README.md), with
   one file per tool in [`../specs/toolkit/tools/`](../specs/toolkit/tools/README.md)
 - **Decisions:** [ADR 0003](../adr/0003-run-lean-as-a-pinned-service.md),
-  [ADR 0004](../adr/0004-split-the-toolkit-into-an-mcp-crate.md)
+  [ADR 0004](../adr/0004-split-the-toolkit-into-an-mcp-crate.md),
+  [ADR 0005](../adr/0005-search-the-web-with-gemini-grounding.md)
 - **Status:** Not started
 
 ## Goal
@@ -87,7 +88,7 @@ one of the two crates.
 5. Both `check` commands report the Lean service's toolchain and Mathlib
    revision. `live_lean_check`, gated by `LEAN_URL`.
 
-## P3: literature
+## P3: literature and web
 
 1. Record fixtures in `crates/supermath-mcp/tests/fixtures/literature/`: an
    Atom search feed, an e-print tarball with `\input` and `\newtheorem`
@@ -98,6 +99,17 @@ one of the two crates.
    [`lit_extract_statements`](../specs/toolkit/tools/lit_extract_statements.md),
    [`lit_oeis`](../specs/toolkit/tools/lit_oeis.md), each test-first.
 4. `live_arxiv_search`, gated by `SUPERMATH_LIVE_ARXIV`.
+5. **Web.** Record Gemini fixtures in
+   `crates/supermath-mcp/tests/fixtures/web/`: a grounded answer, one with
+   unsupported sentences, an ungrounded answer, a 429, a safety block; and
+   a loopback redirect chain. Then `web/`: the Gemini client, redirect
+   resolution, source classes, the daily cap, and the cache.
+6. [`web_search`](../specs/toolkit/tools/web_search.md),
+   [`web_research`](../specs/toolkit/tools/web_research.md),
+   [`web_read`](../specs/toolkit/tools/web_read.md), each test-first. Add
+   `GEMINI_API_KEY` and `SUPERMATH_WEB_MODEL` to `.env.example` and pass
+   them to the agent in `compose.yaml`.
+7. `live_web_search`, gated by `GEMINI_API_KEY` and `SUPERMATH_LIVE_WEB`.
 
 ## P4: goal tools and sub-agents
 
@@ -151,7 +163,7 @@ OpenHuman, and, for a phase that changes the stack, `docker compose up
 - [ ] P2: Lean service, `lean_check`, `lean_search`, `lean_decl`,
       `ledger_record`, `ledger_claims`
 - [ ] P3: `lit_search_arxiv`, `lit_get_paper`, `lit_extract_statements`,
-      `lit_oeis`
+      `lit_oeis`, `web_search`, `web_research`, `web_read`
 - [ ] P4: goal and tactic tools, `lean_write`, `Named` scope, sub-agents,
       formalize bench
 - [ ] P5: Jacobian and lean-lsp-mcp, counterexample search, `agent_refute`,
