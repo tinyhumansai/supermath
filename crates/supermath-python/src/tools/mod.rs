@@ -47,10 +47,17 @@ pub(crate) struct Prepared {
 impl Shared {
     /// The timeout to run with, in seconds.
     ///
-    /// An explicit `timeout_s` over the configured maximum, or over the call's
-    /// wall-time budget, is refused. A call that names none gets the default,
-    /// shortened to the budget when the budget is tighter.
+    /// A spent compute budget (no wall time left) is refused whatever was
+    /// asked, so nothing reaches the service. An explicit `timeout_s` over the
+    /// configured maximum, or over the call's wall-time budget, is refused. A
+    /// call that names none gets the default, shortened to the budget when
+    /// the budget is tighter.
     pub(crate) fn timeout(&self, budget: &Budget, requested: Option<u64>) -> Result<u64> {
+        if budget.wall_time_ms == 0 {
+            return Err(Error::BudgetExceeded(
+                "the call's compute budget is spent: no wall time is left to run in".into(),
+            ));
+        }
         let Some(seconds) = requested else {
             let budget_s = budget.wall_time_ms.div_ceil(1000).max(1);
             return Ok(self.config.default_timeout_s.min(budget_s));

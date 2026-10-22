@@ -459,3 +459,133 @@ async fn decl_passes_the_contract_checker() {
         .await
         .unwrap();
 }
+
+// --- error codes tied to their causes ---------------------------------------------
+
+/// The code and message of an error envelope.
+fn failure(envelope: &supermath_tool::Envelope) -> (ErrorCode, String) {
+    let error = envelope.error.clone().expect("an error envelope");
+    (error.code, error.message)
+}
+
+#[tokio::test]
+async fn decl_is_not_found_when_neither_mathlib_nor_the_project_has_the_name() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    let envelope = env.call("lean_decl", json!({"name": "Missing.thing"})).await;
+    let (code, message) = failure(&envelope);
+    assert_eq!(code, ErrorCode::NotFound);
+    assert!(message.contains("Missing.thing is in neither Mathlib nor the project"));
+}
+
+#[tokio::test]
+async fn decl_times_out_when_the_service_runs_out_of_time() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    let envelope = env.call("lean_decl", json!({"name": "Slow.thing"})).await;
+    let (code, message) = failure(&envelope);
+    assert_eq!(code, ErrorCode::Timeout);
+    assert!(message.contains("the declaration lookup ran out of time"));
+}
+
+fn goals_at(name: &str) -> Value {
+    json!({"path": format!("lean/Supermath/{name}.lean"), "line": 1, "column": 0})
+}
+
+#[tokio::test]
+async fn goals_is_not_found_for_a_missing_file_locally_or_on_the_service() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    let missing = env.call("lean_goals", goals_at("Nowhere")).await;
+    assert_eq!(failure(&missing).0, ErrorCode::NotFound);
+    env.put("lean/Supermath/Gone.lean", SORRIED);
+    let gone = env.call("lean_goals", goals_at("Gone")).await;
+    assert_eq!(failure(&gone).0, ErrorCode::NotFound);
+    assert_eq!(stub.count("/goals"), 1);
+}
+
+#[tokio::test]
+async fn goals_is_over_budget_for_a_file_over_the_byte_budget() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    env.put("lean/Supermath/Main.lean", SORRIED);
+    let envelope = env
+        .tool("lean_goals")
+        .call(&tiny(), goals_at("Main"))
+        .await;
+    assert_eq!(failure(&envelope).0, ErrorCode::BudgetExceeded);
+    assert_eq!(stub.count("/goals"), 0);
+}
+
+#[tokio::test]
+async fn goals_times_out_when_the_service_runs_out_of_time() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    env.put("lean/Supermath/Slow.lean", SORRIED);
+    let (code, message) = failure(&env.call("lean_goals", goals_at("Slow")).await);
+    assert_eq!(code, ErrorCode::Timeout);
+    assert!(message.contains("the goal query ran out of time"));
+}
+
+#[tokio::test]
+async fn goals_is_unavailable_when_the_service_fails_or_is_unreachable() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    env.put("lean/Supermath/Down.lean", SORRIED);
+    let down = env.call("lean_goals", goals_at("Down")).await;
+    assert_eq!(failure(&down).0, ErrorCode::BackendUnavailable);
+    let dead = Env::new(support::config(Some(&support::dead_url().await)));
+    dead.put("lean/Supermath/Main.lean", SORRIED);
+    let unreachable = dead.call("lean_goals", goals_at("Main")).await;
+    assert_eq!(failure(&unreachable).0, ErrorCode::BackendUnavailable);
+}
+
+fn simp_at(name: &str) -> Value {
+    tactics_args(&format!("lean/Supermath/{name}.lean"), &json!(["simp"]))
+}
+
+#[tokio::test]
+async fn try_tactics_times_out_when_the_service_runs_out_of_time() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    env.put("lean/Supermath/Slow.lean", SORRIED);
+    let (code, message) = failure(&env.call("lean_try_tactics", simp_at("Slow")).await);
+    assert_eq!(code, ErrorCode::Timeout);
+    assert!(message.contains("the tactic run ran out of time"));
+}
+
+#[tokio::test]
+async fn try_tactics_is_unavailable_when_the_service_fails_or_is_unreachable() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    env.put("lean/Supermath/Down.lean", SORRIED);
+    let down = env.call("lean_try_tactics", simp_at("Down")).await;
+    assert_eq!(failure(&down).0, ErrorCode::BackendUnavailable);
+    let dead = Env::new(support::config(Some(&support::dead_url().await)));
+    dead.put("lean/Supermath/Main.lean", SORRIED);
+    let unreachable = dead.call("lean_try_tactics", simp_at("Main")).await;
+    assert_eq!(failure(&unreachable).0, ErrorCode::BackendUnavailable);
+}
+
+#[tokio::test]
+async fn try_tactics_is_not_found_for_a_missing_file_locally_or_on_the_service() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    let missing = env.call("lean_try_tactics", simp_at("Nowhere")).await;
+    assert_eq!(failure(&missing).0, ErrorCode::NotFound);
+    assert_eq!(stub.count("/tactics"), 0);
+    env.put("lean/Supermath/Gone.lean", SORRIED);
+    let gone = env.call("lean_try_tactics", simp_at("Gone")).await;
+    assert_eq!(failure(&gone).0, ErrorCode::NotFound);
+}
+
+#[tokio::test]
+async fn try_tactics_is_invalid_input_when_the_service_finds_no_sorry_there() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    env.put("lean/Supermath/Nosorry.lean", SORRIED);
+    let (code, message) = failure(&env.call("lean_try_tactics", simp_at("Nosorry")).await);
+    assert_eq!(code, ErrorCode::InvalidInput);
+    assert!(message.contains("there is no sorry at that position"));
+    assert_eq!(stub.count("/tactics"), 1);
+}
