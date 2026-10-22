@@ -12,8 +12,8 @@ use crate::clock::format_rfc3339;
 use crate::engine::{Engine, Run};
 use crate::error::Error;
 use crate::extract::{Extracted, MathKind, extract_main_text};
-use crate::reader::fetch;
-use crate::source::{arxiv_id, classify};
+use crate::reader::{fetch, refuse_arxiv};
+use crate::source::classify;
 
 /// Characters of text per page.
 pub(crate) const PAGE_CHARS: usize = 12_000;
@@ -69,21 +69,6 @@ pub(crate) fn paginate(text: &str) -> Vec<&str> {
     }
     pages.push(rest);
     pages
-}
-
-fn arxiv_refusal(url: &Url) -> Option<Envelope> {
-    let host = url.host_str()?.to_ascii_lowercase();
-    if host != "arxiv.org" && !host.ends_with(".arxiv.org") {
-        return None;
-    }
-    let refusal = Envelope::error(
-        ErrorCode::InvalidInput,
-        "arXiv papers are read with lit_get_paper, which reads the LaTeX source",
-    );
-    Some(match arxiv_id(url) {
-        Some(id) => refusal.with_next([format!("lit_get_paper {{\"arxiv_id\": \"{id}\"}}")]),
-        None => refusal,
-    })
 }
 
 #[async_trait]
@@ -152,8 +137,10 @@ impl Tool for WebRead {
             Ok(n) => n,
             Err(message) => return invalid(message),
         };
-        if let Some(refusal) = arxiv_refusal(&url) {
-            return refusal;
+        // Checked before admission so a refused URL spends no budget; the
+        // fetch checks again on every redirect.
+        if let Err(refusal) = refuse_arxiv(&url) {
+            return refusal.into_envelope();
         }
         let engine = &self.engine;
         if let Some(refused) = engine.admit(ctx, false, 1, 0) {

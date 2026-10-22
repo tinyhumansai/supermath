@@ -4,7 +4,8 @@
 //! resolution and pins the connection to the addresses it checked, so a
 //! page (or a redirect, or a rebinding DNS answer) cannot point the tool at
 //! the operator's network. It honours `robots.txt`, follows at most five
-//! redirects, and reads at most 5 MB.
+//! redirects, and reads at most 5 MB. arXiv is refused on every hop, not
+//! only the first: its papers are `lit_get_paper`'s to read.
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
@@ -14,6 +15,7 @@ use url::{Host, Url};
 use crate::config::WebConfig;
 use crate::error::{Error, Result};
 use crate::robots::Robots;
+use crate::source::arxiv_id;
 
 /// Largest page read, in bytes.
 pub(crate) const MAX_BYTES: u64 = 5 * 1024 * 1024;
@@ -88,6 +90,18 @@ async fn resolve(config: &WebConfig, url: &Url) -> Result<Vec<SocketAddr>> {
         ));
     }
     Ok(addrs)
+}
+
+/// [`Error::ArxivPaper`] when `url` is on arxiv.org or one of its
+/// subdomains, naming the paper when the URL does.
+pub(crate) fn refuse_arxiv(url: &Url) -> Result<()> {
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    if host == "arxiv.org" || host.ends_with(".arxiv.org") {
+        return Err(Error::ArxivPaper {
+            arxiv_id: arxiv_id(url),
+        });
+    }
+    Ok(())
 }
 
 /// Checks the scheme, upgrading `http` to `https` unless private hosts are
@@ -262,9 +276,9 @@ async fn hop(config: &WebConfig, url: Url) -> Result<Hop> {
 ///
 /// # Errors
 ///
-/// - [`Error::InvalidUrl`], [`Error::PrivateAddress`],
+/// - [`Error::InvalidUrl`], [`Error::PrivateAddress`], [`Error::ArxivPaper`],
 ///   [`Error::UnsupportedContent`], [`Error::TooLarge`] for input the tool
-///   will not read.
+///   will not read; the address and arXiv checks run on every hop.
 /// - [`Error::NotFound`], [`Error::Forbidden`] (also for `robots.txt`),
 ///   [`Error::RateLimited`] for the site's answer.
 /// - [`Error::Unavailable`] for any other failure, [`Error::TooManyRedirects`]
@@ -272,6 +286,7 @@ async fn hop(config: &WebConfig, url: Url) -> Result<Hop> {
 pub(crate) async fn fetch(config: &WebConfig, url: Url) -> Result<Page> {
     let mut current = normalize(config, url)?;
     for _ in 0..=MAX_REDIRECTS {
+        refuse_arxiv(&current)?;
         match hop(config, current).await? {
             Hop::Page(page) => return Ok(page),
             Hop::Redirect(next) => current = normalize(config, next)?,

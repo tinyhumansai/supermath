@@ -75,6 +75,13 @@ pub enum Error {
     /// A redirect chain came back to a URL it had already visited.
     #[error("redirect loop")]
     RedirectLoop,
+    /// The URL, or a redirect on the way to the page, is on arXiv, whose
+    /// papers `lit_get_paper` reads from the LaTeX source instead.
+    #[error("arXiv papers are read with lit_get_paper, which reads the LaTeX source")]
+    ArxivPaper {
+        /// The paper's id, without a version, when the URL names one.
+        arxiv_id: Option<String>,
+    },
     /// A redirect chain ended without a destination.
     #[error("redirect ended without a destination (status {0})")]
     DeadEnd(u16),
@@ -88,7 +95,8 @@ impl Error {
             Self::InvalidUrl(_)
             | Self::PrivateAddress(_)
             | Self::UnsupportedContent(_)
-            | Self::TooLarge { .. } => ErrorCode::InvalidInput,
+            | Self::TooLarge { .. }
+            | Self::ArxivPaper { .. } => ErrorCode::InvalidInput,
             Self::NotFound => ErrorCode::NotFound,
             Self::Forbidden(_) => ErrorCode::Forbidden,
             Self::RateLimited { .. } => ErrorCode::RateLimited,
@@ -106,12 +114,15 @@ impl Error {
     }
 
     /// The `error` envelope for this error, with `retry_after_ms` set for a
-    /// rate limit.
+    /// rate limit and a `lit_get_paper` next step for an arXiv paper.
     #[must_use]
     pub fn into_envelope(self) -> Envelope {
         let envelope = Envelope::error(self.code(), self.to_string());
         match self {
             Self::RateLimited { retry_after_ms } => envelope.with_retry_after_ms(retry_after_ms),
+            Self::ArxivPaper { arxiv_id: Some(id) } => {
+                envelope.with_next([format!("lit_get_paper {{\"arxiv_id\": \"{id}\"}}")])
+            }
             _ => envelope,
         }
     }
