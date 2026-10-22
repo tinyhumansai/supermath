@@ -59,10 +59,11 @@ impl openhuman_embed::Tool for HostTool {
                 policy
             }
         };
-        // An `agent_*` tool runs under the agentic budget's wall time and
-        // enforces it itself; OpenHuman's 120 s default would cut it short.
-        // Toolkit tools run under a smaller budget and keep the default.
-        if self.host.agents.get(self.tool.name()).is_some() {
+        // An agentic tool enforces its own deadline: an `agent_*` tool the
+        // agentic budget's wall time, `web_research` its 180 s research
+        // timeout. OpenHuman's 120 s default would cut either short.
+        // Primitives run under a smaller budget and keep the default.
+        if self.tool.kind().is_agentic() {
             policy.runtime.timeout_ms = Some(super::AGENT_WALL_TIME_MS);
         }
         policy

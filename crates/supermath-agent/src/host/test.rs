@@ -103,7 +103,7 @@ fn every_adapted_tool_matches_its_toolkit_tool() {
             Permission::Read => {
                 assert_eq!(host_tool.permission_level(), PermissionLevel::ReadOnly);
                 let mut expected = ToolPolicy::read_only();
-                if tool.name().starts_with("agent_") {
+                if tool.kind().is_agentic() {
                     expected.runtime.timeout_ms = Some(3_600_000);
                 }
                 assert_eq!(host_tool.policy(), expected, "{}", tool.name());
@@ -251,9 +251,19 @@ fn agent_tools_ask_for_their_own_wall_time_and_primitives_inherit_the_default() 
     // OpenHuman otherwise cuts every call at its 120 s default: a duel with
     // a 30-minute budget was killed after two minutes.
     let host = host();
-    for tool in host.adapt() {
+    let adapted = host.adapt();
+    // Named, so the test fails if `web_research` stops being agentic rather
+    // than following its classification to the default.
+    let web_research = adapted
+        .iter()
+        .find(|tool| tool.name() == "web_research")
+        .expect("web_research is registered");
+    assert_eq!(web_research.policy().runtime.timeout_ms, Some(3_600_000));
+    for tool in adapted {
         let asked = tool.policy().runtime.timeout_ms;
-        if tool.name().starts_with("agent_") {
+        // `web_research` is agentic too: it runs its own 180 s deadline,
+        // which the 120 s default cut short.
+        if tool.kind().is_agentic() {
             assert_eq!(asked, Some(3_600_000), "{}", tool.name());
         } else {
             assert_eq!(asked, None, "{}", tool.name());
