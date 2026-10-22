@@ -224,7 +224,11 @@ the shape [`../tools.md`](../tools.md) sets out.
    most recent events (`DEFAULT_WINDOW`, 200), parses each one's text as an
    entry, skips what is not an entry, groups by `id`, keeps the highest
    `revision`, and filters by kind, status, and alignment itself. A single
-   claim is found by recalling its id, which its own JSON contains. The
+   claim is found exactly, by its `claim:<id>` label through
+   `GET /v1/events?labels=` (which does filter by label), never by recalling
+   its id: recall returns only the closest few events, and the reviews and
+   leads that cite a claim mention its id more often than the claim does,
+   so a reviewed claim fell out of its own lookup. The
    limit is the window: a ledger with more than 200 recent notes can hide
    older entries from a list, and `ledger_claims` says so in `unknowns`. A
    local index would remove the limit and is the next step if projects grow
