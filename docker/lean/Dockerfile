@@ -58,7 +58,7 @@ ENV PROJECTS_DIR=/projects
 ENV LEAN_ENV=/opt/lean-env
 ENV REPL_BIN=/opt/repl/.lake/build/bin/repl
 
-COPY normalize.py repl.py server.py /srv/
+COPY build.py normalize.py repl.py server.py /srv/
 WORKDIR /srv
 
 USER lean
