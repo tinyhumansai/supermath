@@ -1,0 +1,88 @@
+# What each solver in the lock is for. `py_solvers` serves these rows with the
+# versions read from uv.lock. A test checks that every direct dependency in
+# pyproject.toml has a row here and every row names a package in the lock.
+# `area` is one of: symbolic, numeric, sat, smt, optimization, graphs.
+
+[[solver]]
+package = "sympy"
+import_name = "sympy"
+area = "symbolic"
+summary = "Computer algebra: symbolic simplification, solving, series, number theory, Groebner bases."
+
+[[solver]]
+package = "python-flint"
+import_name = "flint"
+area = "symbolic"
+summary = "FLINT bindings: fast exact integers, rationals, polynomials, matrices, and ball arithmetic."
+
+[[solver]]
+package = "cypari2"
+import_name = "cypari2"
+area = "symbolic"
+summary = "PARI/GP bindings: number fields, elliptic curves, factoring, and class groups."
+
+[[solver]]
+package = "jacobian"
+import_name = "jacobian"
+area = "symbolic"
+summary = "Composable exact mathematics operations for agents, importable as a library."
+
+[[solver]]
+package = "numpy"
+import_name = "numpy"
+area = "numeric"
+summary = "N-dimensional arrays and linear algebra."
+
+[[solver]]
+package = "scipy"
+import_name = "scipy"
+area = "numeric"
+summary = "Numerical routines: optimization, integration, sparse matrices, statistics."
+
+[[solver]]
+package = "mpmath"
+import_name = "mpmath"
+area = "numeric"
+summary = "Arbitrary-precision floating point and interval arithmetic."
+
+[[solver]]
+package = "z3-solver"
+import_name = "z3"
+area = "smt"
+summary = "Z3 SMT solver: integers, reals, bit-vectors, arrays, and quantifier-free proofs of unsatisfiability."
+
+[[solver]]
+package = "python-sat"
+import_name = "pysat"
+area = "sat"
+summary = "PySAT: CaDiCaL, Glucose, MiniSat and cardinality encodings for SAT problems."
+
+[[solver]]
+package = "ortools"
+import_name = "ortools"
+area = "optimization"
+summary = "OR-Tools: CP-SAT constraint programming, MIP, routing, and flows."
+
+[[solver]]
+package = "highspy"
+import_name = "highspy"
+area = "optimization"
+summary = "HiGHS: linear and mixed-integer programming."
+
+[[solver]]
+package = "cvxpy"
+import_name = "cvxpy"
+area = "optimization"
+summary = "Convex optimization modelling: LP, QP, SOCP, SDP."
+
+[[solver]]
+package = "networkx"
+import_name = "networkx"
+area = "graphs"
+summary = "Graphs and graph algorithms: paths, flows, matchings, coloring, isomorphism."
+
+[[solver]]
+package = "pynauty"
+import_name = "pynauty"
+area = "graphs"
+summary = "nauty bindings: canonical labelling and automorphism groups of graphs."

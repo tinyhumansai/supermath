@@ -1,0 +1,45 @@
+[package]
+name = "supermath-python"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Python solver tools for the supermath agent: run a project file in the pinned, sandboxed service, search a frame for a counterexample, and list the solvers."
+readme = "README.md"
+keywords = ["agent", "mathematics", "python", "solvers"]
+categories = ["science"]
+publish = false
+
+[dependencies]
+# The `Tool` trait, `Envelope`, `CallContext`, and `Budget` every tool speaks.
+supermath-tool = { path = "../supermath-tool" }
+# The project workspace: file reads, digests, the witness write, and the
+# `FileObserver` port this crate implements for its run log.
+supermath-files = { path = "../supermath-files" }
+# `#[async_trait]` on the `Tool` impls.
+async-trait = { workspace = true }
+# HTTP client for the Python service; rustls, no system OpenSSL.
+reqwest = { workspace = true }
+# Typed tool arguments and the service's wire types.
+serde = { workspace = true }
+# `Envelope::data`, JSON arguments, and the canonical form hashed into
+# `args_sha256`.
+serde_json = { workspace = true }
+# `args_sha256` and the witness file's content-addressed name.
+sha2 = { workspace = true }
+# Hex-encodes those digests.
+hex = { workspace = true }
+# The crate-wide `Error` enum.
+thiserror = { workspace = true }
+# `select!` so a cancelled call stops waiting on the service.
+tokio = { workspace = true, features = ["macros"] }
+
+[dev-dependencies]
+# Scratch project workspaces in tests.
+tempfile = { workspace = true }
+# Runs async tests and the loopback stub server (`net`, `io-util`).
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "time", "sync"] }
+
+[lints]
+workspace = true

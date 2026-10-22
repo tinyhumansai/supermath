@@ -1,0 +1,35 @@
+# The pinned solver environment for the supermath `python` service.
+#
+# `uv.lock` is the contract: a solver is available exactly when it is in the
+# lock, and `py_solvers` reads its list from there. Add a package here and
+# re-lock (`uv lock`) in its own commit, with the reason in the message.
+[project]
+name = "supermath-python-solvers"
+version = "0.1.0"
+description = "Solver environment for supermath's sandboxed Python runs."
+requires-python = "==3.12.*"
+dependencies = [
+    # Symbolic: computer algebra, exact integers/polynomials/matrices, PARI/GP.
+    "sympy",
+    "python-flint",
+    "cypari2",
+    # Numeric: arrays, scientific routines, arbitrary precision.
+    "numpy",
+    "scipy",
+    "mpmath",
+    # SMT and SAT.
+    "z3-solver",
+    "python-sat",
+    # Optimization: CP-SAT and MIP, HiGHS LP/MIP, convex modelling.
+    "ortools",
+    "highspy",
+    "cvxpy",
+    # Graphs and combinatorics: graphs, canonical labelling and automorphisms.
+    "networkx",
+    "pynauty",
+    # Composable exact mathematics operations, importable as a library.
+    "jacobian",
+]
+
+[tool.uv]
+package = false
