@@ -35,6 +35,7 @@ fn maps_every_variant_to_its_documented_code() {
             ErrorCode::InvalidInput,
         ),
         (Error::TooLarge { limit: 1 }, ErrorCode::InvalidInput),
+        (Error::ArxivPaper { arxiv_id: None }, ErrorCode::InvalidInput),
         (Error::NotFound, ErrorCode::NotFound),
         (Error::Forbidden("x".into()), ErrorCode::Forbidden),
         (
@@ -55,4 +56,15 @@ fn a_rate_limit_envelope_carries_retry_after() {
     }
     .into_envelope();
     assert_eq!(envelope.error.and_then(|e| e.retry_after_ms), Some(1500));
+}
+
+#[test]
+fn an_arxiv_refusal_suggests_lit_get_paper_when_it_names_a_paper() {
+    let named = Error::ArxivPaper {
+        arxiv_id: Some("1908.08483".into()),
+    }
+    .into_envelope();
+    assert_eq!(named.next, [r#"lit_get_paper {"arxiv_id": "1908.08483"}"#]);
+    let unnamed = Error::ArxivPaper { arxiv_id: None }.into_envelope();
+    assert!(unnamed.next.is_empty());
 }

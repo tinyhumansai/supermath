@@ -417,6 +417,29 @@ async fn the_calls_wall_time_budget_bounds_the_timeout() {
 }
 
 #[tokio::test]
+async fn a_spent_compute_budget_is_refused_before_the_service_is_called() {
+    let rig = rig().await;
+    let mut spent = ctx();
+    spent.budget = Budget {
+        wall_time_ms: 0,
+        ..Budget::default()
+    };
+    let answer = rig
+        .setup
+        .tool("py_run")
+        .call(&spent, run_args("largest"))
+        .await;
+    assert_eq!(answer.code(), Some(ErrorCode::BudgetExceeded), "{answer:?}");
+    let searched = rig
+        .setup
+        .tool("py_search_counterexample")
+        .call(&spent, search_args("always"))
+        .await;
+    assert_eq!(searched.code(), Some(ErrorCode::BudgetExceeded));
+    assert!(rig.stub.requests().is_empty());
+}
+
+#[tokio::test]
 async fn service_refusals_map_onto_the_error_codes() {
     let rig = rig().await;
     let cases = [
