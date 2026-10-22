@@ -38,6 +38,7 @@ fn imports_come_before_importers() {
     put(&workspace, "python/work/x.py", "import math\n");
     let order: Vec<String> = lean_files(&workspace, "demo")
         .unwrap()
+        .ordered
         .into_iter()
         .map(|f| f.path.module())
         .collect();
@@ -54,7 +55,7 @@ fn a_cycle_and_a_missing_import_do_not_loop_or_fail() {
         "import Supermath.B\nimport Supermath.Gone\n",
     );
     put(&workspace, "lean/Supermath/B.lean", "import Supermath.A\n");
-    let order = lean_files(&workspace, "demo").unwrap();
+    let order = lean_files(&workspace, "demo").unwrap().ordered;
     assert_eq!(order.len(), 2);
 }
 
@@ -64,6 +65,21 @@ fn an_empty_project_has_no_files() {
     assert!(
         lean_files(&Workspace::new(dir.path()), "demo")
             .unwrap()
+            .ordered
             .is_empty()
     );
+}
+
+#[test]
+fn an_unreadable_file_is_reported_with_its_reason() {
+    let dir = tempfile::tempdir().unwrap();
+    let workspace = Workspace::new(dir.path());
+    put(&workspace, "lean/Supermath/A.lean", "import Mathlib\n");
+    let bad = dir.path().join("demo/lean/Supermath/Bad.lean");
+    std::fs::write(&bad, [0xff, 0xfe]).unwrap();
+    let found = lean_files(&workspace, "demo").unwrap();
+    assert_eq!(found.ordered.len(), 1);
+    assert_eq!(found.unreadable.len(), 1);
+    assert_eq!(found.unreadable[0].path.as_str(), "lean/Supermath/Bad.lean");
+    assert!(!found.unreadable[0].reason.is_empty());
 }

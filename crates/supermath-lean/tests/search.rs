@@ -95,7 +95,9 @@ async fn pattern_mode_asks_loogle_and_notes_its_other_revision() {
     assert_eq!(envelope.coverage.unwrap().searched, ["loogle"]);
     assert_eq!(
         envelope.unknowns,
-        ["loogle does not report the Mathlib revision it indexes, which may differ from the pinned one"]
+        [
+            "loogle does not report the Mathlib revision it indexes, which may differ from the pinned one"
+        ]
     );
     let seen = stub.requests();
     assert_eq!(seen[0].method, "GET");
@@ -124,7 +126,9 @@ async fn natural_mode_asks_leansearch() {
     assert_eq!(envelope.coverage.unwrap().searched, ["leansearch"]);
     assert_eq!(
         envelope.unknowns,
-        ["leansearch does not report the Mathlib revision it indexes, which may differ from the pinned one"]
+        [
+            "leansearch does not report the Mathlib revision it indexes, which may differ from the pinned one"
+        ]
     );
     assert_eq!(
         stub.last_body("/leansearch"),
@@ -225,8 +229,7 @@ async fn natural_over(reply: Reply) -> (Stub, Env) {
 #[tokio::test]
 async fn natural_mode_failures_map_to_their_codes() {
     let ask = json!({"query": "sum of two squares", "mode": "natural"});
-    let (_s, env) =
-        natural_over(Reply::status(429, "slow down").header("Retry-After", "3")).await;
+    let (_s, env) = natural_over(Reply::status(429, "slow down").header("Retry-After", "3")).await;
     let limited = env.call("lean_search", ask.clone()).await;
     assert_eq!(limited.code(), Some(ErrorCode::RateLimited));
     assert_eq!(limited.error.unwrap().retry_after_ms, Some(3_000));
@@ -265,7 +268,10 @@ async fn the_limit_is_capped_by_the_rows_budget() {
     tight.budget.rows = 2;
     let envelope = env
         .tool("lean_search")
-        .call(&tight, json!({"query": "Prime", "mode": "name", "limit": 50}))
+        .call(
+            &tight,
+            json!({"query": "Prime", "mode": "name", "limit": 50}),
+        )
         .await;
     assert_eq!(envelope.outcome, Outcome::Ok);
     assert_eq!(names(&envelope.data).len(), 2);

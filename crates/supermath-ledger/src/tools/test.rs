@@ -515,7 +515,8 @@ async fn ledger_claims_filters_pages_and_trims() {
     let all = call(&claims, json!({"limit": 2})).await;
     let rows = all.data["claims"].as_array().unwrap();
     assert_eq!(rows.len(), 2);
-    assert_eq!(rows[0]["kind"], "result", "newest first");
+    // Rows keep recall order; the stub recalls its newest notes first.
+    assert_eq!(rows[0]["kind"], "result", "recall order");
     assert_eq!(rows[0]["statement"].as_str().unwrap().chars().count(), 301);
     assert_eq!(rows[0]["status"], "formalised");
     assert_eq!(rows[0]["alignment"], "not_reviewed");

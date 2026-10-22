@@ -389,8 +389,7 @@ fn put_unreadable(env: &Env, path: &str) {
 /// A project of `count` independent one-theorem files over a stub that
 /// answers every check clean.
 async fn many(count: usize) -> (Stub, Env) {
-    let stub =
-        Stub::start(|_| support::Reply::fixture("check_clean.json")).await;
+    let stub = Stub::start(|_| support::Reply::fixture("check_clean.json")).await;
     let env = Env::over(&stub);
     for i in 0..count {
         env.put(
@@ -414,7 +413,12 @@ async fn build_reports_an_unreadable_file_instead_of_skipping_it() {
         .find(|f| f["path"] == "lean/Supermath/Bad.lean")
         .unwrap();
     assert_eq!(bad["verdict"], "unknown");
-    assert!(bad["reason"].as_str().unwrap().contains("could not be read"));
+    assert!(
+        bad["reason"]
+            .as_str()
+            .unwrap()
+            .contains("could not be read")
+    );
     assert!(
         envelope
             .unknowns

@@ -284,7 +284,10 @@ fn env_over(stub: &Stub) -> Env {
 
 #[tokio::test]
 async fn a_memory_or_output_cap_hit_is_a_limit_with_the_coverage_so_far() {
-    for (status, words) in [("memory", "out of memory"), ("output_limit", "output size cap")] {
+    for (status, words) in [
+        ("memory", "out of memory"),
+        ("output_limit", "output size cap"),
+    ] {
         let reply = Reply::json(&json!({"status": status, "domain": "nat", "covered_to": 2000}));
         let stub = split_stub(reply, Reply::status(500, "unused")).await;
         let env = env_over(&stub);
@@ -295,8 +298,16 @@ async fn a_memory_or_output_cap_hit_is_a_limit_with_the_coverage_so_far() {
         assert_eq!(envelope.data["result"], "limit", "{status}");
         assert_eq!(envelope.data["found"], false, "{status}");
         assert_eq!(envelope.data["frame"]["covered_to"], 2000, "{status}");
-        assert!(envelope.unknowns[0].contains(words), "{:?}", envelope.unknowns);
-        assert!(envelope.unknowns[0].contains("0..=2000"), "{:?}", envelope.unknowns);
+        assert!(
+            envelope.unknowns[0].contains(words),
+            "{:?}",
+            envelope.unknowns
+        );
+        assert!(
+            envelope.unknowns[0].contains("0..=2000"),
+            "{:?}",
+            envelope.unknowns
+        );
     }
 }
 

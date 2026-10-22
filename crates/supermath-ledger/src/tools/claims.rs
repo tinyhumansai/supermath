@@ -55,8 +55,8 @@ impl Tool for LedgerClaims {
 
     fn description(&self) -> &'static str {
         "Given filters (kind, minimum status, alignment, or a text query), returns this \
-         project's ledger entries newest first; given an id, returns that claim in full \
-         with its effective status."
+         project's ledger entries in recall order, closest to the query first; given an \
+         id, returns that claim in full with its effective status."
     }
 
     fn schema(&self) -> Value {

@@ -51,8 +51,16 @@ fn no_call_is_built_when_the_line_repeats_is_missing_or_holds_no_sorry() {
 
 #[test]
 fn each_reason_names_itself_in_the_note() {
-    assert!(NoEdit::PastTheEnd.note(9).starts_with("line 9 is past the end"));
-    assert!(NoEdit::NoSorryOnLine.note(3).starts_with("line 3 holds no sorry"));
+    assert!(
+        NoEdit::PastTheEnd
+            .note(9)
+            .starts_with("line 9 is past the end")
+    );
+    assert!(
+        NoEdit::NoSorryOnLine
+            .note(3)
+            .starts_with("line 3 holds no sorry")
+    );
     assert!(NoEdit::LineNotUnique.note(1).contains("not unique"));
 }
 

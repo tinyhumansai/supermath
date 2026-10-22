@@ -213,7 +213,13 @@ impl LeanTryTactics {
         }));
         if let Some(winner) = results.iter().find(|r| r.result == "closes") {
             let tactic = closing_tactic(winner);
-            match edit_call(path.as_str(), &file.text, &file.sha256, &args.sorry, &tactic) {
+            match edit_call(
+                path.as_str(),
+                &file.text,
+                &file.sha256,
+                &args.sorry,
+                &tactic,
+            ) {
                 Ok(call) => envelope = envelope.with_next([call]),
                 Err(why) => envelope = envelope.with_unknown(why.note(args.sorry.line)),
             }
