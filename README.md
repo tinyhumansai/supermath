@@ -6,34 +6,34 @@ routing, tool selection, a small toolkit, and durable memory, wired together.
 How the agent works on a problem is not designed yet.
 
 ```text
-supermath-agent ── OpenHuman runtime ── chat + embeddings ──▶ LLM ladder (`flash`, medium effort)
+supermath-agent ── OpenHuman runtime ── chat + embeddings ──▶ Surplus Intelligence (`deepseek-v4.1-flash`, medium effort)
                      │  agent per project
                      │  tools: toolkit (deferred ones via tool_search)
                      │  tool_search ranked by Jev ──────────▶ OpenRouter
-                     └─ memory ─────────────────────────────▶ CortexDB (embeds + extracts via the ladder)
+                     └─ memory ─────────────────────────────▶ CortexDB (embeds + extracts via Surplus)
 ```
 
 ## Run it
 
 ```sh
 git submodule update --init --recursive
-cp .env.example .env          # ladder key, OpenRouter, Surplus, Venice
-docker compose up --build     # ladder + CortexDB, then `supermath-agent check`
+cp .env.example .env          # Surplus Intelligence and OpenRouter keys
+docker compose up --build     # CortexDB, then `supermath-agent check`
 ```
 
-`compose.yaml` runs three services:
+`compose.yaml` runs two services by default:
 
 | Service | Image | Role |
 | --- | --- | --- |
-| `ladder` | `ghcr.io/senamakel/llm-ladder-router` | every chat completion and embedding; config from `~/.config/ladder/config.toml`, published on 6970 |
-| `cortexdb` | `cortexdb/cortexdb:v0.10.4` | memory; extracts with `flash`, embeds with `vectors`, both through the ladder |
+| `cortexdb` | `cortexdb/cortexdb:v0.10.4` | memory; extracts with `deepseek-v4.1-flash` and embeds with `venice-embed-1`, both on Surplus |
 | `agent` | built from `Dockerfile` | `supermath-agent check`: boots the runner and reports readiness |
 
-On the host, against a running ladder and CortexDB:
+Every model call goes straight to Surplus Intelligence with concrete model
+names ([ADR 0008](docs/adr/0008-call-surplus-intelligence-directly.md)); Jev
+alone goes to OpenRouter. On the host, against a running CortexDB:
 
 ```sh
-export LADDER_API_KEY=... OPENROUTER_API_KEY=... CORTEX_API_KEY=supermath-local
-export LADDER_URL=http://localhost:6970/v1
+export SURPLUS_API_KEY=... OPENROUTER_API_KEY=... CORTEX_API_KEY=supermath-local
 cargo run -p supermath-agent -- check
 ```
 

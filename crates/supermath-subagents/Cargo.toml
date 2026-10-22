@@ -28,8 +28,9 @@ serde_json = { workspace = true }
 serde = { workspace = true }
 # The crate-wide `Error` enum.
 thiserror = { workspace = true }
-# Wall-clock budgets (`timeout`) and the elapsed time in `usage`.
-tokio = { workspace = true, features = ["time", "sync", "macros"] }
+# Wall-clock budgets (`timeout`) and the elapsed time in `usage`; `rt` spawns
+# the acknowledgement of a cancelled turn and the duel's two sides.
+tokio = { workspace = true, features = ["time", "sync", "macros", "rt"] }
 
 [dev-dependencies]
 # The scripted provider builds `ToolCall`s; the vendored path OpenHuman builds,

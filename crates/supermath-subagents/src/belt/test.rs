@@ -152,3 +152,50 @@ async fn a_host_tool_runs_through_the_belt_and_returns_the_envelope_as_json() {
     assert!(refused.output().contains("NOT_FOUND"));
     assert_eq!(belt.tool_calls(), 2);
 }
+
+#[derive(Default)]
+struct Seen(Mutex<Vec<(String, String)>>);
+
+impl super::Watcher for Seen {
+    fn observed(&self, note: &super::CallNote) {
+        self.0
+            .lock()
+            .unwrap()
+            .push((note.tool.clone(), note.call_id.clone()));
+    }
+}
+
+#[tokio::test]
+async fn a_watcher_sees_every_call_once_in_order_with_its_call_id() {
+    let world = World::new();
+    let registry = world
+        .registry()
+        .subset(&["file_write", "file_read"])
+        .unwrap();
+    let seen = Arc::new(Seen::default());
+    let belt = Belt::new(
+        "agent_settle",
+        registry,
+        Arc::new(InMemoryCallLog::new()),
+        ctx(),
+        None,
+    )
+    .with_watcher(seen.clone());
+    belt.call(
+        "file_write",
+        json!({"path": "lean/Supermath/A.lean", "content": "x"}),
+    )
+    .await;
+    belt.call("file_read", json!({"path": "lean/Supermath/A.lean"}))
+        .await;
+    belt.call("lean_check", json!({"path": "lean/Supermath/A.lean"}))
+        .await;
+    assert_eq!(
+        *seen.0.lock().unwrap(),
+        [
+            ("file_write".to_owned(), "call-1.file_write.1".to_owned()),
+            ("file_read".to_owned(), "call-1.file_read.2".to_owned()),
+            ("lean_check".to_owned(), "call-1.lean_check.3".to_owned()),
+        ]
+    );
+}

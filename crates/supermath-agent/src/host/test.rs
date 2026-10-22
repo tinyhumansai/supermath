@@ -33,14 +33,16 @@ fn toolkit() -> Arc<Toolkit> {
     Arc::new(Toolkit::compose(&config, "odd-sums").unwrap())
 }
 
-/// The four `agent_*` tools, over runners that never run.
+/// The five `agent_*` tools, over runners that never run.
 fn agent_tools(toolkit: &Toolkit) -> Vec<Arc<dyn Tool>> {
     let idle: Arc<dyn ChildRunner> = Arc::new(Idle);
     let runners = Runners {
         reader: idle.clone(),
         formalizer: idle.clone(),
         reviewer: idle.clone(),
-        refuter: idle,
+        refuter: idle.clone(),
+        duel_prover: idle.clone(),
+        duel_refuter: idle,
     };
     let built = Subagents::with_runners(
         &toolkit.registry(),
@@ -150,7 +152,7 @@ fn tool_names_list_the_toolkit_then_the_agent_tools() {
     assert!(names.contains(&"recall_memory"));
     let first_agent = names.iter().position(|n| n.starts_with("agent_")).unwrap();
     assert!(names[first_agent..].iter().all(|n| n.starts_with("agent_")));
-    assert_eq!(names.len() - first_agent, 4);
+    assert_eq!(names.len() - first_agent, 5);
 }
 
 #[tokio::test]

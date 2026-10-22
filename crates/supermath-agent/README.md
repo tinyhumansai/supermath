@@ -3,8 +3,8 @@
 The supermath agent runner. It embeds the
 [OpenHuman](https://github.com/tinyhumansai/openhuman) runtime and wires it to:
 
-- the **LLM ladder** for every chat completion and embedding (`flash` at
-  `medium` reasoning effort by default);
+- **Surplus Intelligence**, called directly, for every chat completion and
+  embedding (`deepseek-v4.1-flash` at `medium` reasoning effort by default);
 - **Jev**, the decision model OpenRouter serves, which ranks `tool_search`
   over the agent's deferred tools;
 - the **composed toolkit** from [`supermath-mcp`](../supermath-mcp/README.md),
@@ -31,7 +31,7 @@ built on OpenHuman is in
 
 | Module | Holds |
 | --- | --- |
-| `config/` | settings read from the environment: the ladder, Jev, the toolkit, the child rungs, and the MCP commands |
+| `config/` | settings read from the environment: Surplus, Jev, the toolkit, the child models, and the MCP commands |
 | `host/` | `Host` and `HostTool`: each `supermath_tool::Tool` as an OpenHuman `Tool`, dispatched through the toolkit's call log |
 | `runner/` | the OpenHuman runtime, the Jev ranker, and `Runner::agent`, which composes the toolkit and registers the agent |
 | `main.rs` | `supermath-agent check` |
@@ -67,10 +67,10 @@ cargo test
 
 Unit tests cover the host adapter against the real composed toolkit (with no
 service configured) and the agent's pinned tool list. `tests/check.rs` runs
-the binary against loopback stubs of the ladder, CortexDB, and the OpenHuman
+the binary against loopback stubs of Surplus, CortexDB, and the OpenHuman
 backend. `tests/live.rs` holds `live_subagents_formalize_bench`, which runs
 the thirty-statement formalization benchmark through `agent_formalize` against
-a real ladder and Lean service; it is skipped unless
+Surplus and a real Lean service; it is skipped unless
 `SUPERMATH_LIVE_SUBAGENTS=1`:
 
 ```sh

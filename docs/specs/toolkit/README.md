@@ -41,7 +41,7 @@ trust no further than the evidence behind its answer.
 - The solving loop: how the top-level agent sequences these tools, its
   prompt, and its final report. That is a separate spec.
 - A proof search engine of our own. Search is Lean tactics, Mathlib search,
-  and models on the ladder.
+  and models on Surplus Intelligence.
 - Accepting a result as published mathematics. A checked proof is evidence
   that a Lean statement holds, not that it says what the paper says; that is
   [alignment](ledger/README.md#alignment), a separate axis.
@@ -95,7 +95,7 @@ Every tool is one of two kinds, declared by the tool and shown in the
     turns with Google Search grounding, where Gemini chooses the queries
     ([`web/`](web/README.md)). Lives in `supermath-web`.
   - **`agentic (OpenHuman)`**, the `agent_*` tools: a full OpenHuman agent
-    turn, on its own ladder rung, with its own prompt and its own subset
+    turn, on its own Surplus model, with its own prompt and its own subset
     of primitives, running up to dozens of tool calls
     ([`subagents/`](subagents/README.md)). Lives in `supermath-subagents`.
 
@@ -266,6 +266,7 @@ tools, which need OpenHuman ([`mcp/`](mcp/README.md)).
 | [`agent_formalize`](subagents/tools/agent_formalize.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | a statement or paper locator → Lean files and their verdicts |
 | [`agent_refute`](subagents/tools/agent_refute.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P6 | a statement → a counterexample, or a repaired statement |
 | [`agent_review_alignment`](subagents/tools/agent_review_alignment.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | a declaration and its informal statement → alignment |
+| [`agent_settle`](subagents/tools/agent_settle.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P7 | an aligned Lean conjecture → `proved`, `refuted`, or `unknown`, from a prover and a refuter racing in parallel |
 
 `factor_integer` and `gcd_lcm` move to `supermath-calc` as `calc_factor`
 and `calc_gcd_lcm` in P1. Jacobian's ~1,400 operations are reached over MCP, not

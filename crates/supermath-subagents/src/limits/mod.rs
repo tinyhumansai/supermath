@@ -42,6 +42,10 @@ impl Limits {
     pub const DEFAULT: Self = Self::new(24, 200_000, 600);
     /// The alignment reviewer's default: 12 iterations, 100,000 tokens, 300 s.
     pub const REVIEW: Self = Self::new(12, 100_000, 300);
+    /// Each duel side's default for the whole duel: 32 iterations, 500,000
+    /// tokens, 1,800 s. Two sides together ask a caller for 64 iterations and
+    /// 1,000,000 tokens, which is one agentic call's budget.
+    pub const DUEL: Self = Self::new(32, 500_000, 1_800);
 
     /// Limits with the given fields.
     #[must_use]

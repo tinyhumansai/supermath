@@ -8,12 +8,15 @@
 //! [`ChildRunner`] is the port an `agent_*` tool drives. [`OpenHumanChild`]
 //! is the real implementation, one `Agent::turn` per call; tests substitute a
 //! runner that plays a fixed sequence of calls against fake primitives.
+//! [`TurnControl`] lets a host steer or cancel a turn while it runs.
 
 mod agent;
+mod control;
 mod prompts;
 mod types;
 
 pub use agent::OpenHumanChild;
+pub use control::{ControlSignal, TurnControl};
 pub use types::{ChildEnd, ChildKind, ChildRequest, ChildRunner, ChildSpec, ChildTurn};
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-//! `supermath-agent check` end to end, against loopback stubs of the ladder,
+//! `supermath-agent check` end to end, against loopback stubs of Surplus,
 //! `CortexDB`, and the `OpenHuman` backend. Nothing reaches the network.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
@@ -60,8 +60,8 @@ async fn server(report: Value) -> Stub {
 
 fn env(stub: &Stub, home: &Path) -> Vec<(String, String)> {
     vec![
-        ("LADDER_URL".into(), format!("{}/v1", stub.url)),
-        ("LADDER_API_KEY".into(), "ladder-key".into()),
+        ("SURPLUS_URL".into(), format!("{}/v1", stub.url)),
+        ("SURPLUS_API_KEY".into(), "surplus-key".into()),
         ("OPENROUTER_API_KEY".into(), "sk-or-stub".into()),
         ("CORTEX_API_URL".into(), stub.url.clone()),
         ("CORTEX_API_KEY".into(), "cortex-key".into()),
@@ -91,11 +91,11 @@ async fn check_boots_the_runner_and_reports_a_ready_stack() {
         "stdout: {stdout}\nstderr: {stderr}"
     );
     assert!(
-        stdout.contains("model `flash` at medium effort; tool_search ranked by Jev"),
+        stdout.contains("model `deepseek-v4.1-flash` at medium effort; tool_search ranked by Jev"),
         "{stdout}"
     );
     assert!(
-        stdout.contains("agent: supermath-twin-primes with 34 tools"),
+        stdout.contains("agent: supermath-twin-primes with 35 tools"),
         "{stdout}"
     );
     let line = |prefix: &str| {
@@ -120,6 +120,7 @@ async fn check_boots_the_runner_and_reports_a_ready_stack() {
         "agent_formalize",
         "agent_refute",
         "agent_review_alignment",
+        "agent_settle",
     ] {
         assert!(agent_tools.contains(name), "{name} in {agent_tools}");
     }
@@ -132,7 +133,7 @@ async fn check_boots_the_runner_and_reports_a_ready_stack() {
         stdout.contains("scope ws:supermath/project:twin-primes/app:brain"),
         "{stdout}"
     );
-    // Booting runs no turn: nothing asked the ladder for a completion.
+    // Booting runs no turn: nothing asked Surplus for a completion.
     assert!(
         !stub
             .seen()
@@ -169,7 +170,7 @@ async fn reports_usage_and_configuration_errors() {
     let unconfigured = run(&["check"], Vec::new(), home.path()).await;
     assert_eq!(unconfigured.status.code(), Some(1));
     assert!(
-        text(&unconfigured.stderr).contains("`LADDER_API_KEY` is not set"),
+        text(&unconfigured.stderr).contains("`SURPLUS_API_KEY` is not set"),
         "{}",
         text(&unconfigured.stderr)
     );

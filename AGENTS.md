@@ -36,7 +36,7 @@ crates/                 # one directory per package, named for the package
     │       └── test.rs         # module-local unit tests
     └── tests/          # the binary end to end, against loopback stubs
 vendor/openhuman/       # OpenHuman, a git submodule (openhuman-embed)
-compose.yaml            # the LLM ladder, CortexDB, and the agent
+compose.yaml            # CortexDB, the agent, and the Lean and Python services
 scripts/                # check-crate-deps.sh: the crate dependency rules
 docs/
 ├── specs/              # behavior and architecture specifications
@@ -51,9 +51,10 @@ The agent's runtime pieces and why they are arranged this way are in
 crate and depends only on `supermath-tool`; `supermath-mcp` composes them into
 a toolkit and serves it over MCP; OpenHuman owns the agent loop, tools
 runtime, and sessions; `supermath-subagents` and `supermath-agent` are the
-only crates that depend on it. The LLM ladder owns model choice and price;
-OpenRouter serves Jev, the decision model that ranks `tool_search`; CortexDB
-holds memory. `scripts/check-crate-deps.sh` enforces the dependency rules.
+only crates that depend on it. Surplus Intelligence serves every model call,
+called directly with concrete model names
+(`docs/adr/0008-call-surplus-intelligence-directly.md`); OpenRouter serves
+Jev, the decision model that ranks `tool_search`; CortexDB holds memory. `scripts/check-crate-deps.sh` enforces the dependency rules.
 
 Add a crate by creating `crates/<name>/` — `members = ["crates/*"]` picks it up
 by existing. Inherit `version`, `edition`, `rust-version`, `license`, and
@@ -104,7 +105,7 @@ Supporting commands:
 - `cargo test <filter>` — run a focused subset while iterating.
 - `scripts/check-crate-deps.sh` — the crate dependency rules CI also runs.
 - `cargo run -p supermath-agent -- check` — boot the runner against a live
-  ladder and CortexDB (see `README.md` for the environment).
+  Surplus and CortexDB (see `README.md` for the environment).
 - `docker compose up --build` — the whole stack.
 - `cargo doc --no-deps --workspace` — build the rustdoc CI also builds
   with `RUSTDOCFLAGS="-D warnings"`.

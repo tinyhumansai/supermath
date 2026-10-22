@@ -35,7 +35,9 @@ covering their design, public surface, and important constraints.
 The agent runner is specified in
 [`specs/agent-runner.md`](specs/agent-runner.md), and
 [`adr/0002-build-on-openhuman.md`](adr/0002-build-on-openhuman.md) records why
-it embeds OpenHuman.
+it embeds OpenHuman, and
+[`adr/0008-call-surplus-intelligence-directly.md`](adr/0008-call-surplus-intelligence-directly.md)
+why every model call goes straight to Surplus Intelligence.
 
 The conjecture toolkit (literature, web research, Lean, Python solvers, the
 claim ledger, and sub-agents) is built as one crate per tool domain,
@@ -44,6 +46,13 @@ is specified in [`specs/toolkit/`](specs/toolkit/README.md), planned in
 [`plans/lean-toolkit.md`](plans/lean-toolkit.md), and its decisions are
 ADRs [0003](adr/0003-run-lean-as-a-pinned-service.md) to
 [0007](adr/0007-run-python-solvers-as-a-pinned-service.md).
+
+Settling one conjecture by racing a prover against a refuter, `agent_settle`,
+is specified in
+[`specs/toolkit/subagents/tools/agent_settle.md`](specs/toolkit/subagents/tools/agent_settle.md),
+planned in [`plans/conjecture-duel.md`](plans/conjecture-duel.md), and
+decided in
+[ADR 0009](adr/0009-settle-conjectures-by-a-prover-refuter-duel.md).
 
 ## Conventions
 

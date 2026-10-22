@@ -1,4 +1,4 @@
-//! [`Subagents`]: the four `agent_*` tools, built for one project.
+//! [`Subagents`]: the five `agent_*` tools, built for one project.
 //!
 //! The composition hands over a [`ToolRegistry`] holding the primitives by
 //! name. For each child, `Subagents` takes the subset the child may call
@@ -15,22 +15,26 @@ use supermath_tool::{CallContext, CallLog, Project, Tool, ToolRegistry};
 
 use crate::belt::{Belt, Progress};
 use crate::child::{ChildKind, ChildRunner, ChildSpec, OpenHumanChild};
-use crate::config::Models;
+use crate::config::{DuelSettings, Models};
+use crate::duel::Offline;
 use crate::error::{Error, Result};
 use crate::tools::{
-    AgentDigestPaper, AgentFormalize, AgentRefute, AgentReviewAlignment, Agentic, Shared,
+    AgentDigestPaper, AgentFormalize, AgentRefute, AgentReviewAlignment, AgentSettle, Agentic,
+    Shared,
 };
 
 /// How the children are built.
 #[derive(Clone, Default)]
 pub struct SubagentsConfig {
-    /// The ladder rung of each child.
+    /// The Surplus model of each child.
     pub models: Models,
-    /// The provider the children run on; `None` keeps the runtime's own (the
-    /// ladder). Tests pass `Provider::custom` with a scripted model.
+    /// The provider the children run on; `None` keeps the runtime's own
+    /// (Surplus Intelligence). Tests pass `Provider::custom` with a scripted model.
     pub provider: Option<Provider>,
     /// Receives each child's tool events, for the parent's progress stream.
     pub progress: Option<Arc<dyn Progress>>,
+    /// How `agent_settle` paces and polices its two sides.
+    pub duel: DuelSettings,
 }
 
 impl std::fmt::Debug for SubagentsConfig {
@@ -39,6 +43,7 @@ impl std::fmt::Debug for SubagentsConfig {
             .field("models", &self.models)
             .field("provider", &self.provider)
             .field("progress", &self.progress.is_some())
+            .field("duel", &self.duel)
             .finish()
     }
 }
@@ -54,6 +59,10 @@ pub struct Runners {
     pub reviewer: Arc<dyn ChildRunner>,
     /// Runs the refuter.
     pub refuter: Arc<dyn ChildRunner>,
+    /// Runs the prover side of `agent_settle`.
+    pub duel_prover: Arc<dyn ChildRunner>,
+    /// Runs the refuter side of `agent_settle`.
+    pub duel_refuter: Arc<dyn ChildRunner>,
 }
 
 impl Runners {
@@ -63,6 +72,8 @@ impl Runners {
             ChildKind::Formalizer => Arc::clone(&self.formalizer),
             ChildKind::Reviewer => Arc::clone(&self.reviewer),
             ChildKind::Refuter => Arc::clone(&self.refuter),
+            ChildKind::DuelProver => Arc::clone(&self.duel_prover),
+            ChildKind::DuelRefuter => Arc::clone(&self.duel_refuter),
         }
     }
 }
@@ -116,12 +127,13 @@ impl Subagents {
             registry,
             log,
             project,
-            config.progress.clone(),
+            (config.progress.clone(), config.duel),
             |spec, build_belt| {
                 let model = match spec.kind {
                     ChildKind::Reader => &config.models.reader,
                     ChildKind::Formalizer | ChildKind::Refuter => &config.models.formalizer,
                     ChildKind::Reviewer => &config.models.reviewer,
+                    ChildKind::DuelProver | ChildKind::DuelRefuter => &config.models.duel,
                 };
                 let child = OpenHumanChild::build(
                     runtime,
@@ -149,16 +161,20 @@ impl Subagents {
         runners: &Runners,
         progress: Option<Arc<dyn Progress>>,
     ) -> Result<Self> {
-        Self::assemble(registry, log, project, progress, |spec, _| {
-            Ok(runners.for_kind(spec.kind))
-        })
+        Self::assemble(
+            registry,
+            log,
+            project,
+            (progress, DuelSettings::default()),
+            |spec, _| Ok(runners.for_kind(spec.kind)),
+        )
     }
 
     fn assemble(
         registry: &ToolRegistry,
         log: Arc<dyn CallLog>,
         project: &Project,
-        progress: Option<Arc<dyn Progress>>,
+        (progress, duel): (Option<Arc<dyn Progress>>, DuelSettings),
         mut make: impl FnMut(&ChildSpec, &Arc<Belt>) -> Result<Arc<dyn ChildRunner>>,
     ) -> Result<Self> {
         let shared = Arc::new(Shared::new(
@@ -204,9 +220,81 @@ impl Subagents {
                 ChildKind::Formalizer => Arc::new(AgentFormalize { core }),
                 ChildKind::Reviewer => Arc::new(AgentReviewAlignment { core }),
                 ChildKind::Refuter => Arc::new(AgentRefute { core }),
+                ChildKind::DuelProver | ChildKind::DuelRefuter => continue,
             });
         }
+        match Self::duel(registry, project, &shared, &mut make)? {
+            Ok([prover, refuter]) => tools.push(Arc::new(AgentSettle {
+                prover,
+                refuter,
+                settings: duel,
+            })),
+            Err(missing) => unavailable.push(missing),
+        }
         Ok(Self { tools, unavailable })
+    }
+
+    /// Builds the two sides of `agent_settle`, or says which primitives the
+    /// registry lacks for them.
+    fn duel(
+        registry: &ToolRegistry,
+        project: &Project,
+        shared: &Arc<Shared>,
+        make: &mut impl FnMut(&ChildSpec, &Arc<Belt>) -> Result<Arc<dyn ChildRunner>>,
+    ) -> Result<std::result::Result<[Arc<Agentic>; 2], Unavailable>> {
+        let mut missing: Vec<String> = Vec::new();
+        for kind in ChildKind::DUEL {
+            for name in kind.spec().required() {
+                if registry.get(name).is_none() && !missing.iter().any(|m| m == name) {
+                    missing.push(name.to_owned());
+                }
+            }
+        }
+        if !missing.is_empty() {
+            return Ok(Err(Unavailable {
+                tool: "agent_settle",
+                missing,
+            }));
+        }
+        let mut build = |kind: ChildKind| -> Result<Arc<Agentic>> {
+            let spec = kind.spec();
+            if let Some(agentic) = spec
+                .required()
+                .find(|name| registry.get(name).is_some_and(|t| t.kind().is_agentic()))
+            {
+                return Err(Error::NotPrimitive(agentic.to_owned()));
+            }
+            let primitives: Vec<&str> = spec
+                .primitives
+                .iter()
+                .copied()
+                .filter(|name| !name.starts_with("duel_"))
+                .collect();
+            let scope = registry.subset(&primitives)?;
+            // The agent is built with stand-ins for the duel's own tools;
+            // every turn replaces them with the ones bound to its duel.
+            let mut offered = scope.clone();
+            offered.register(Arc::new(Offline("duel_post")))?;
+            offered.register(Arc::new(Offline("duel_board")))?;
+            let build_belt = Arc::new(Belt::new(
+                spec.tool,
+                offered,
+                Arc::clone(&shared.log),
+                CallContext::new(project.clone(), "subagents-build"),
+                shared.progress.clone(),
+            ));
+            let runner = make(&spec, &build_belt)?;
+            Ok(Arc::new(Agentic::new(
+                Arc::clone(shared),
+                spec,
+                runner,
+                scope,
+            )))
+        };
+        Ok(Ok([
+            build(ChildKind::DuelProver)?,
+            build(ChildKind::DuelRefuter)?,
+        ]))
     }
 
     /// The tools that could be built, in catalogue order.

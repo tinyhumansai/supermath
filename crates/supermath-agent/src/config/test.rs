@@ -5,10 +5,10 @@
 use std::collections::HashMap;
 
 use super::{
-    Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_LADDER_URL, DEFAULT_MODEL,
-    DEFAULT_REASONING_EFFORT,
+    Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_MODEL,
+    DEFAULT_REASONING_EFFORT, DEFAULT_SURPLUS_URL,
 };
-use supermath_subagents::Models;
+use supermath_subagents::{DuelSettings, Models};
 
 use crate::error::Error;
 
@@ -21,7 +21,7 @@ fn lookup(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
 }
 
 const REQUIRED: [(&str, &str); 3] = [
-    ("LADDER_API_KEY", "ladder-key"),
+    ("SURPLUS_API_KEY", "surplus-key"),
     ("OPENROUTER_API_KEY", "sk-or-test"),
     ("CORTEX_API_KEY", "cortex-key"),
 ];
@@ -36,7 +36,7 @@ fn with(extra: &[(&'static str, &'static str)]) -> Vec<(&'static str, &'static s
 #[test]
 fn fills_defaults_when_only_required_settings_are_given() {
     let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
-    assert_eq!(config.ladder_url, DEFAULT_LADDER_URL);
+    assert_eq!(config.surplus_url, DEFAULT_SURPLUS_URL);
     assert_eq!(config.model, DEFAULT_MODEL);
     assert_eq!(config.reasoning_effort, DEFAULT_REASONING_EFFORT);
     assert_eq!(config.embedding_model, DEFAULT_EMBEDDING_MODEL);
@@ -44,10 +44,20 @@ fn fills_defaults_when_only_required_settings_are_given() {
     assert_eq!(config.toolkit.ledger.cortex_url, "http://localhost:3141");
     assert_eq!(config.toolkit.ledger.scope_root, "ws:supermath");
     assert_eq!(config.models, Models::default());
+    assert_eq!(config.duel, DuelSettings::default());
     assert_eq!(config.jacobian_cmd, None);
     assert_eq!(config.lean_lsp_cmd, None);
     assert_eq!(config.backend_url, None);
     assert_eq!(config.openrouter_api_key, "sk-or-test");
+}
+
+#[test]
+fn defaults_call_surplus_directly_with_concrete_model_names() {
+    let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
+    assert_eq!(config.surplus_url, "https://api.surplusintelligence.ai/v1");
+    assert_eq!(config.model, "deepseek-v4.1-flash");
+    assert_eq!(config.embedding_model, "venice-embed-1");
+    assert_eq!(config.embedding_dims, 1024);
 }
 
 #[test]
@@ -68,39 +78,41 @@ fn names_each_missing_required_setting() {
 
 #[test]
 fn treats_a_blank_value_as_unset() {
-    let error = Config::from_lookup(lookup(&with(&[("LADDER_API_KEY", "   ")]))).unwrap_err();
-    assert!(matches!(error, Error::MissingConfig("LADDER_API_KEY")));
+    let error = Config::from_lookup(lookup(&with(&[("SURPLUS_API_KEY", "   ")]))).unwrap_err();
+    assert!(matches!(error, Error::MissingConfig("SURPLUS_API_KEY")));
 }
 
 #[test]
 fn reads_overrides_and_strips_trailing_slashes() {
     let config = Config::from_lookup(lookup(&with(&[
-        ("LADDER_URL", "http://ladder:6969/v1/"),
+        ("SURPLUS_URL", "http://surplus.test/v1/"),
         ("CORTEX_API_URL", "http://cortexdb:3141/"),
         ("CORTEX_SCOPE_ROOT", "ws:test"),
         ("SUPERMATH_BACKEND_URL", "http://backend"),
-        ("SUPERMATH_MODEL", "reasoning"),
+        ("SUPERMATH_MODEL", "deepseek-v4-pro"),
         ("SUPERMATH_REASONING_EFFORT", "high"),
         ("SUPERMATH_EMBEDDING_DIMS", "1536"),
-        ("SUPERMATH_READER_MODEL", "cheap"),
+        ("SUPERMATH_READER_MODEL", "glm-5.3-flash"),
+        ("SUPERMATH_DUEL_MAX_ROUNDS", "6"),
         ("SUPERMATH_JACOBIAN_CMD", " jacobian-mcp --stdio "),
         ("SUPERMATH_LEAN_LSP_CMD", "uvx lean-lsp-mcp"),
     ])))
     .unwrap();
-    assert_eq!(config.ladder_url, "http://ladder:6969/v1");
+    assert_eq!(config.surplus_url, "http://surplus.test/v1");
     assert_eq!(config.toolkit.ledger.cortex_url, "http://cortexdb:3141");
     assert_eq!(config.toolkit.ledger.scope_root, "ws:test");
     assert_eq!(config.backend_url.as_deref(), Some("http://backend"));
-    assert_eq!(config.model, "reasoning");
+    assert_eq!(config.model, "deepseek-v4-pro");
     assert_eq!(config.reasoning_effort, "high");
     assert_eq!(config.embedding_dims, 1536);
-    assert_eq!(config.models.reader, "cheap");
+    assert_eq!(config.models.reader, "glm-5.3-flash");
+    assert_eq!(config.duel.max_rounds, 6);
     assert_eq!(config.jacobian_cmd.as_deref(), Some("jacobian-mcp --stdio"));
     assert_eq!(config.lean_lsp_cmd.as_deref(), Some("uvx lean-lsp-mcp"));
 }
 
 #[test]
-fn rejects_a_child_model_that_is_not_a_ladder_name() {
+fn rejects_a_child_model_that_is_not_a_model_name() {
     let error =
         Config::from_lookup(lookup(&with(&[("SUPERMATH_READER_MODEL", "two words")]))).unwrap_err();
     assert!(matches!(error, Error::Subagents(_)), "{error}");
@@ -139,7 +151,7 @@ fn rejects_a_reasoning_effort_openhuman_does_not_accept() {
 fn debug_output_never_shows_credentials() {
     let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
     let rendered = format!("{config:?}");
-    for secret in ["ladder-key", "sk-or-test", "cortex-key"] {
+    for secret in ["surplus-key", "sk-or-test", "cortex-key"] {
         assert!(!rendered.contains(secret), "{secret}");
     }
     assert!(rendered.contains(DEFAULT_MODEL));

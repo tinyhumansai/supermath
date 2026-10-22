@@ -1,4 +1,4 @@
-//! What the four `agent_*` tools share: the registry, the child, admission,
+//! What the `agent_*` tools share: the registry, the child, admission,
 //! and one way to run a turn with accounting.
 
 use std::sync::Arc;
@@ -10,7 +10,7 @@ use serde_json::Value;
 use supermath_tool::{CallContext, CallLog, Envelope, ErrorCode, Project, ToolRegistry, Usage};
 
 use crate::belt::{Belt, Progress};
-use crate::child::{ChildEnd, ChildRequest, ChildRunner, ChildSpec};
+use crate::child::{ChildEnd, ChildRequest, ChildRunner, ChildSpec, TurnControl};
 use crate::limits::{BudgetArg, Limits};
 
 /// An error envelope on the way out of a helper; boxed so `Result` stays small.
@@ -57,6 +57,8 @@ pub(crate) struct Turn {
     pub(crate) end: ChildEnd,
     pub(crate) usage: Usage,
     pub(crate) belt: Arc<Belt>,
+    /// Steers the turn never applied, for the host's next turn.
+    pub(crate) unapplied: Vec<String>,
 }
 
 impl Agentic {
@@ -147,17 +149,42 @@ impl Agentic {
         prompt: String,
         limits: Limits,
     ) -> Result<Turn, Refusal> {
-        let belt = Arc::new(Belt::new(
+        let belt = Arc::new(self.belt(ctx, self.scope.clone()));
+        self.run_on(ctx, prompt, limits, belt, None).await
+    }
+
+    /// A belt for this tool's child under `ctx`, reaching the tools in
+    /// `scope`.
+    pub(crate) fn belt(&self, ctx: &CallContext, scope: ToolRegistry) -> Belt {
+        Belt::new(
             self.spec.tool,
-            self.scope.clone(),
+            scope,
             Arc::clone(&self.shared.log),
             ctx.clone(),
             self.shared.progress.clone(),
-        ));
+        )
+    }
+
+    /// The primitives this tool's child may call.
+    pub(crate) fn scope(&self) -> &ToolRegistry {
+        &self.scope
+    }
+
+    /// Runs one turn of the child on `belt`, steered or cancelled through
+    /// `control` when the host holds one. Ends as [`Agentic::run`] does.
+    pub(crate) async fn run_on(
+        &self,
+        ctx: &CallContext,
+        prompt: String,
+        limits: Limits,
+        belt: Arc<Belt>,
+        control: Option<TurnControl>,
+    ) -> Result<Turn, Refusal> {
         let request = ChildRequest {
             prompt,
             limits,
             belt: Arc::clone(&belt),
+            control,
         };
         let started = Instant::now();
         let outcome = tokio::select! {
@@ -198,13 +225,15 @@ impl Agentic {
         end: ChildEnd,
     ) -> Turn {
         let usage = self.usage_of(turn.as_ref(), belt, started);
-        let (reply, session_id) = turn.map_or_else(Default::default, |t| (t.reply, t.session_id));
+        let (reply, session_id, unapplied) =
+            turn.map_or_else(Default::default, |t| (t.reply, t.session_id, t.unapplied));
         Turn {
             reply,
             session_id,
             end,
             usage,
             belt: Arc::clone(belt),
+            unapplied,
         }
     }
 

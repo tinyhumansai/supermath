@@ -31,7 +31,7 @@ verdicts the tool computed itself, not the child's account.
 
 | | |
 | --- | --- |
-| Model | `SUPERMATH_FORMALIZER_MODEL` (default rung `formalize`) |
+| Model | `SUPERMATH_FORMALIZER_MODEL` (default `deepseek-v4-pro`) |
 | Tools in the turn | `lit_get_paper`, `lean_search`, `lean_decl`, `file_list`, `file_read`, `file_write`, `file_edit`, `lean_check`, `lean_goals`, `lean_try_tactics`, `recall_memory` |
 | Budget | 24 iterations, 200,000 tokens, 600 s by default; `depth: "proof"` raises iterations to 48 |
 | Prompt | find the Mathlib names first; reuse Mathlib definitions rather than redefining them; write the statement with a `sorry` proof and check it; then work each `sorry` with `lean_goals`, `lean_try_tactics`, and `file_edit` |

@@ -1,20 +1,20 @@
 //! The formalization benchmark against a real stack, in process. Skipped
 //! unless `SUPERMATH_LIVE_SUBAGENTS=1`.
 //!
-//! `live_subagents_formalize_bench` boots an `OpenHuman` runtime on the model
-//! ladder, composes the real toolkit (`supermath-mcp`) for a bench project per
-//! rung, builds the `agent_*` tools over its registry, runs the thirty
+//! `live_subagents_formalize_bench` boots an `OpenHuman` runtime on Surplus
+//! Intelligence, composes the real toolkit (`supermath-mcp`) for a bench
+//! project per model, builds the `agent_*` tools over its registry, runs the thirty
 //! statements of `crates/supermath-subagents/bench/formalize/` through
-//! `agent_formalize` once per rung, and prints the `checked` rate per rung.
+//! `agent_formalize` once per model, and prints the `checked` rate per model.
 //! It makes real model calls and real Lean checks, so it is never part of
 //! `cargo test` by default.
 //!
 //! | Variable | Meaning |
 //! | --- | --- |
 //! | `SUPERMATH_LIVE_SUBAGENTS` | `1` to run |
-//! | `LADDER_URL`, `LADDER_API_KEY` | the OpenAI-compatible ladder |
+//! | `SURPLUS_API_KEY` | Surplus Intelligence's key; `SURPLUS_URL` optionally overrides its API root |
 //! | `LEAN_URL`, `SUPERMATH_PROJECTS` | the Lean service and the directory it mounts |
-//! | `SUPERMATH_BENCH_RUNGS` | comma-separated rungs; default `formalize` |
+//! | `SUPERMATH_BENCH_RUNGS` | comma-separated Surplus models; default `deepseek-v4-pro` |
 //! | `SUPERMATH_BENCH_LIMIT` | run only the first N cases |
 //!
 //! Every other toolkit variable (`PYTHON_URL`, `CORTEX_*`, ...) is read
@@ -24,6 +24,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use openhuman_embed::{Provider, Runtime, RuntimeConfig, Workspace};
+use supermath_agent::DEFAULT_SURPLUS_URL;
 use supermath_mcp::{Config, Toolkit};
 use supermath_subagents::bench::{formalize_cases, run_formalize};
 use supermath_subagents::{Models, Subagents, SubagentsConfig};
@@ -46,9 +47,9 @@ fn live_subagents_formalize_bench() {
 }
 
 async fn bench() {
-    let ladder_url = env("LADDER_URL").expect("LADDER_URL");
-    let ladder_key = env("LADDER_API_KEY").expect("LADDER_API_KEY");
-    let rungs = env("SUPERMATH_BENCH_RUNGS").unwrap_or_else(|| "formalize".into());
+    let surplus_url = env("SURPLUS_URL").unwrap_or_else(|| DEFAULT_SURPLUS_URL.into());
+    let surplus_key = env("SURPLUS_API_KEY").expect("SURPLUS_API_KEY");
+    let rungs = env("SUPERMATH_BENCH_RUNGS").unwrap_or_else(|| "deepseek-v4-pro".into());
     let mut cases = formalize_cases().unwrap();
     if let Some(limit) = env("SUPERMATH_BENCH_LIMIT").and_then(|v| v.parse().ok()) {
         cases.truncate(limit);
@@ -90,8 +91,8 @@ async fn bench() {
                     formalizer: rung.to_owned(),
                     ..Models::default()
                 },
-                provider: Some(Provider::openai_compatible(&ladder_url, &ladder_key)),
-                progress: None,
+                provider: Some(Provider::openai_compatible(&surplus_url, &surplus_key)),
+                ..SubagentsConfig::default()
             },
         )
         .unwrap();

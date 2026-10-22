@@ -2,9 +2,10 @@
 //!
 //! Two model endpoints, each with one job:
 //!
-//! - **The LLM ladder** (`LADDER_URL`, `LADDER_API_KEY`) serves every chat
-//!   completion and every embedding. It is an OpenAI-compatible router that
-//!   picks the best-priced model for a named ladder such as `reasoning`.
+//! - **Surplus Intelligence** (`SURPLUS_URL`, `SURPLUS_API_KEY`) serves every
+//!   chat completion and every embedding, called directly through its
+//!   OpenAI-compatible API with a concrete model name such as
+//!   `deepseek-v4.1-flash`.
 //! - **`OpenRouter`** (`OPENROUTER_API_KEY`) serves Jev only: the decision model
 //!   `OpenHuman`'s `tool_search` uses to pick deferred tools.
 //!
@@ -15,15 +16,15 @@
 
 use std::path::PathBuf;
 
-use supermath_subagents::Models;
+use supermath_subagents::{DuelSettings, Models};
 
 use crate::error::{Error, Result};
 
-/// The ladder's API root when none is configured.
-pub const DEFAULT_LADDER_URL: &str = "http://localhost:6969/v1";
+/// Surplus Intelligence's API root when none is configured.
+pub const DEFAULT_SURPLUS_URL: &str = "https://api.surplusintelligence.ai/v1";
 
-/// The ladder the solver's turns run on when none is configured.
-pub const DEFAULT_MODEL: &str = "flash";
+/// The Surplus model the solver's turns run on when none is configured.
+pub const DEFAULT_MODEL: &str = "deepseek-v4.1-flash";
 
 /// How hard the solver's model thinks when nothing else is configured.
 pub const DEFAULT_REASONING_EFFORT: &str = "medium";
@@ -33,8 +34,8 @@ pub const REASONING_EFFORTS: [&str; 8] = [
     "none", "minimal", "low", "medium", "high", "xhigh", "off", "max",
 ];
 
-/// The ladder that serves embeddings when none is configured.
-pub const DEFAULT_EMBEDDING_MODEL: &str = "vectors";
+/// The Surplus model that serves embeddings when none is configured.
+pub const DEFAULT_EMBEDDING_MODEL: &str = "venice-embed-1";
 
 /// The width of [`DEFAULT_EMBEDDING_MODEL`]'s vectors.
 pub const DEFAULT_EMBEDDING_DIMS: usize = 1024;
@@ -45,16 +46,17 @@ pub const DEFAULT_WORKSPACE: &str = ".supermath";
 /// Everything one run needs to reach its models and its memory.
 #[derive(Clone)]
 pub struct Config {
-    /// The ladder's OpenAI-compatible API root.
-    pub ladder_url: String,
-    /// Bearer token the ladder requires.
-    pub ladder_api_key: String,
-    /// The ladder the solver's turns run on, such as `flash`.
+    /// Surplus's OpenAI-compatible API root.
+    pub surplus_url: String,
+    /// Bearer token Surplus requires.
+    pub surplus_api_key: String,
+    /// The Surplus model the solver's turns run on, such as
+    /// `deepseek-v4.1-flash`.
     pub model: String,
-    /// The reasoning effort every turn asks for, such as `medium`. The ladder
-    /// forwards a request's own effort to whichever rung serves it.
+    /// The reasoning effort every turn asks for, such as `medium`, sent with
+    /// each request.
     pub reasoning_effort: String,
-    /// The ladder that serves embeddings.
+    /// The Surplus model that serves embeddings.
     pub embedding_model: String,
     /// The width of [`Self::embedding_model`]'s vectors.
     pub embedding_dims: usize,
@@ -66,8 +68,10 @@ pub struct Config {
     pub workspace: PathBuf,
     /// Every tool domain's settings, including `CortexDB` (the ledger).
     pub toolkit: supermath_mcp::Config,
-    /// The ladder rung each `agent_*` child runs on.
+    /// The Surplus model each `agent_*` child runs on.
     pub models: Models,
+    /// How `agent_settle` paces its prover and refuter.
+    pub duel: DuelSettings,
     /// Command line of the Jacobian MCP server, when `SUPERMATH_JACOBIAN_CMD`
     /// is set.
     pub jacobian_cmd: Option<String>,
@@ -80,7 +84,7 @@ impl std::fmt::Debug for Config {
     // Hand-written so a logged config never carries a credential.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Config")
-            .field("ladder_url", &self.ladder_url)
+            .field("surplus_url", &self.surplus_url)
             .field("model", &self.model)
             .field("reasoning_effort", &self.reasoning_effort)
             .field("embedding_model", &self.embedding_model)
@@ -90,6 +94,7 @@ impl std::fmt::Debug for Config {
             .field("cortex_url", &self.toolkit.ledger.cortex_url)
             .field("scope_root", &self.toolkit.ledger.scope_root)
             .field("models", &self.models)
+            .field("duel", &self.duel)
             .field("jacobian_cmd", &self.jacobian_cmd)
             .field("lean_lsp_cmd", &self.lean_lsp_cmd)
             .finish_non_exhaustive()
@@ -146,17 +151,17 @@ impl Config {
                 value: reasoning_effort,
             });
         }
-        let ladder_api_key = required("LADDER_API_KEY")?;
+        let surplus_api_key = required("SURPLUS_API_KEY")?;
         let openrouter_api_key = required("OPENROUTER_API_KEY")?;
         // The agent keeps memory: unlike the MCP server, it refuses to start
         // without the CortexDB key.
         required("CORTEX_API_KEY")?;
         let toolkit = supermath_mcp::Config::from_lookup(&lookup)?;
         Ok(Self {
-            ladder_url: or("LADDER_URL", DEFAULT_LADDER_URL)
+            surplus_url: or("SURPLUS_URL", DEFAULT_SURPLUS_URL)
                 .trim_end_matches('/')
                 .to_string(),
-            ladder_api_key,
+            surplus_api_key,
             model: or("SUPERMATH_MODEL", DEFAULT_MODEL),
             reasoning_effort,
             embedding_model: or("SUPERMATH_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL),
@@ -166,6 +171,7 @@ impl Config {
             workspace: PathBuf::from(or("SUPERMATH_WORKSPACE", DEFAULT_WORKSPACE)),
             toolkit,
             models: Models::from_lookup(&lookup)?,
+            duel: DuelSettings::from_lookup(&lookup)?,
             jacobian_cmd: get("SUPERMATH_JACOBIAN_CMD"),
             lean_lsp_cmd: get("SUPERMATH_LEAN_LSP_CMD"),
         })

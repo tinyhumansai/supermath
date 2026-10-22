@@ -4,7 +4,7 @@
 //! supermath-agent check [project]
 //! ```
 //!
-//! Boots `OpenHuman` with the ladder and Jev, registers the agent for
+//! Boots `OpenHuman` with Surplus Intelligence and Jev, registers the agent for
 //! `project` (default `scratch`) with the composed toolkit and the `agent_*`
 //! tools, lists them, and checks that `CortexDB` is ready. Exit status: `0`
 //! ready, `1` otherwise.
@@ -60,8 +60,8 @@ async fn check(project: &str) -> supermath_agent::Result<()> {
     let runner = Runner::start(&config).await?;
     let solver = runner.agent(project)?;
     println!(
-        "runner: ladder {} model `{}` at {} effort; tool_search ranked by Jev",
-        config.ladder_url, config.model, config.reasoning_effort
+        "runner: surplus {} model `{}` at {} effort; tool_search ranked by Jev",
+        config.surplus_url, config.model, config.reasoning_effort
     );
     let tools = solver.host().adapt();
     let list = |agentic: bool| -> String {

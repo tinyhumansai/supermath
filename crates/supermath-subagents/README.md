@@ -1,15 +1,16 @@
 # supermath-subagents
 
-The four `agent_*` tools: each hands one long task to a **child OpenHuman
+The five `agent_*` tools: each hands one long task to a **child OpenHuman
 agent** with its own prompt, primitives, and model, and returns only the
-outcome. Spec: [`docs/specs/toolkit/subagents/`](../../docs/specs/toolkit/subagents/README.md).
+outcome. `agent_settle` runs two children at once, a prover and a refuter. Spec: [`docs/specs/toolkit/subagents/`](../../docs/specs/toolkit/subagents/README.md).
 
 | Tool | Child model | Returns |
 | --- | --- | --- |
-| `agent_digest_paper` | `SUPERMATH_READER_MODEL` (`flash`) | ledger ids recorded from an arXiv paper, read back from the ledger |
-| `agent_formalize` | `SUPERMATH_FORMALIZER_MODEL` (`formalize`) | Lean files written, each with a `lean_check` verdict the tool ran |
-| `agent_review_alignment` | `SUPERMATH_REVIEWER_MODEL` (`reasoning`) | `accepted` or `disputed`; the reviewer never sees a proof |
+| `agent_digest_paper` | `SUPERMATH_READER_MODEL` (`deepseek-v4.1-flash`) | ledger ids recorded from an arXiv paper, read back from the ledger |
+| `agent_formalize` | `SUPERMATH_FORMALIZER_MODEL` (`deepseek-v4-pro`) | Lean files written, each with a `lean_check` verdict the tool ran |
+| `agent_review_alignment` | `SUPERMATH_REVIEWER_MODEL` (`glm-5.3`) | `accepted` or `disputed`; the reviewer never sees a proof |
 | `agent_refute` | `SUPERMATH_FORMALIZER_MODEL` | a counterexample only after Lean confirms it, else the frames searched |
+| `agent_settle` | `SUPERMATH_DUEL_MODEL` (`deepseek-v4-pro`), both sides | `proved` or `refuted` once the tool checks a side's theorem against the pinned statement, else `unknown` with the bounds searched |
 
 ## The rule
 
@@ -31,8 +32,11 @@ Subagents::new(runtime, registry, log, project, config)
         └─ after the turn: lean_check / file_read / ledger_claims / ledger_record
 ```
 
-- `child/` describes the four children (`ChildSpec`: primitives, verifying
-  primitives, prompt, default budget), defines the `ChildRunner` port, and has
+- `child/` describes the four children and the two duel sides (`ChildSpec`:
+  primitives, verifying primitives, prompt, default budget), defines the
+  `ChildRunner` port and `TurnControl` (a host's steer and cancel handle on a
+  running turn, forwarded to OpenHuman's `TurnSteering` and
+  `TurnCancellation`), and has
   `OpenHumanChild`, the real runner: a top-level `Agent` with a `Named` scope,
   `Access::full()` (the scope is the bound), and `disallow_tools(["memory"])`.
   A stop hook enforces iterations and tokens; `Turn::timeout` enforces wall time.
@@ -40,11 +44,19 @@ Subagents::new(runtime, registry, log, project, config)
   through it, logged in the shared `CallLog` under a unique call id, and
   journaled (`CallNote`), which is how tools learn what was written and
   recorded. `HostTool` adapts a registry tool to OpenHuman's `Tool` trait.
-- `tools/` holds the four tools and their shared steps (`shared.rs`: admission,
+- `duel/` is the race behind `agent_settle`: the pinned target and its
+  host-written `Statement.lean` and verdict files (`target.rs`), the per-side
+  write areas (`guard.rs`), the board that reads every call both sides make to
+  deliver digests, nudge or restart a drifting turn, and spot a `Main.lean`
+  worth verifying (`board.rs`), `duel_post` and `duel_board` (`post.rs`), the
+  host-written turn prompts (`brief.rs`), and the two drivers and the
+  controller (`mod.rs`). The spec is
+  [`agent_settle.md`](../../docs/specs/toolkit/subagents/tools/agent_settle.md).
+- `tools/` holds the five tools and their shared steps (`shared.rs`: admission,
   running a turn with accounting; `verify.rs`: reading `lean_check`,
   `file_read`, and the ledger back).
-- `limits/` and `config/` hold the budget (`Limits`, `BudgetArg`) and the model
-  names (`Models`).
+- `limits/` and `config/` hold the budget (`Limits`, `BudgetArg`), the model
+  names (`Models`), and the duel's pacing (`DuelSettings`).
 - `bench/` runs the checked-in formalization benchmark.
 
 ## Wiring
@@ -55,14 +67,19 @@ let subagents = Subagents::new(
     &toolkit.registry(),      // the primitives, by name
     call_log,                 // Arc<dyn CallLog>: the one the ledger reads
     &project,
-    &SubagentsConfig { models: Models::from_env()?, provider: None, progress: None },
+    &SubagentsConfig {
+        models: Models::from_env()?,
+        duel: DuelSettings::from_env()?,
+        ..SubagentsConfig::default()
+    },
 )?;
 subagents.register_into(&mut registry)?;      // or iterate subagents.tools()
 for missing in subagents.unavailable() { /* log: tool needs these primitives */ }
 ```
 
-`provider: None` keeps the runtime's own provider (the ladder); each child sets
-only its model. The agent ids are `supermath-<slug>-<reader|formalizer|reviewer|refuter>`,
+`provider: None` keeps the runtime's own provider (Surplus Intelligence); each child sets
+only its model. The agent ids are
+`supermath-<slug>-<reader|formalizer|reviewer|refuter|duel-prover|duel-refuter>`,
 so one runtime holds one `Subagents` per project. `Subagents::with_runners`
 builds the same tools over `ChildRunner`s the host supplies.
 
@@ -72,10 +89,14 @@ builds the same tools over `ChildRunner`s the host supplies.
   and fake primitives over one in-memory world (`src/fake/`), including, for
   every tool, a child that claims success while the fake Lean says otherwise.
   Every tool also passes `supermath_tool::contract::check`.
-- `tests/openhuman.rs` runs the four children as real OpenHuman agents on a
+- `tests/openhuman.rs` runs the children as real OpenHuman agents on a
   scripted `ChatModel` (`Provider::custom`), checking each child is offered
   exactly its primitives, the per-child model, the iteration cutoff, and that a
-  child cannot reach a tool outside its scope. OpenHuman allows one runtime per
+  child cannot reach a tool outside its scope. Its duel scenarios check that
+  monitor nudges reach a running turn through OpenHuman steering, that a third
+  drift cancels the turn, and that a prover's win stops the refuter. The
+  scripted duel sides answer after 150 ms, because OpenHuman forwards steers
+  every 50 ms and an instant model would end its turn before a steer lands. OpenHuman allows one runtime per
   process, so it is one test.
 - `live_subagents_formalize_bench` lives in `supermath-agent`'s `tests/live.rs`
   (it needs the composed toolkit, which this crate never depends on), skipped
@@ -83,6 +104,11 @@ builds the same tools over `ChildRunner`s the host supplies.
   [`bench/formalize/`](bench/formalize/README.md).
 
 ## Constraints
+
+- A duel side writes only under its own prefixes; reads are open. Its
+  `Main.lean` wins only after the tool's own `lean_check` with the side's
+  theorem as target is `checked` **and** a host-written file restating the
+  pinned `Conjecture` from it is `checked`.
 
 - A `CallContext` for another project than the one a `Subagents` serves is
   `FORBIDDEN`: the children are built per project.

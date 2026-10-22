@@ -106,7 +106,7 @@ jobs:
         with:
           persist-credentials: false
 
-      # The ladder config is bind-mounted from the operator's machine; any
-      # file stands in for it when only the file's shape is being checked.
+      # The compose file refuses to render without a Surplus key; any value
+      # stands in for it when only the file's shape is being checked.
       - name: Validate the compose file
-        run: LADDER_CONFIG_PATH=README.md docker compose config --quiet
+        run: SURPLUS_API_KEY=ci docker compose config --quiet
