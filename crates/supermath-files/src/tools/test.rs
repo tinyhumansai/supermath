@@ -524,6 +524,202 @@ async fn list_skips_files_that_stopped_being_text() {
     .unwrap();
     let tool = FileList::new(fx.ws.clone(), Vec::new());
     let listing = call(&tool, json!({})).await;
+    assert_eq!(listing.outcome, Outcome::Ok);
     assert_eq!(listing.data["total"], 2);
     assert_eq!(listing.data["files"].as_array().unwrap().len(), 1);
+    // `total` counts the skipped file, so the reply says which one it is.
+    assert_eq!(listing.unknowns.len(), 1, "{:?}", listing.unknowns);
+    assert!(listing.unknowns[0].contains("lean/Supermath/Binary.lean"));
+}
+
+#[tokio::test]
+async fn list_reports_every_skipped_file_by_path() {
+    let fx = fx();
+    write(&fx, LEAN, SOURCE).await;
+    let dir = fx.dir.path().join("demo/lean/Supermath");
+    std::fs::write(dir.join("Binary.lean"), [0xff_u8, 0xfe]).unwrap();
+    std::fs::write(dir.join("Huge.lean"), "x".repeat(MAX_FILE_BYTES + 1)).unwrap();
+    let listing = call(&FileList::new(fx.ws.clone(), Vec::new()), json!({})).await;
+    assert_eq!(listing.data["total"], 3);
+    assert_eq!(listing.data["files"].as_array().unwrap().len(), 1);
+    let skipped = listing.unknowns.join("\n");
+    assert!(skipped.contains("lean/Supermath/Binary.lean"), "{skipped}");
+    assert!(skipped.contains("lean/Supermath/Huge.lean"), "{skipped}");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn list_is_backend_unavailable_when_a_listed_file_cannot_be_read() {
+    use std::os::unix::fs::PermissionsExt;
+    let fx = fx();
+    write(&fx, LEAN, SOURCE).await;
+    let file = fx.dir.path().join("demo").join(LEAN);
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o000)).unwrap();
+    let listing = call(&FileList::new(fx.ws.clone(), Vec::new()), json!({})).await;
+    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644)).unwrap();
+    // A disk failure is not a skipped file: the listing would be silently
+    // short, so the call fails instead.
+    assert_eq!(code(&listing), ErrorCode::BackendUnavailable);
+}
+
+#[tokio::test]
+async fn list_pages_fifty_rows_by_default_and_clamps_a_larger_limit() {
+    let fx = fx();
+    for n in 0..55 {
+        write(
+            &fx,
+            &format!("lean/Supermath/F{n:02}.lean"),
+            "import Mathlib\n",
+        )
+        .await;
+    }
+    let tool = FileList::new(fx.ws.clone(), Vec::new());
+    for args in [json!({}), json!({"limit": 500})] {
+        let page = call(&tool, args.clone()).await;
+        assert_eq!(page.data["files"].as_array().unwrap().len(), 50, "{args}");
+        assert_eq!(page.data["total"], 55);
+        assert_eq!(page.cursor.as_deref(), Some("50"), "{args}");
+    }
+    let rest = call(&tool, json!({"cursor": "50"})).await;
+    assert_eq!(rest.data["files"].as_array().unwrap().len(), 5);
+    assert_eq!(rest.cursor, None);
+}
+
+#[tokio::test]
+async fn list_refuses_a_cursor_that_is_not_an_offset_and_ends_past_the_end() {
+    let fx = fx();
+    write(&fx, LEAN, SOURCE).await;
+    let tool = FileList::new(fx.ws.clone(), Vec::new());
+    for cursor in ["x", "-1", "1.5", "", " 2"] {
+        let refused = call(&tool, json!({"cursor": cursor})).await;
+        assert_eq!(code(&refused), ErrorCode::InvalidInput, "{cursor:?}");
+    }
+    let past = call(&tool, json!({"cursor": "999"})).await;
+    assert_eq!(past.outcome, Outcome::Ok);
+    assert_eq!(past.data["files"], json!([]));
+    assert_eq!(past.data["total"], 1);
+    assert_eq!(past.cursor, None);
+}
+
+#[tokio::test]
+async fn read_refuses_an_outline_over_the_byte_budget() {
+    let fx = fx();
+    write(&fx, LEAN, SOURCE).await;
+    let tiny = ctx().with_budget(Budget {
+        bytes: 8,
+        ..Budget::default()
+    });
+    let refused = FileRead::new(fx.ws.clone())
+        .call(&tiny, json!({"path": LEAN}))
+        .await;
+    assert_eq!(code(&refused), ErrorCode::BudgetExceeded);
+}
+
+#[tokio::test]
+async fn read_refuses_a_file_over_the_size_cap() {
+    let fx = fx();
+    write(&fx, LEAN, SOURCE).await;
+    let huge = "lean/Supermath/Huge.lean";
+    std::fs::write(
+        fx.dir.path().join("demo").join(huge),
+        "x".repeat(MAX_FILE_BYTES + 1),
+    )
+    .unwrap();
+    let tool = FileRead::new(fx.ws.clone());
+    for args in [json!({"path": huge}), json!({"path": huge, "start_line": 1})] {
+        assert_eq!(
+            code(&call(&tool, args.clone()).await),
+            ErrorCode::BudgetExceeded,
+            "{args}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn edit_tells_an_absent_old_string_from_an_empty_one() {
+    let fx = fx();
+    let sha = write(&fx, LEAN, SOURCE).await;
+    let tool = FileEdit::new(fx.ws.clone());
+    let message = |envelope: Envelope| {
+        assert_eq!(code(&envelope), ErrorCode::InvalidInput);
+        envelope.error.unwrap().message
+    };
+    let absent = message(
+        call(
+            &tool,
+            json!({"path": LEAN, "edits": [{"old": "nowhere", "new": "x"}], "if_sha256": sha}),
+        )
+        .await,
+    );
+    let empty = message(
+        call(
+            &tool,
+            json!({"path": LEAN, "edits": [{"old": "", "new": "x"}], "if_sha256": sha}),
+        )
+        .await,
+    );
+    assert_ne!(absent, empty);
+    assert!(absent.contains("does not occur"), "{absent}");
+    assert!(empty.contains("empty"), "{empty}");
+    assert!(!absent.contains("empty"), "{absent}");
+}
+
+#[tokio::test]
+async fn edit_refuses_a_result_over_the_size_cap() {
+    let fx = fx();
+    let content = format!("-- {}\n", "x".repeat(MAX_FILE_BYTES - 10));
+    let path = "lean/Supermath/Big.lean";
+    let sha = write(&fx, path, &content).await;
+    let tool = FileEdit::new(fx.ws.clone());
+    let refused = call(
+        &tool,
+        json!({"path": path, "edits": [{"old": "-- ", "new": "-- grown past the cap "}], "if_sha256": sha}),
+    )
+    .await;
+    assert_eq!(code(&refused), ErrorCode::BudgetExceeded);
+    let current = fx.ws.sha256("demo", &ProjectPath::parse(path).unwrap()).unwrap();
+    assert_eq!(current, sha);
+}
+
+#[tokio::test]
+async fn edit_refuses_a_file_in_a_generated_directory() {
+    let fx = fx();
+    let generated = "lean/Supermath/Witnesses/W.lean";
+    let disk = fx.dir.path().join("demo").join(generated);
+    std::fs::create_dir_all(disk.parent().unwrap()).unwrap();
+    std::fs::write(&disk, SOURCE).unwrap();
+    let sha = fx
+        .ws
+        .sha256("demo", &ProjectPath::parse(generated).unwrap())
+        .unwrap();
+    let refused = call(
+        &FileEdit::new(fx.ws.clone()),
+        json!({"path": generated, "edits": [{"old": "sorry", "new": "trivial"}], "if_sha256": sha}),
+    )
+    .await;
+    assert_eq!(code(&refused), ErrorCode::InvalidInput);
+    assert_eq!(std::fs::read_to_string(&disk).unwrap(), SOURCE);
+}
+
+#[tokio::test]
+async fn edit_requires_if_sha256() {
+    let fx = fx();
+    write(&fx, LEAN, SOURCE).await;
+    let tool = FileEdit::new(fx.ws.clone());
+    for missing in [
+        json!({"path": LEAN, "edits": [{"old": "sorry", "new": "trivial"}]}),
+        json!({"path": LEAN, "edits": [{"old": "sorry", "new": "trivial"}], "if_sha256": null}),
+    ] {
+        assert_eq!(
+            code(&call(&tool, missing.clone()).await),
+            ErrorCode::InvalidInput,
+            "{missing}"
+        );
+    }
+    let text = fx
+        .ws
+        .read("demo", &ProjectPath::parse(LEAN).unwrap())
+        .unwrap()
+        .text;
+    assert_eq!(text, SOURCE);
 }

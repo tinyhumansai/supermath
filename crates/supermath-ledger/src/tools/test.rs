@@ -549,6 +549,48 @@ async fn ledger_claims_filters_pages_and_trims() {
 }
 
 #[tokio::test]
+async fn ledger_claims_refuses_id_with_any_filter_before_the_budget() {
+    let w = world().await;
+    let id = seed(&w, "n^2 is even").await;
+    let claims = LedgerClaims::new(w.ledger.clone());
+    let no_rows = ctx().with_budget(Budget {
+        rows: 0,
+        ..Budget::default()
+    });
+    for (field, value) in [
+        ("kind", json!("result")),
+        ("cursor", json!("0")),
+        ("min_status", json!("asserted")),
+        ("alignment", json!("not_reviewed")),
+        ("query", json!("even")),
+    ] {
+        let mut args = json!({"id": id});
+        args[field] = value;
+        let answer = claims.call(&no_rows, args).await;
+        assert_eq!(answer.code(), Some(ErrorCode::InvalidInput), "{field}");
+    }
+    let bad_cursor = claims.call(&no_rows, json!({"cursor": "x"})).await;
+    assert_eq!(bad_cursor.code(), Some(ErrorCode::InvalidInput));
+}
+
+#[tokio::test]
+async fn ledger_claims_caps_the_limit_at_fifty_and_pages_past_the_end_to_nothing() {
+    let w = world().await;
+    for n in 0..51 {
+        seed(&w, &format!("claim {n}")).await;
+    }
+    let claims = LedgerClaims::new(w.ledger.clone());
+    let capped = call(&claims, json!({"limit": 500})).await;
+    assert_eq!(capped.data["claims"].as_array().unwrap().len(), 50);
+    assert_eq!(capped.cursor.as_deref(), Some("50"));
+
+    let past = call(&claims, json!({"cursor": "100"})).await;
+    assert_eq!(past.outcome, Outcome::Ok);
+    assert_eq!(past.data["claims"], json!([]));
+    assert!(past.cursor.is_none());
+}
+
+#[tokio::test]
 async fn ledger_claims_reports_effective_status_and_what_limits_it() {
     let w = world().await;
     teach(&w, "aa");
