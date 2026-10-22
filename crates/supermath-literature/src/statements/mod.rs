@@ -99,7 +99,7 @@ fn declarations(text: &str) -> HashMap<String, Declaration> {
     found
 }
 
-/// A `\newtheorem` title as it prints. LyX writes `{\protect\theoremname}`
+/// A `\newtheorem` title as it prints. `LyX` writes `{\protect\theoremname}`
 /// with the name macro defined later; the flattener expands most such macros
 /// but leaves `\the…` ones for counters, and expanding one right after
 /// `\protect` glues them into `\protectLemma`. So a leading `\protect` is
