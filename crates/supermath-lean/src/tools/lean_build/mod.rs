@@ -130,7 +130,7 @@ impl LeanBuild {
                 skipped += 1;
                 counts[3] += 1;
                 rows.push(row(
-                    file,
+                    &file.path,
                     "unknown",
                     &json!({"reason": "the build ran out of time before this file"}),
                 ));
