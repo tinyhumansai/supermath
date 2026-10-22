@@ -78,14 +78,16 @@ impl DuelPost {
     /// Checks a lemma in Lean and relays it as verified.
     async fn lemma(&self, ctx: &CallContext, args: &PostArgs) -> Result<Vec<Item>, Box<Envelope>> {
         let (Some(path), Some(declaration)) = (&args.path, &args.declaration) else {
-            return Err(Box::new(invalid("a lemma post needs `path` and `declaration`"));
+            return Err(Box::new(invalid(
+                "a lemma post needs `path` and `declaration`",
+            )));
         };
         let areas = self.board.target().areas(self.side);
         if !path.ends_with(".lean") || !within(path, &areas) {
             return Err(Box::new(invalid(format!(
                 "a lemma must be in a Lean file under your area ({})",
                 areas.join(" or ")
-            )));
+            ))));
         }
         let verdict = self
             .core
@@ -95,7 +97,7 @@ impl DuelPost {
             return Err(Box::new(invalid(format!(
                 "lean_check says {} for {declaration} in {path}; only a checked lemma is relayed",
                 verdict.verdict
-            )));
+            ))));
         };
         let claim = &self.board.target().claim_id;
         let recorded = self
@@ -133,7 +135,7 @@ impl DuelPost {
         if frames.is_empty() {
             return Err(Box::new(invalid(
                 "no search of yours covered a new frame to the end since your last bound post",
-            ));
+            )));
         }
         let claim = &self.board.target().claim_id;
         let mut items = Vec::new();
@@ -244,7 +246,7 @@ impl DuelPost {
                 }
                 Envelope::ok(data)
             }
-            Err(envelope) => envelope,
+            Err(envelope) => *envelope,
         }
     }
 }

@@ -76,7 +76,10 @@ pub(crate) fn continuation(board: &Board, side: Side, carry: &Carry<'_>) -> Stri
         end = carry.last_end,
         layout = layout(target, side),
     );
-    let mut lines = vec![String::new(), "Your work so far, as the tool recorded it:".to_owned()];
+    let mut lines = vec![
+        String::new(),
+        "Your work so far, as the tool recorded it:".to_owned(),
+    ];
     let work = board.summary(side);
     if work.is_empty() {
         lines.push("- nothing checked or searched yet".to_owned());
