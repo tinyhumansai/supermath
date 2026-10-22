@@ -35,6 +35,7 @@ pub(crate) fn turn(reply: &str) -> ChildTurn {
         input_tokens: 100,
         output_tokens: 20,
         end: ChildEnd::Finished,
+        unapplied: Vec::new(),
     }
 }
 

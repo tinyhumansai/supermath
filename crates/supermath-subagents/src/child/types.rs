@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use supermath_tool::Project;
 
-use super::prompts;
+use super::{TurnControl, prompts};
 use crate::belt::Belt;
 use crate::limits::Limits;
 
@@ -156,6 +156,9 @@ pub struct ChildRequest {
     pub limits: Limits,
     /// The primitives the child may call.
     pub belt: Arc<Belt>,
+    /// The host's handle on the running turn, when the host steers or
+    /// cancels it; `None` for a turn that runs to its end untouched.
+    pub control: Option<TurnControl>,
 }
 
 /// What a child turn reported. Its reply is prose to be treated as
@@ -174,6 +177,9 @@ pub struct ChildTurn {
     pub output_tokens: u64,
     /// Why the turn ended.
     pub end: ChildEnd,
+    /// Steers the host queued that the turn never applied, in order, so the
+    /// host can carry them into its next turn.
+    pub unapplied: Vec<String>,
 }
 
 /// Runs one turn of one child.

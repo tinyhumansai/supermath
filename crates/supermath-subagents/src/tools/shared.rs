@@ -158,6 +158,7 @@ impl Agentic {
             prompt,
             limits,
             belt: Arc::clone(&belt),
+            control: None,
         };
         let started = Instant::now();
         let outcome = tokio::select! {
