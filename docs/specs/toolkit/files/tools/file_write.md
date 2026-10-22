@@ -21,8 +21,8 @@ one, which costs far fewer tokens.
 - `path` follows the [path rules](../README.md#path-rules); its first
   segment, `lean/` or `python/`, names the language.
 - `if_sha256`, when given, must match the file's current digest, or the
-  write is refused with `CONFLICT`; `null` means the file must not exist
-  yet. This keeps two turns (or two sub-agents) from overwriting each
+  write is refused with `CONFLICT`; `null` or absent means the file must not
+  exist yet (so replacing a file always needs the digest you last saw). This keeps two turns (or two sub-agents) from overwriting each
   other.
 - `content` is at most 1 MB, UTF-8, and may import only what the path
   rules allow for its language.
@@ -38,4 +38,5 @@ produced the file a result was given for.
 
 `INVALID_INPUT` for a bad path, non-UTF-8 content, or a forbidden import;
 `CONFLICT` when `if_sha256` does not match; `BUDGET_EXCEEDED` over the size
-cap.
+cap; `BACKEND_UNAVAILABLE` when the workspace disk cannot be written. A path
+in a generated directory (`Witnesses/`, `witnesses/`) is `INVALID_INPUT`.

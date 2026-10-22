@@ -1,0 +1,37 @@
+[package]
+name = "supermath-files"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The project workspace: Lean and Python files, path and import rules, guarded atomic writes, the write log, and the four file_* tools."
+readme = "README.md"
+keywords = ["agent", "mathematics", "tools"]
+categories = ["science"]
+publish = false
+
+[dependencies]
+# The `Tool` trait, `Envelope`, and `CallContext` the four file tools implement.
+supermath-tool = { path = "../supermath-tool" }
+# The `Tool` trait is async and object-safe.
+async-trait = { workspace = true }
+# Tool arguments (`deny_unknown_fields`) and the write log's JSONL records.
+serde = { workspace = true }
+# Envelope payloads and the write log's line encoding.
+serde_json = { workspace = true }
+# The crate-wide `Error` enum.
+thiserror = { workspace = true }
+# File and import digests: the `if_sha256` guard and the provenance digest.
+sha2 = { workspace = true }
+# Hex-encodes those digests for the wire.
+hex = { workspace = true }
+
+[dev-dependencies]
+# Each test builds a scratch projects root.
+tempfile = { workspace = true }
+# One async runtime for tool tests and the contract checker.
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lints]
+workspace = true

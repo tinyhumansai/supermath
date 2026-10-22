@@ -1,6 +1,6 @@
 # Files: the project workspace
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Crate:** `supermath-files`
 - **Parent:** [`../README.md`](../README.md)
 
@@ -60,9 +60,11 @@ For every path: no `..`, no absolute paths, no symlinks followed out of
 the project, UTF-8 only, 1 MB at most. Generated directories
 (`Witnesses/`, `witnesses/`) are written only by the tools that own them.
 
-Imports are checked by a parse at write time: a Lean `import` line or a
+Imports are checked by a parse at write time: a Lean `import` header or a
 Python `import`/`from` statement naming anything outside the table is
-`INVALID_INPUT`. The language services are the real boundary
+`INVALID_INPUT`. Python relative imports (`from . import x`) are refused;
+write `work.x`. The Python allow-list is the standard library, the import
+names of the packages in the lock, and `work`/`work.*`. The language services are the real boundary
 ([Lean](../lean/README.md#isolation), [Python](../python/README.md#isolation)); the
 import check gives the caller an early, specific refusal.
 
@@ -73,9 +75,11 @@ import check gives the caller an early, specific refusal.
 - **Guarded.** Every write takes `if_sha256`: the digest the caller last
   saw, or `null` for a new file. A mismatch is `CONFLICT`.
 - **Logged.** Every write is appended to `projects/<slug>/.log/writes.jsonl`
-  with the path, old and new digests, the calling tool, and the turn's
-  session id. Agentic tools read this log, not their child's reply, to
-  learn what a turn wrote.
+  with the path, old and new digests, the calling tool, the call id
+  (`CallContext::call_id`; an agentic tool passes its turn's id), and the
+  time. Agentic tools read this log (`Workspace::write_log(slug)?.for_call(id)`),
+  not their child's reply, to learn what a turn wrote. A refused write
+  leaves no line.
 
 ## Observers
 
@@ -87,8 +91,9 @@ domain implements, and the composition in `supermath-mcp` registers them:
 pub trait FileObserver: Send + Sync {
     /// The language this observer reports on.
     fn language(&self) -> Language;
-    /// The last result recorded for `path`, and the digest it was for.
-    fn last_result(&self, path: &ProjectPath) -> Option<LastResult>;
+    /// The last result recorded for `path` in project `project` (the slug),
+    /// and the digest it was for.
+    fn last_result(&self, project: &str, path: &ProjectPath) -> Option<LastResult>;
 }
 ```
 
@@ -98,8 +103,27 @@ pub trait FileObserver: Send + Sync {
 | --- | --- |
 | Name | `supermath-files` |
 | Depends on | `supermath-tool`, `sha2`, `serde_json`, `tokio` |
-| Public API | `Workspace`, `ProjectPath`, `Language`, `WriteLog`, `FileObserver`, `LastResult`, and the four tools |
-| Configuration | `SUPERMATH_PROJECTS` |
+| Public API | `Workspace`, `ProjectPath`, `Language`, `WriteLog`, `FileObserver`, `LastResult`, `FilesConfig`, and the four tools (`file_tools`) |
+| Configuration | `SUPERMATH_PROJECTS` (`FilesConfig::from_env`) |
+
+### What the language crates use
+
+`supermath-lean` and `supermath-python` take a `ProjectPath` from their
+tool arguments, then use `Workspace` (shared in an `Arc`):
+
+- `resolve(slug, &path)`: the absolute, symlink-checked path to hand to the
+  service; `read(slug, &path)`: text and `sha256`; `sha256(slug, &path)`.
+- `imports_digest(slug, &path)`: the `imports_sha256` of a result. It is
+  the SHA-256 over the sorted `module<TAB>digest` lines of every project
+  module the file imports, transitively (`Supermath.*` for Lean, `work.*`
+  for Python); a module with no file contributes `missing`, so creating it
+  changes the digest.
+- `write(…, &WriteMeta::new(tool, call_id).allowing_generated())`: how the
+  search tools write into `Witnesses/` and `witnesses/`, which `file_write`
+  and `file_edit` refuse.
+- `write_log(slug)`: `WriteLog::entries` and `for_call(call_id)`.
+- `outline::outline`, `imports::parse`: the scans behind `file_read` and the
+  write-time check.
 
 The crate touches only the local filesystem. Its tests run in a temporary
 directory.

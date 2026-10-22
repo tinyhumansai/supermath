@@ -26,11 +26,14 @@ edit, not a rewrite of the file.
   occurred. Edits apply in order, all or none.
 - `if_sha256` is required: an edit against a file that changed since the
   caller last saw it is refused with `CONFLICT`.
-- Returns `{path, sha256, changed: [{start_line, end_line}]}`, so the caller
+- Returns `{path, sha256, changed: [{start_line, end_line}]}` (ranges are
+  one-based, inclusive, sorted, and adjacent ranges merge), so the caller
   can re-read only what changed. It does not check or run the file. The
   edited file must still pass the [import rules](../README.md#path-rules).
 
 ## Errors
 
 `INVALID_INPUT` for a bad path or an edit that matches zero or several
-times; `NOT_FOUND` for a missing file; `CONFLICT` on a stale digest.
+times; `NOT_FOUND` for a missing file; `CONFLICT` on a stale digest;
+`BUDGET_EXCEEDED` if the edited file would pass the size cap;
+`BACKEND_UNAVAILABLE` when the workspace disk fails.
