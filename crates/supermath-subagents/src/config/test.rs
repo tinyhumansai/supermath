@@ -131,9 +131,6 @@ fn a_reviewer_on_the_formalizers_model_is_refused() {
         reviewer: "deepseek-v4-pro".into(),
         ..Models::default()
     };
-    assert!(matches!(
-        same.check(),
-        Err(Error::ReviewerIsFormalizer(_))
-    ));
+    assert!(matches!(same.check(), Err(Error::ReviewerIsFormalizer(_))));
     assert!(Models::default().check().is_ok());
 }
