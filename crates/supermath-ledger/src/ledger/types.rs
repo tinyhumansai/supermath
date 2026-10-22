@@ -58,6 +58,17 @@ pub struct Recorded {
     pub notes: Vec<String>,
 }
 
+/// What one read of the ledger's window found.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Recalled {
+    /// One entry per claim, at its highest revision, in recall order.
+    pub(crate) entries: Vec<Entry>,
+    /// Whether memory returned as many notes as the window holds, counted
+    /// before notes that are not entries are skipped and revisions merged.
+    /// A full window may have left older entries out.
+    pub(crate) window_full: bool,
+}
+
 /// A bound to offer to the ledger.
 #[derive(Debug, Clone, PartialEq)]
 pub struct BoundRequest {

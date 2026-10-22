@@ -35,6 +35,7 @@ use crate::memory::{self, Memory, Project as MemoryProject};
 use crate::types::{Alignment, BoundSpec, Direction, Entry, Kind, Source};
 
 pub use effective::Effective;
+pub(crate) use types::Recalled;
 pub use types::{BoundOutcome, BoundRequest, Claim, Recorded};
 
 /// How many recent notes a read recalls.
@@ -103,14 +104,33 @@ impl Ledger {
     /// [`Error::InvalidProject`] for a slug with no usable characters, and
     /// the memory errors of [`Memory::recall_notes`].
     pub async fn entries(&self, slug: &str, query: &str) -> Result<Vec<Entry>> {
+        Ok(self.recall(slug, query).await?.entries)
+    }
+
+    /// The entries of [`Ledger::entries`], and whether the recall filled
+    /// the window.
+    pub(crate) async fn recall(&self, slug: &str, query: &str) -> Result<Recalled> {
         let project = MemoryProject::new(slug)?;
         let notes = self
             .memory
             .recall_notes(&project, query, self.window)
             .await?;
-        Ok(latest_revisions(notes.iter().filter_map(|note| {
-            serde_json::from_str::<Entry>(note).ok()
-        })))
+        Ok(Recalled {
+            window_full: notes.len() as u64 >= self.window,
+            entries: latest_revisions(
+                notes
+                    .iter()
+                    .filter_map(|note| serde_json::from_str::<Entry>(note).ok()),
+            ),
+        })
+    }
+
+    /// The caveat a read that filled the window carries.
+    pub(crate) fn window_note(&self) -> String {
+        format!(
+            "the ledger was read through a window of {} recalled notes; older entries may be missing",
+            self.window
+        )
     }
 
     /// The claim with this id, at its highest revision.

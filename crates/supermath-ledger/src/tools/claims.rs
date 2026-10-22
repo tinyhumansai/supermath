@@ -171,8 +171,9 @@ impl LedgerClaims {
         } else {
             query
         };
-        let loaded = self.ledger.entries(slug, query).await?;
-        let filtered: Vec<Entry> = loaded
+        let recalled = self.ledger.recall(slug, query).await?;
+        let filtered: Vec<Entry> = recalled
+            .entries
             .iter()
             .filter(|e| args.kind.is_none_or(|k| e.kind == k))
             .filter(|e| args.alignment.is_none_or(|a| e.alignment == a))
@@ -205,11 +206,8 @@ impl LedgerClaims {
         if end < rows.len() {
             envelope = envelope.with_cursor(end.to_string());
         }
-        if loaded.len() as u64 >= self.ledger.window() {
-            envelope = envelope.with_unknown(format!(
-                "the ledger was read through a window of {} recent notes; older entries may be missing",
-                self.ledger.window()
-            ));
+        if recalled.window_full {
+            envelope = envelope.with_unknown(self.ledger.window_note());
         }
         Ok(envelope)
     }
