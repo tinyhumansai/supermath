@@ -1,6 +1,6 @@
 # Conjecture toolkit
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Owner:** Maintainers
 - **Decisions:** [`../../adr/0003-run-lean-as-a-pinned-service.md`](../../adr/0003-run-lean-as-a-pinned-service.md),
   [`../../adr/0004-split-the-toolkit-into-an-mcp-crate.md`](../../adr/0004-split-the-toolkit-into-an-mcp-crate.md),
@@ -154,7 +154,10 @@ Every tool answers with the same JSON shape:
 
 - `outcome` is `ok`, `unknown`, or `error`. **`unknown` is never a negative
   answer**: a timeout, an exhausted budget, or a source not searched says
-  nothing about the mathematics.
+  nothing about the mathematics. A counterexample search that covers its
+  whole stated frame and finds no witness is the one complete negative: it
+  ends `ok` with `data.result: "exhausted"` and the frame, and means nothing
+  outside that frame.
 - `coverage` is present on every search: what was searched and what was not.
   Absence of a result outside coverage is unknown, not absence.
 - `unknowns` lists anything the answer could not establish, such as a paper
@@ -246,10 +249,10 @@ tools, which need OpenHuman ([`mcp/`](mcp/README.md)).
 | [`lean_decl`](lean/tools/lean_decl.md) | `supermath-lean` | primitive | deferred | read | P2 | a declaration name → signature, docstring, module, without the proof |
 | [`lean_goals`](lean/tools/lean_goals.md) | `supermath-lean` | primitive | deferred | read | P5 | a file and a position → the goal state there |
 | [`lean_search`](lean/tools/lean_search.md) | `supermath-lean` | primitive | deferred | read | P2 | a name, pattern, or phrase → Mathlib declarations |
-| [`lean_search_counterexample`](lean/tools/lean_search_counterexample.md) | `supermath-lean` | primitive | deferred | read | P6 | a decidable predicate declared in a project file, and a range → a witness, or none in range |
+| [`lean_search_counterexample`](lean/tools/lean_search_counterexample.md) | `supermath-lean` | primitive | deferred | read | P6 | a decidable predicate declared in a project file, and a range → a witness, or `exhausted` over the whole range |
 | [`lean_try_tactics`](lean/tools/lean_try_tactics.md) | `supermath-lean` | primitive | deferred | read | P5 | a file, one of its `sorry`s, and tactics → per-tactic outcome |
 | [`py_run`](python/tools/py_run.md) | `supermath-python` | primitive | direct | read | P4 | a Python file, an entry point, and arguments → its returned value, output, and provenance |
-| [`py_search_counterexample`](python/tools/py_search_counterexample.md) | `supermath-python` | primitive | deferred | read | P4 | a predicate function in a project file and a frame → a witness, or none in frame |
+| [`py_search_counterexample`](python/tools/py_search_counterexample.md) | `supermath-python` | primitive | deferred | read | P4 | a predicate function in a project file and a frame → a witness, or `exhausted` over the whole frame |
 | [`py_solvers`](python/tools/py_solvers.md) | `supermath-python` | primitive | deferred | read | P4 | nothing, or an area → the solvers in the pinned environment, with versions |
 | [`lit_citations`](literature/tools/lit_citations.md) | `supermath-literature` | primitive | deferred | read | P6 | an arXiv id → references or citing papers |
 | [`lit_extract_statements`](literature/tools/lit_extract_statements.md) | `supermath-literature` | primitive | deferred | read | P3 | an arXiv id → numbered statements and their `\ref` edges |

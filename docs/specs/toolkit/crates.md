@@ -1,6 +1,6 @@
 # Crates: one per tool domain
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Parent:** [`README.md`](README.md)
 - **Decisions:** [`../../adr/0006-one-crate-per-tool-domain.md`](../../adr/0006-one-crate-per-tool-domain.md),
   [`../../adr/0007-run-python-solvers-as-a-pinned-service.md`](../../adr/0007-run-python-solvers-as-a-pinned-service.md)

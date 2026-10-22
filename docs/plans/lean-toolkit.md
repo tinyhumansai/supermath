@@ -7,7 +7,7 @@
   [ADR 0005](../adr/0005-search-the-web-with-gemini-grounding.md),
   [ADR 0006](../adr/0006-one-crate-per-tool-domain.md),
   [ADR 0007](../adr/0007-run-python-solvers-as-a-pinned-service.md)
-- **Status:** Not started
+- **Status:** Implemented; the live tests (Lean image, Gemini, formalize bench) are not yet run
 
 ## Goal
 
@@ -184,15 +184,15 @@ phase that changes the stack, `docker compose up --build` with
 
 ## Checklist
 
-- [ ] P1: `supermath-tool`, dependency rules, `supermath-files`,
+- [x] P1: `supermath-tool`, dependency rules, `supermath-files`,
       `supermath-calc`, ledger memory move, `supermath-mcp serve`, host
       adapter and `Named` scope
-- [ ] P2: Lean service, `supermath-lean` (`lean_check`, `lean_search`,
+- [x] P2: Lean service, `supermath-lean` (`lean_check`, `lean_search`,
       `lean_decl`), `ledger_record`, `ledger_claims`
-- [ ] P3: `supermath-literature`, `supermath-web`
-- [ ] P4: Python service, `supermath-python`
-- [ ] P5: goal and tactic tools, `ledger_link`, `supermath-subagents`,
+- [x] P3: `supermath-literature`, `supermath-web`
+- [x] P4: Python service, `supermath-python`
+- [x] P5: goal and tactic tools, `ledger_link`, `supermath-subagents`,
       formalize bench
-- [ ] P6: counterexample search in Lean, `agent_refute`, bounds,
+- [x] P6: counterexample search in Lean, `agent_refute`, bounds,
       citations, build, blueprint, Jacobian and lean-lsp-mcp
-- [ ] Specs moved to Implemented; `agent-runner.md` toolkit table updated
+- [x] Specs moved to Implemented; `agent-runner.md` toolkit table updated
