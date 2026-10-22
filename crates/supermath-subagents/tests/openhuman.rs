@@ -563,6 +563,8 @@ async fn a_drifting_duel_side_is_nudged_then_cut_through_openhuman(rig: &Rig) {
         vec![Step::Say("STATUS: nothing"), Step::Say("STATUS: nothing")],
     );
     let answer = rig.call("agent_settle", json!({"claim_id": id})).await;
+    eprintln!("DEBUG nudges {:?}", rig.model.seen_for("duel-prover").iter().map(|s| s.nudges).collect::<Vec<_>>());
+    eprintln!("DEBUG events {:?}", rig.events.0.lock().unwrap().iter().filter(|e| e.starts_with("agent_settle")).collect::<Vec<_>>());
     assert_eq!(answer.outcome, Outcome::Unknown, "{answer:?}");
     assert_eq!(answer.data["sides"]["prover"]["ended"][0], "drift", "{answer:?}");
     let seen = rig.model.seen_for("duel-prover");
