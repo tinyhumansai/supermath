@@ -25,7 +25,7 @@ fn refuses_zero_two_and_empty_matches_naming_the_edit() {
         .unwrap();
     assert_eq!(
         zero,
-        Fault {
+        Fault::NotOnce {
             index: 1,
             occurrences: 0
         }
@@ -33,21 +33,21 @@ fn refuses_zero_two_and_empty_matches_naming_the_edit() {
     let two = apply("a a", &[edit("a", "b")]).err().unwrap();
     assert_eq!(
         two,
-        Fault {
+        Fault::NotOnce {
             index: 0,
             occurrences: 2
         }
     );
     let overlapping = apply("aaa", &[edit("aa", "b")]).err().unwrap();
-    assert_eq!(overlapping.occurrences, 2);
-    let empty = apply("abc", &[edit("", "b")]).err().unwrap();
     assert_eq!(
-        empty,
-        Fault {
+        overlapping,
+        Fault::NotOnce {
             index: 0,
-            occurrences: 0
+            occurrences: 2
         }
     );
+    let empty = apply("abc", &[edit("b", "x"), edit("", "b")]).err().unwrap();
+    assert_eq!(empty, Fault::EmptyOld { index: 1 });
 }
 
 #[test]
