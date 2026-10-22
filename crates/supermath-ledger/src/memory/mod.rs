@@ -51,16 +51,25 @@ const RECALL_LAYERS: [&str; 3] = ["events", "facts", "beliefs"];
 /// How long a recall may take before the run goes on without it.
 const RECALL_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// Events asked for per page of a labelled listing.
-const LIST_PAGE: u64 = 100;
+/// Events asked for per page of a listing.
+const LIST_PAGE: usize = 100;
 
-/// Pages read before a labelled listing gives up, so a runaway cursor cannot
-/// loop forever.
-const LIST_PAGES: usize = 20;
+/// The most notes a labelled listing reads. One claim's revisions are far
+/// fewer; the cap only stops a runaway cursor.
+const LIST_MAX: usize = 2_000;
 
 /// How long a write may take. Indexing calls an extraction model, so a
 /// write is much slower than a recall.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(120);
+
+/// What [`Memory::list_notes`] read.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Listed {
+    /// The note texts, oldest first.
+    pub notes: Vec<String>,
+    /// Whether the listing stopped at its maximum with notes left over.
+    pub more: bool,
+}
 
 /// A `CortexDB` client bound to one deployment's scope root.
 #[derive(Debug, Clone)]
@@ -148,15 +157,43 @@ impl Memory {
     ///
     /// The same as [`Memory::recall`].
     pub async fn notes_labelled(&self, project: &Project, label: &str) -> Result<Vec<String>> {
+        Ok(self.list_notes(project, Some(label), LIST_MAX).await?.notes)
+    }
+
+    /// The text of the notes in `project`'s scope, oldest first, at most
+    /// `max` of them; with `label`, only the notes that carry it.
+    ///
+    /// Exact, like [`Memory::notes_labelled`]: every note is listed, in the
+    /// order the server stored them, a page at a time. `more` says the listing
+    /// stopped at `max` with notes left over.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`Memory::recall`].
+    pub async fn list_notes(
+        &self,
+        project: &Project,
+        label: Option<&str>,
+        max: usize,
+    ) -> Result<Listed> {
         let scope = self.scope(project);
         let mut notes = Vec::new();
         let mut cursor: Option<String> = None;
-        for _ in 0..LIST_PAGES {
+        loop {
+            let left = max.saturating_sub(notes.len());
+            if left == 0 {
+                return Ok(Listed {
+                    notes,
+                    more: cursor.is_some(),
+                });
+            }
             let mut query = vec![
                 ("scope", scope.clone()),
-                ("labels", label.to_owned()),
-                ("limit", LIST_PAGE.to_string()),
+                ("limit", left.min(LIST_PAGE).to_string()),
             ];
+            if let Some(label) = label {
+                query.push(("labels", label.to_owned()));
+            }
             if let Some(cursor) = &cursor {
                 query.push(("cursor", cursor.clone()));
             }
@@ -168,7 +205,7 @@ impl Memory {
                 .send();
             let response = Self::answered("list", request, RECALL_TIMEOUT).await?;
             if response.status() == reqwest::StatusCode::NOT_FOUND {
-                break;
+                return Ok(Listed { notes, more: false });
             }
             let page = Self::read_json("list", response).await?;
             notes.extend(
@@ -185,10 +222,9 @@ impl Memory {
                 .filter(|_| page.get("has_more").and_then(Value::as_bool) == Some(true))
                 .map(str::to_owned);
             if cursor.is_none() {
-                break;
+                return Ok(Listed { notes, more: false });
             }
         }
-        Ok(notes)
     }
 
     async fn recall_pack(
