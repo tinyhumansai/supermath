@@ -282,7 +282,10 @@ def tactic_result(tactic, response):
     if out["result"] == "closes":
         for m in response.get("messages") or []:
             found = TRY_THIS_RE.search(m.get("data", ""))
-            if found:
-                out["term"] = found.group(1).strip().removeprefix("exact ")
+            suggestion = found.group(1).strip() if found else ""
+            # Only an `exact` suggestion carries a term; the client puts it
+            # back as `exact <term>` in the ready edit.
+            if suggestion.startswith("exact "):
+                out["term"] = suggestion.removeprefix("exact ").strip()
                 break
     return out
