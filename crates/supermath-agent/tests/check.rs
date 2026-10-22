@@ -60,8 +60,8 @@ async fn server(report: Value) -> Stub {
 
 fn env(stub: &Stub, home: &Path) -> Vec<(String, String)> {
     vec![
-        ("LADDER_URL".into(), format!("{}/v1", stub.url)),
-        ("LADDER_API_KEY".into(), "ladder-key".into()),
+        ("SURPLUS_URL".into(), format!("{}/v1", stub.url)),
+        ("SURPLUS_API_KEY".into(), "surplus-key".into()),
         ("OPENROUTER_API_KEY".into(), "sk-or-stub".into()),
         ("CORTEX_API_URL".into(), stub.url.clone()),
         ("CORTEX_API_KEY".into(), "cortex-key".into()),
@@ -169,7 +169,7 @@ async fn reports_usage_and_configuration_errors() {
     let unconfigured = run(&["check"], Vec::new(), home.path()).await;
     assert_eq!(unconfigured.status.code(), Some(1));
     assert!(
-        text(&unconfigured.stderr).contains("`LADDER_API_KEY` is not set"),
+        text(&unconfigured.stderr).contains("`SURPLUS_API_KEY` is not set"),
         "{}",
         text(&unconfigured.stderr)
     );

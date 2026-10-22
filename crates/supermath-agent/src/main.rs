@@ -61,7 +61,7 @@ async fn check(project: &str) -> supermath_agent::Result<()> {
     let solver = runner.agent(project)?;
     println!(
         "runner: ladder {} model `{}` at {} effort; tool_search ranked by Jev",
-        config.ladder_url, config.model, config.reasoning_effort
+        config.surplus_url, config.model, config.reasoning_effort
     );
     let tools = solver.host().adapt();
     let list = |agentic: bool| -> String {

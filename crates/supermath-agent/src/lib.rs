@@ -16,7 +16,7 @@
 //! use supermath_agent::Config;
 //!
 //! let config = Config::from_lookup(|name| match name {
-//!     "LADDER_API_KEY" | "OPENROUTER_API_KEY" | "CORTEX_API_KEY" => Some("key".into()),
+//!     "SURPLUS_API_KEY" | "OPENROUTER_API_KEY" | "CORTEX_API_KEY" => Some("key".into()),
 //!     "SUPERMATH_MODEL" => Some("reasoning".into()),
 //!     _ => None,
 //! })?;
@@ -39,7 +39,7 @@ mod host;
 mod runner;
 
 pub use config::{
-    Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_LADDER_URL, DEFAULT_MODEL,
+    Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_SURPLUS_URL, DEFAULT_MODEL,
     DEFAULT_REASONING_EFFORT, DEFAULT_WORKSPACE, REASONING_EFFORTS,
 };
 pub use error::{Error, Result};

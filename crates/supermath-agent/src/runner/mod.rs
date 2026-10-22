@@ -93,8 +93,8 @@ fn jev_ranker(config: &Config, mut runtime_config: RuntimeConfig) -> Arc<TinyHum
         .parent()
         .unwrap_or(&config.workspace)
         .join("config.toml");
-    let embedder = OpenAiEmbeddingModel::new(config.ladder_api_key.clone())
-        .with_base_url(config.ladder_url.clone())
+    let embedder = OpenAiEmbeddingModel::new(config.surplus_api_key.clone())
+        .with_base_url(config.surplus_url.clone())
         .with_model(config.embedding_model.clone())
         .with_dimensions(config.embedding_dims);
     let embedder: Arc<dyn tinyinference_embeddings::EmbeddingModel> = Arc::new(embedder);
@@ -141,7 +141,7 @@ impl Runner {
     /// Returns [`Error::Runtime`] when the runtime fails to build.
     pub async fn start(config: &Config) -> Result<Self> {
         let runtime_config = runtime_config(config);
-        let provider = Provider::openai_compatible(&config.ladder_url, &config.ladder_api_key)
+        let provider = Provider::openai_compatible(&config.surplus_url, &config.surplus_api_key)
             .model(&config.model);
         let mut builder = Runtime::builder()
             .config(runtime_config.clone())

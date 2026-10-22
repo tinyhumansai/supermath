@@ -12,7 +12,7 @@
 //! | Variable | Meaning |
 //! | --- | --- |
 //! | `SUPERMATH_LIVE_SUBAGENTS` | `1` to run |
-//! | `LADDER_URL`, `LADDER_API_KEY` | the OpenAI-compatible ladder |
+//! | `SURPLUS_URL`, `SURPLUS_API_KEY` | the OpenAI-compatible ladder |
 //! | `LEAN_URL`, `SUPERMATH_PROJECTS` | the Lean service and the directory it mounts |
 //! | `SUPERMATH_BENCH_RUNGS` | comma-separated rungs; default `formalize` |
 //! | `SUPERMATH_BENCH_LIMIT` | run only the first N cases |
@@ -46,8 +46,8 @@ fn live_subagents_formalize_bench() {
 }
 
 async fn bench() {
-    let ladder_url = env("LADDER_URL").expect("LADDER_URL");
-    let ladder_key = env("LADDER_API_KEY").expect("LADDER_API_KEY");
+    let surplus_url = env("SURPLUS_URL").expect("SURPLUS_URL");
+    let surplus_key = env("SURPLUS_API_KEY").expect("SURPLUS_API_KEY");
     let rungs = env("SUPERMATH_BENCH_RUNGS").unwrap_or_else(|| "formalize".into());
     let mut cases = formalize_cases().unwrap();
     if let Some(limit) = env("SUPERMATH_BENCH_LIMIT").and_then(|v| v.parse().ok()) {
@@ -90,7 +90,7 @@ async fn bench() {
                     formalizer: rung.to_owned(),
                     ..Models::default()
                 },
-                provider: Some(Provider::openai_compatible(&ladder_url, &ladder_key)),
+                provider: Some(Provider::openai_compatible(&surplus_url, &surplus_key)),
                 progress: None,
             },
         )

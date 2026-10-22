@@ -2,7 +2,7 @@
 //!
 //! Two model endpoints, each with one job:
 //!
-//! - **The LLM ladder** (`LADDER_URL`, `LADDER_API_KEY`) serves every chat
+//! - **The LLM ladder** (`SURPLUS_URL`, `SURPLUS_API_KEY`) serves every chat
 //!   completion and every embedding. It is an OpenAI-compatible router that
 //!   picks the best-priced model for a named ladder such as `reasoning`.
 //! - **`OpenRouter`** (`OPENROUTER_API_KEY`) serves Jev only: the decision model
@@ -20,7 +20,7 @@ use supermath_subagents::Models;
 use crate::error::{Error, Result};
 
 /// The ladder's API root when none is configured.
-pub const DEFAULT_LADDER_URL: &str = "http://localhost:6969/v1";
+pub const DEFAULT_SURPLUS_URL: &str = "http://localhost:6969/v1";
 
 /// The ladder the solver's turns run on when none is configured.
 pub const DEFAULT_MODEL: &str = "flash";
@@ -46,9 +46,9 @@ pub const DEFAULT_WORKSPACE: &str = ".supermath";
 #[derive(Clone)]
 pub struct Config {
     /// The ladder's OpenAI-compatible API root.
-    pub ladder_url: String,
+    pub surplus_url: String,
     /// Bearer token the ladder requires.
-    pub ladder_api_key: String,
+    pub surplus_api_key: String,
     /// The ladder the solver's turns run on, such as `flash`.
     pub model: String,
     /// The reasoning effort every turn asks for, such as `medium`. The ladder
@@ -80,7 +80,7 @@ impl std::fmt::Debug for Config {
     // Hand-written so a logged config never carries a credential.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Config")
-            .field("ladder_url", &self.ladder_url)
+            .field("surplus_url", &self.surplus_url)
             .field("model", &self.model)
             .field("reasoning_effort", &self.reasoning_effort)
             .field("embedding_model", &self.embedding_model)
@@ -146,17 +146,17 @@ impl Config {
                 value: reasoning_effort,
             });
         }
-        let ladder_api_key = required("LADDER_API_KEY")?;
+        let surplus_api_key = required("SURPLUS_API_KEY")?;
         let openrouter_api_key = required("OPENROUTER_API_KEY")?;
         // The agent keeps memory: unlike the MCP server, it refuses to start
         // without the CortexDB key.
         required("CORTEX_API_KEY")?;
         let toolkit = supermath_mcp::Config::from_lookup(&lookup)?;
         Ok(Self {
-            ladder_url: or("LADDER_URL", DEFAULT_LADDER_URL)
+            surplus_url: or("SURPLUS_URL", DEFAULT_SURPLUS_URL)
                 .trim_end_matches('/')
                 .to_string(),
-            ladder_api_key,
+            surplus_api_key,
             model: or("SUPERMATH_MODEL", DEFAULT_MODEL),
             reasoning_effort,
             embedding_model: or("SUPERMATH_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL),

@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use super::{
-    Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_LADDER_URL, DEFAULT_MODEL,
+    Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_SURPLUS_URL, DEFAULT_MODEL,
     DEFAULT_REASONING_EFFORT,
 };
 use supermath_subagents::Models;
@@ -21,7 +21,7 @@ fn lookup(pairs: &[(&str, &str)]) -> impl Fn(&str) -> Option<String> {
 }
 
 const REQUIRED: [(&str, &str); 3] = [
-    ("LADDER_API_KEY", "ladder-key"),
+    ("SURPLUS_API_KEY", "surplus-key"),
     ("OPENROUTER_API_KEY", "sk-or-test"),
     ("CORTEX_API_KEY", "cortex-key"),
 ];
@@ -36,7 +36,7 @@ fn with(extra: &[(&'static str, &'static str)]) -> Vec<(&'static str, &'static s
 #[test]
 fn fills_defaults_when_only_required_settings_are_given() {
     let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
-    assert_eq!(config.ladder_url, DEFAULT_LADDER_URL);
+    assert_eq!(config.surplus_url, DEFAULT_SURPLUS_URL);
     assert_eq!(config.model, DEFAULT_MODEL);
     assert_eq!(config.reasoning_effort, DEFAULT_REASONING_EFFORT);
     assert_eq!(config.embedding_model, DEFAULT_EMBEDDING_MODEL);
@@ -68,14 +68,14 @@ fn names_each_missing_required_setting() {
 
 #[test]
 fn treats_a_blank_value_as_unset() {
-    let error = Config::from_lookup(lookup(&with(&[("LADDER_API_KEY", "   ")]))).unwrap_err();
-    assert!(matches!(error, Error::MissingConfig("LADDER_API_KEY")));
+    let error = Config::from_lookup(lookup(&with(&[("SURPLUS_API_KEY", "   ")]))).unwrap_err();
+    assert!(matches!(error, Error::MissingConfig("SURPLUS_API_KEY")));
 }
 
 #[test]
 fn reads_overrides_and_strips_trailing_slashes() {
     let config = Config::from_lookup(lookup(&with(&[
-        ("LADDER_URL", "http://ladder:6969/v1/"),
+        ("SURPLUS_URL", "http://ladder:6969/v1/"),
         ("CORTEX_API_URL", "http://cortexdb:3141/"),
         ("CORTEX_SCOPE_ROOT", "ws:test"),
         ("SUPERMATH_BACKEND_URL", "http://backend"),
@@ -87,7 +87,7 @@ fn reads_overrides_and_strips_trailing_slashes() {
         ("SUPERMATH_LEAN_LSP_CMD", "uvx lean-lsp-mcp"),
     ])))
     .unwrap();
-    assert_eq!(config.ladder_url, "http://ladder:6969/v1");
+    assert_eq!(config.surplus_url, "http://ladder:6969/v1");
     assert_eq!(config.toolkit.ledger.cortex_url, "http://cortexdb:3141");
     assert_eq!(config.toolkit.ledger.scope_root, "ws:test");
     assert_eq!(config.backend_url.as_deref(), Some("http://backend"));
@@ -139,7 +139,7 @@ fn rejects_a_reasoning_effort_openhuman_does_not_accept() {
 fn debug_output_never_shows_credentials() {
     let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
     let rendered = format!("{config:?}");
-    for secret in ["ladder-key", "sk-or-test", "cortex-key"] {
+    for secret in ["surplus-key", "sk-or-test", "cortex-key"] {
         assert!(!rendered.contains(secret), "{secret}");
     }
     assert!(rendered.contains(DEFAULT_MODEL));

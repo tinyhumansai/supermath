@@ -7,7 +7,7 @@ use crate::config::Config;
 
 fn config() -> Config {
     Config::from_lookup(|name| match name {
-        "LADDER_API_KEY" => Some("ladder-key".into()),
+        "SURPLUS_API_KEY" => Some("surplus-key".into()),
         "OPENROUTER_API_KEY" => Some("sk-or-test".into()),
         "CORTEX_API_KEY" => Some("cortex-key".into()),
         "SUPERMATH_REASONING_EFFORT" => Some("high".into()),
@@ -61,7 +61,7 @@ fn the_agent_scope_lists_the_toolkit_the_agent_tools_and_tool_search_and_refuses
  {
     let home = tempfile::tempdir().unwrap();
     let settings = Config::from_lookup(|name| match name {
-        "LADDER_API_KEY" | "OPENROUTER_API_KEY" | "CORTEX_API_KEY" => Some("k".into()),
+        "SURPLUS_API_KEY" | "OPENROUTER_API_KEY" | "CORTEX_API_KEY" => Some("k".into()),
         "SUPERMATH_WORKSPACE" => Some(home.path().join("workspace").display().to_string()),
         "SUPERMATH_PROJECTS" => Some(home.path().join("projects").display().to_string()),
         "SUPERMATH_JACOBIAN_CMD" => Some("jacobian-mcp --stdio".into()),
