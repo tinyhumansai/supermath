@@ -1,6 +1,6 @@
 # Sub-agent tools
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Crate:** `supermath-subagents`
 - **Parent:** [`README.md`](../README.md)
 
@@ -10,11 +10,11 @@ OpenHuman agent turn behind a tool interface
 has a **Turn** section giving its model, the primitives the turn may call,
 its budget, and what the tool verifies, returns, and discards.
 
-The `agent_*` tools live in `supermath-agent`, the OpenHuman runner, because
-they drive models; they live in `supermath-subagents`, and `supermath-mcp`
-does not serve them
-([`crates.md`](../crates.md)). Their children use the primitive tools
-through the runner's host-tool adapter.
+The `agent_*` tools live in `supermath-subagents`, not in a domain crate,
+because they drive models on OpenHuman; `supermath-mcp` does not serve them
+([`crates.md`](../crates.md)). The runner (`supermath-agent`) builds them
+with `Subagents::new` and registers them. Their children use the primitive
+tools through a host-tool adapter over the registry.
 
 Reading a paper or formalizing a theorem takes dozens of tool calls. Done in
 the top-level agent, they would fill its context with Lean errors and
@@ -28,16 +28,21 @@ OpenHuman's built-in sub-agents (`AgentSpec::subagents`, reached through
 `ledger_record`. Each child is instead a separate top-level OpenHuman
 `Agent`:
 
-1. `Runner` builds the children when it registers a project's agent, each
-   from an `AgentSpec` with its own id (`supermath-<slug>-formalizer`, …),
-   a bare prompt, a `Named` tool scope, and its own host tools.
+1. `Subagents::new` builds the children when the runner registers a
+   project's agent, each from an `AgentSpec` with its own id
+   (`supermath-<slug>-formalizer`, …), a bare prompt, a `Named` tool scope,
+   `disallow_tools(["memory"])`, and its own host tools.
 2. The `agent_*` tool captures a clone of the child `Agent` (it is `Clone`
-   and `Send`) in the tool factory.
-3. `execute` runs one turn on the child with `child.turn(prompt)`, under a
-   budget, and reads the `TurnOutcome`.
+   and `Send`).
+3. `call` runs one turn on the child with `child.turn(prompt)`, passing a
+   per-turn host-tool belt (`Turn::tools`) bound to that call's context, a
+   stop hook for the iteration and token limits, and a timeout for the wall
+   time. Every call a child makes goes through the registry, is logged in the
+   shared `CallLog` under its own call id, and is journaled.
 4. The tool re-checks what the child produced by calling the registry's
-   `lean_check` directly, and returns that, in the
-   [envelope](../README.md#one-envelope).
+   `lean_check`, `file_read`, and `ledger_claims` itself, and returns that, in
+   the [envelope](../README.md#one-envelope). What the child wrote comes from
+   the journal of its `file_write` and `file_edit` calls, never its reply.
 
 Each `execute` starts a new child session, so children carry nothing between
 calls except what they wrote to the ledger and the Lean package.
@@ -48,8 +53,10 @@ A child that writes Lean files needs `file_write` and `file_edit`, which
 are `Write` tools, and `HostOnly` agents are held to read-only. Children
 therefore use `ToolScopeSpec::Named` with exactly the tools listed in their
 tool's **Turn** section, and `disallow_tools(["memory"])` so OpenHuman's own
-memory tool does not shadow the ledger. A child's list holds primitives
-only: no child can call an agentic tool
+memory tool does not shadow the ledger. OpenHuman may also offer its own
+`juice_*` tools for reading back a large tool output it stored; they reach no
+primitive or file and are not part of a child's scope. A child's list holds
+primitives only: no child can call an agentic tool
 ([`README.md`](../README.md#primitive-and-agentic-tools)). The `agent_*` tool
 itself is `Read`; its writes happen inside the child, to files in the
 project's package, under the [path rules](../lean/README.md#files-not-source).
@@ -76,7 +83,10 @@ the model that wrote a statement is not the one that judges it.
 
 ### Budgets
 
-Every call takes a budget and is admitted against it before the child runs:
+Every call takes an optional `budget` argument
+(`{max_iterations, max_tokens, wall_secs}`, each at most the maximum) and is
+admitted against the caller's `Budget` before the child runs. A value of zero
+or above the maximum is `INVALID_INPUT`:
 
 | Field | Default | Maximum |
 | --- | --- | --- |
@@ -86,13 +96,15 @@ Every call takes a budget and is admitted against it before the child runs:
 
 A child that runs out returns `outcome: "unknown"` with what it finished:
 the declarations written so far and their verdicts. Running out of budget
-never becomes a failed proof.
+never becomes a failed proof. A turn counts as cut off only if the child still
+had tool calls to run when a limit was reached; a final reply that lands on the
+limit finished.
 
 ### Visibility
 
-The tool forwards the child's `ToolStarted` and `ToolEnded` runtime events
-to the parent's progress stream, so an operator sees `agent_formalize →
-lean_check ✓` without the child's context reaching the parent model. The
+The tool reports each child tool call to a `Progress` sink the runner passes
+in (`SubagentsConfig::progress`), so an operator sees `agent_formalize →
+lean_check` without the child's context reaching the parent model. The
 child's transcript stays in its OpenHuman session, and the tool's result
 carries its `session_id`.
 
@@ -102,8 +114,8 @@ carries its `session_id`.
 | --- | --- |
 | Name | `supermath-subagents` |
 | Depends on | `supermath-tool`, `openhuman-embed` |
-| Public API | `Subagents::new(runtime, registry, project)`, `ChildSpec`, `Budget`, and the four `agent_*` tools |
-| Configuration | `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL` |
+| Public API | `Subagents::new(&Runtime, &ToolRegistry, Arc<dyn CallLog>, &Project, &SubagentsConfig)`, `Subagents::{tools, unavailable, register_into}`, `SubagentsConfig`, `Models`, `ChildSpec`, `Limits`, the `ChildRunner` port, and the four `agent_*` tools |
+| Configuration | `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL` (`Models::from_env`) |
 | Tests | a scripted OpenHuman provider (`Provider::custom`) playing fixed tool-call sequences, against fake primitive tools |
 
 The crate does not depend on any domain crate. It receives a `ToolRegistry`
@@ -141,8 +153,11 @@ the shape [`../tools.md`](../tools.md) sets out.
   contradicts.
 - A test asserts the child's tool scope is exactly its listed tools.
 - A benchmark set of 30 statements (Mathlib theorems with known
-  formalizations, plus 10 from arXiv) is checked into `bench/formalize/`,
-  with a `live_formalize_bench` test reporting the `checked` rate per rung.
+  formalizations) is checked into
+  `crates/supermath-subagents/bench/formalize/`, with a
+  `live_subagents_formalize_bench` test (`supermath-agent/tests/live.rs`) reporting the
+  `checked` rate per rung. Statements from arXiv are added once the literature
+  backend can resolve their labels.
 
 ## Open questions
 

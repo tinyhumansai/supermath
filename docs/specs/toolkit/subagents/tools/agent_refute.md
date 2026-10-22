@@ -24,16 +24,33 @@ tries to prove the statement.
 
 ## Returns
 
-- **Verified after the turn:** a witness found in Python is only a lead.
-  It counts only if `lean_search_counterexample` produced it and its
-  witness file
-  [`lean_check`](../../lean/tools/lean_check.md)s as `checked`, re-run by the tool. It is
-  recorded as a `refutation` with `refutes` set and status `checked`.
-- **Not found:** `outcome: "unknown"` with every frame searched, by
-  `py_search_counterexample` or in Lean, recorded as a `bound` with its
-  call as the source, so "none found" always says how far the search went.
-- **Passed through, as a `lead`:** when a counterexample is found, the
-  child's proposed nearest repaired statement
+- **Verified after the turn:** a witness found in Python is only a lead,
+  recorded as a `lead` (source `supplied`, naming the call) and never as a
+  refutation. A witness counts only if a
+  [`lean_search_counterexample`](../../lean/tools/lean_search_counterexample.md)
+  call the child made answered `ok` with `data.found: true`, a `witness`, the
+  generated `witness_file` (a path), and its `theorem`, and that file
+  [`lean_check`](../../lean/tools/lean_check.md)s as `checked` for that
+  theorem, re-run by the tool (`{path, targets: [theorem]}`; the search's own
+  `data.verdict` is not trusted). It is recorded as a `refutation` with
+  `refutes` set and the `lean` source
+  `{path: witness_file, declaration: theorem, file_sha256}`, the digest
+  `lean_check` reported in `data.provenance.file_sha256`; the ledger runs
+  its own check and earns the status.
+- **Not found:** `outcome: "unknown"` with every frame searched to the end,
+  by `py_search_counterexample` (`outcome: "ok"`, `data.result:
+  "exhausted"`, the frame in `data.frame_description`) or in Lean
+  (`outcome: "ok"`, `data.result: "exhausted"`, `data.found: false` and
+  `data.frame` `{predicate, from, to, covered_to, domain}`, recorded as
+  `decide <predicate> over ℕ|ℤ in <from>..=<covered_to>`), recorded as a
+  `bound` with its `frame`. The bound's source is the `tool` source naming
+  the search tool and the call id the belt logged: the call ended `ok`, so
+  the ledger earns `checked` on that frame only (never `formalised`). A
+  search cut short (a limit, a timeout, a crash in the predicate) ends
+  `unknown`, states no finished frame, and is not recorded.
+- **Passed through, as a `lead`:** when a counterexample is confirmed, the
+  child's proposed nearest repaired statement (its `REPAIRED:` line, at most
+  80 words, recorded as a `lead` and returned as untrusted prose)
   ([`strategies/03-failure.md`](../../../../research/strategies/03-failure.md)).
 - `usage` with the turn's model, tool calls, tokens, and time.
 

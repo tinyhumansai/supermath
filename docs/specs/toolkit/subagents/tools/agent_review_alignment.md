@@ -34,9 +34,24 @@ session ([`strategies/04-trust.md`](../../../../research/strategies/04-trust.md)
 
 ## Returns
 
-- `accepted` or `disputed`, and for `disputed` the specific mismatch.
-- The tool, not the child, sets the claim's alignment in the ledger, with
-  the reviewer's model and session.
+- `accepted` or `disputed`, and for `disputed` the specific mismatch, as
+  untrusted prose (at most 100 words).
+- The tool, not the child, records the review. `Ledger::set_alignment`
+  exists in `supermath-ledger` but no tool exposes it, `ledger_record`
+  refuses an `alignment` argument, and this crate may not depend on the
+  ledger crate, so for a `claim_id` the tool records a `fact` that
+  `uses` the claim ("Alignment review of …: accepted"), with a `supplied`
+  source naming the reviewer's model and session, and returns its id as
+  `review_id`. The claim's own `alignment` therefore stays `not_reviewed` in
+  the ledger; the review is in the fact and in this answer's `alignment`.
+  When a tool exposes the setter, this tool calls it.
+- **Verified after the turn:** when the declaration lives in a project file,
+  the tool re-runs [`lean_check`](../../lean/tools/lean_check.md) on it
+  (`path` is the ledger claim's `lean.path`, or `lean_decl`'s `data.path`,
+  present only for a declaration in the project package). A
+  file that does not compile is never aligned, whatever the reviewer said:
+  the answer is `unknown`, alignment stays `not_reviewed`, nothing is recorded,
+  and `lean_verdict` reports Lean's word.
 - `usage` with the turn's model, tool calls, tokens, and time.
 
 A model's review is not evidence the way a kernel check is; the ledger
@@ -45,5 +60,6 @@ nor `disputed` leaves alignment `not_reviewed` and returns `unknown`.
 
 ## Errors
 
-`NOT_FOUND` for an unknown claim or declaration; `INVALID_INPUT` for a
-claim with no `lean` source.
+`NOT_FOUND` for an unknown claim or declaration (`lean_decl` is asked with
+`{name}` before the turn); `INVALID_INPUT` for a claim with no `lean` source or
+for arguments that are neither `{claim_id}` nor `{declaration, statement}`.

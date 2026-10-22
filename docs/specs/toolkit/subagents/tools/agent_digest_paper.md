@@ -38,7 +38,8 @@ The child records:
 - **Verified after the turn:** the tool reads back every id the child
   recorded with [`ledger_claims`](../../ledger/tools/ledger_claims.md) and returns those that
   exist, grouped by kind. An id the child claims but the ledger lacks is
-  dropped and counted in `unknowns`.
+  dropped and counted in `unknowns`; a status above `cited` is flagged there
+  too.
 - **Passed through, as untrusted prose:** a one-paragraph account of what
   the paper proves, at most 120 words.
 - **Discarded:** everything else the child read or said. Its session id is

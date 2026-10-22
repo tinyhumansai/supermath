@@ -1,0 +1,44 @@
+[package]
+name = "supermath-subagents"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The agent_* tools: child OpenHuman agents behind the supermath tool interface, with every verdict re-checked by the tool."
+readme = "README.md"
+keywords = ["agent", "mathematics", "openhuman"]
+categories = ["science"]
+publish = false
+
+[dependencies]
+# The `Tool` trait, `Envelope`, `ToolRegistry`, and `CallContext` the four
+# agent_* tools implement and the primitives they reach through.
+supermath-tool = { path = "../supermath-tool" }
+# The embedded OpenHuman runtime: each child is a top-level `Agent`. The same
+# vendored path `supermath-agent` takes, so the graph holds one copy.
+openhuman-embed = { path = "../../vendor/openhuman/crates/openhuman-embed" }
+# Async methods on the `Tool`, `ChildRunner`, and stop-hook traits.
+async-trait = { workspace = true }
+# The error type OpenHuman's `Tool::execute` returns.
+anyhow = "1"
+# Tool arguments and envelope payloads, and primitive results the tools read.
+serde_json = { workspace = true }
+# Typed arguments of the four tools (`deny_unknown_fields`).
+serde = { workspace = true }
+# The crate-wide `Error` enum.
+thiserror = { workspace = true }
+# Wall-clock budgets (`timeout`) and the elapsed time in `usage`.
+tokio = { workspace = true, features = ["time", "sync", "macros"] }
+
+[dev-dependencies]
+# The scripted provider builds `ToolCall`s; the vendored path OpenHuman builds,
+# so its `ChatModel` trait is the one `Provider::custom` expects.
+tinyinference-llm = { path = "../../vendor/openhuman/vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
+# A scratch workspace root for each scripted OpenHuman runtime.
+tempfile = { workspace = true }
+# One async runtime for tool tests, the contract checker, and the scripted turns.
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time", "sync", "net", "io-util", "test-util"] }
+
+[lints]
+workspace = true

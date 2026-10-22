@@ -1,0 +1,182 @@
+[
+  {
+    "id": "even-add",
+    "area": "number-theory",
+    "statement": "The sum of two even natural numbers is even.",
+    "expected": "Even.add"
+  },
+  {
+    "id": "irrational-sqrt-two",
+    "area": "number-theory",
+    "statement": "The square root of 2 is irrational.",
+    "expected": "irrational_sqrt_two"
+  },
+  {
+    "id": "infinitely-many-primes",
+    "area": "number-theory",
+    "statement": "For every natural number n there is a prime number p with p at least n.",
+    "expected": "Nat.exists_infinite_primes"
+  },
+  {
+    "id": "gcd-divides-left",
+    "area": "number-theory",
+    "statement": "For natural numbers a and b, the greatest common divisor of a and b divides a.",
+    "expected": "Nat.gcd_dvd_left"
+  },
+  {
+    "id": "add-comm",
+    "area": "arithmetic",
+    "statement": "Addition of natural numbers is commutative.",
+    "expected": "Nat.add_comm"
+  },
+  {
+    "id": "lt-two-pow",
+    "area": "arithmetic",
+    "statement": "Every natural number n is less than 2 to the power n.",
+    "expected": "Nat.lt_two_pow_self"
+  },
+  {
+    "id": "fermat-little",
+    "area": "number-theory",
+    "statement": "Fermat's little theorem: for a prime p and an element a of the integers modulo p, a to the power p equals a.",
+    "expected": "ZMod.pow_card"
+  },
+  {
+    "id": "gauss-sum",
+    "area": "arithmetic",
+    "statement": "Twice the sum of the natural numbers below n equals n times (n minus 1).",
+    "expected": "Finset.sum_range_id_mul_two"
+  },
+  {
+    "id": "sq-nonneg",
+    "area": "real-analysis",
+    "statement": "The square of a real number is nonnegative.",
+    "expected": "sq_nonneg"
+  },
+  {
+    "id": "abs-nonneg",
+    "area": "real-analysis",
+    "statement": "The absolute value of a real number is nonnegative.",
+    "expected": "abs_nonneg"
+  },
+  {
+    "id": "cauchy-schwarz",
+    "area": "linear-algebra",
+    "statement": "Cauchy-Schwarz: in a real inner product space the absolute value of the inner product of x and y is at most the norm of x times the norm of y.",
+    "expected": "inner_mul_le_norm_mul_norm"
+  },
+  {
+    "id": "amgm-two",
+    "area": "real-analysis",
+    "statement": "Weighted arithmetic-geometric mean inequality for two nonnegative reals: z1 to the power w1 times z2 to the power w2 is at most w1 z1 plus w2 z2 when w1 plus w2 equals 1.",
+    "expected": "Real.geom_mean_le_arith_mean2_weighted"
+  },
+  {
+    "id": "lagrange",
+    "area": "group-theory",
+    "statement": "Lagrange's theorem: the order of a subgroup of a finite group divides the order of the group.",
+    "expected": "Subgroup.card_subgroup_dvd_card"
+  },
+  {
+    "id": "cauchy-group",
+    "area": "group-theory",
+    "statement": "Cauchy's theorem: if a prime p divides the order of a finite group G, then G has an element of order p.",
+    "expected": "exists_prime_orderOf_dvd_card"
+  },
+  {
+    "id": "prime-order-cyclic",
+    "area": "group-theory",
+    "statement": "Every group whose order is a prime number is cyclic.",
+    "expected": "isCyclic_of_prime_card"
+  },
+  {
+    "id": "ivt",
+    "area": "real-analysis",
+    "statement": "Intermediate value theorem: a continuous real function on a closed interval [a, b] takes every value between f(a) and f(b).",
+    "expected": "intermediate_value_Icc"
+  },
+  {
+    "id": "extreme-value",
+    "area": "topology",
+    "statement": "A continuous real-valued function on a nonempty compact set attains its maximum.",
+    "expected": "IsCompact.exists_isMaxOn"
+  },
+  {
+    "id": "rolle",
+    "area": "real-analysis",
+    "statement": "Rolle's theorem: if f is continuous on [a, b], differentiable on (a, b) and f(a) equals f(b), then the derivative of f vanishes at some point of (a, b).",
+    "expected": "exists_deriv_eq_zero"
+  },
+  {
+    "id": "deriv-pow",
+    "area": "real-analysis",
+    "statement": "The derivative of x to the power n is n times x to the power n minus 1.",
+    "expected": "deriv_pow"
+  },
+  {
+    "id": "bolzano-weierstrass",
+    "area": "real-analysis",
+    "statement": "Every bounded sequence of real numbers has a convergent subsequence.",
+    "expected": "tendsto_subseq_of_bounded"
+  },
+  {
+    "id": "geometric-series",
+    "area": "real-analysis",
+    "statement": "For a real r with 0 at most r and r less than 1, the sum of r to the power n over all natural numbers n equals 1 divided by (1 minus r).",
+    "expected": "tsum_geometric_of_lt_one"
+  },
+  {
+    "id": "harmonic-diverges",
+    "area": "real-analysis",
+    "statement": "The harmonic series, the sum of 1/n over the positive integers, is not summable.",
+    "expected": "Real.not_summable_natCast_inv"
+  },
+  {
+    "id": "basel",
+    "area": "real-analysis",
+    "statement": "The sum of 1/n squared over the positive integers equals pi squared over 6.",
+    "expected": "hasSum_zeta_two"
+  },
+  {
+    "id": "binomial",
+    "area": "algebra",
+    "statement": "Binomial theorem: in a commutative semiring (x + y) to the power n equals the sum over k of x to the k times y to the (n - k) times n choose k.",
+    "expected": "add_pow"
+  },
+  {
+    "id": "pigeonhole",
+    "area": "combinatorics",
+    "statement": "Pigeonhole principle: a function from a finite set to a smaller finite set takes the same value at two distinct points.",
+    "expected": "Fintype.exists_ne_map_eq_of_card_lt"
+  },
+  {
+    "id": "wilson",
+    "area": "number-theory",
+    "statement": "Wilson's theorem: for a prime p, (p - 1) factorial is congruent to -1 modulo p.",
+    "expected": "ZMod.wilsons_lemma"
+  },
+  {
+    "id": "four-squares",
+    "area": "number-theory",
+    "statement": "Lagrange's four-square theorem: every natural number is a sum of four squares.",
+    "expected": "Nat.sum_four_squares"
+  },
+  {
+    "id": "two-squares",
+    "area": "number-theory",
+    "statement": "Fermat's two-square theorem: a prime congruent to 1 modulo 4 is a sum of two squares of natural numbers.",
+    "expected": "Nat.Prime.sq_add_sq"
+  },
+  {
+    "id": "crt",
+    "area": "number-theory",
+    "statement": "Chinese remainder theorem: for coprime natural numbers m and n and any a and b there is a natural number congruent to a modulo m and to b modulo n.",
+    "expected": "Nat.chineseRemainder"
+  },
+  {
+    "id": "cantor",
+    "area": "set-theory",
+    "statement": "Cantor's theorem: there is no surjection from a set onto its power set.",
+    "expected": "Function.cantor_surjective"
+  }
+]

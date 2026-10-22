@@ -1,0 +1,192 @@
+//! The child description and the runner port.
+
+use std::sync::Arc;
+
+use supermath_tool::Project;
+
+use super::prompts;
+use crate::belt::Belt;
+use crate::limits::Limits;
+
+/// Which of the four children.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ChildKind {
+    /// Reads a paper and records facts (`agent_digest_paper`).
+    Reader,
+    /// Writes Lean statements and proofs (`agent_formalize`).
+    Formalizer,
+    /// Judges whether a Lean statement says what the informal one says
+    /// (`agent_review_alignment`).
+    Reviewer,
+    /// Looks for a counterexample (`agent_refute`).
+    Refuter,
+}
+
+impl ChildKind {
+    /// All four kinds, in catalogue order.
+    pub const ALL: [Self; 4] = [
+        Self::Reader,
+        Self::Formalizer,
+        Self::Reviewer,
+        Self::Refuter,
+    ];
+
+    /// The static description of this child.
+    #[must_use]
+    pub const fn spec(self) -> ChildSpec {
+        match self {
+            Self::Reader => ChildSpec {
+                kind: self,
+                tool: "agent_digest_paper",
+                suffix: "reader",
+                primitives: &[
+                    "lit_get_paper",
+                    "lit_extract_statements",
+                    "lit_citations",
+                    "ledger_record",
+                    "ledger_link",
+                    "recall_memory",
+                ],
+                verifies: &["ledger_claims"],
+                prompt: prompts::READER,
+                defaults: Limits::DEFAULT,
+            },
+            Self::Formalizer => ChildSpec {
+                kind: self,
+                tool: "agent_formalize",
+                suffix: "formalizer",
+                primitives: &[
+                    "lit_get_paper",
+                    "lean_search",
+                    "lean_decl",
+                    "file_list",
+                    "file_read",
+                    "file_write",
+                    "file_edit",
+                    "lean_check",
+                    "lean_goals",
+                    "lean_try_tactics",
+                    "recall_memory",
+                ],
+                verifies: &["ledger_record", "ledger_claims"],
+                prompt: prompts::FORMALIZER,
+                defaults: Limits::DEFAULT,
+            },
+            Self::Reviewer => ChildSpec {
+                kind: self,
+                tool: "agent_review_alignment",
+                suffix: "reviewer",
+                primitives: &["lean_decl", "lean_search", "lit_get_paper", "recall_memory"],
+                verifies: &["lean_check", "ledger_claims", "ledger_record"],
+                prompt: prompts::REVIEWER,
+                defaults: Limits::REVIEW,
+            },
+            Self::Refuter => ChildSpec {
+                kind: self,
+                tool: "agent_refute",
+                suffix: "refuter",
+                primitives: &[
+                    "file_write",
+                    "file_edit",
+                    "file_read",
+                    "py_solvers",
+                    "py_run",
+                    "py_search_counterexample",
+                    "lean_check",
+                    "lean_search_counterexample",
+                    "lit_oeis",
+                ],
+                verifies: &["ledger_claims", "ledger_record"],
+                prompt: prompts::REFUTER,
+                defaults: Limits::DEFAULT,
+            },
+        }
+    }
+}
+
+/// What a child is: its tool, its primitives, its prompt, and its budget.
+#[derive(Debug, Clone, Copy)]
+pub struct ChildSpec {
+    /// Which child.
+    pub kind: ChildKind,
+    /// The `agent_*` tool that drives it.
+    pub tool: &'static str,
+    /// The suffix of its agent id: `supermath-<slug>-<suffix>`.
+    pub suffix: &'static str,
+    /// The primitives the child may call, and no others: never an `agent_*`
+    /// tool, so children do not spawn children.
+    pub primitives: &'static [&'static str],
+    /// Primitives only the tool calls, to verify what the child produced.
+    pub verifies: &'static [&'static str],
+    /// The child's system prompt.
+    pub prompt: &'static str,
+    /// The budget a call gets when it names none.
+    pub defaults: Limits,
+}
+
+impl ChildSpec {
+    /// The agent id of this child for `project`.
+    #[must_use]
+    pub fn agent_id(&self, project: &Project) -> String {
+        format!("supermath-{}-{}", project.slug(), self.suffix)
+    }
+
+    /// Every registry tool the `agent_*` tool needs: the child's primitives
+    /// and the ones it verifies with.
+    pub fn required(&self) -> impl Iterator<Item = &'static str> {
+        self.primitives.iter().chain(self.verifies).copied()
+    }
+}
+
+/// Why a child turn ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ChildEnd {
+    /// The child gave its final reply.
+    Finished,
+    /// A budget cut the turn short; the text says which.
+    OutOfBudget(String),
+}
+
+/// One turn to run.
+#[derive(Debug)]
+pub struct ChildRequest {
+    /// The user message that opens the turn.
+    pub prompt: String,
+    /// What the turn may spend.
+    pub limits: Limits,
+    /// The primitives the child may call.
+    pub belt: Arc<Belt>,
+}
+
+/// What a child turn reported. Its reply is prose to be treated as
+/// untrusted; its claims are never verdicts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChildTurn {
+    /// The child's final text.
+    pub reply: String,
+    /// The `OpenHuman` session the turn ran in, for inspection.
+    pub session_id: String,
+    /// Model calls the turn made.
+    pub turns: u32,
+    /// Input tokens the turn spent.
+    pub input_tokens: u64,
+    /// Output tokens the turn spent.
+    pub output_tokens: u64,
+    /// Why the turn ended.
+    pub end: ChildEnd,
+}
+
+/// Runs one turn of one child.
+#[async_trait::async_trait]
+pub trait ChildRunner: Send + Sync + std::fmt::Debug {
+    /// The model the child runs on, reported in `usage`.
+    fn model(&self) -> &str;
+
+    /// Runs the turn.
+    ///
+    /// # Errors
+    ///
+    /// A message when the model backend failed before the turn could finish;
+    /// the tool answers it as `BACKEND_UNAVAILABLE`.
+    async fn run(&self, request: ChildRequest) -> Result<ChildTurn, String>;
+}

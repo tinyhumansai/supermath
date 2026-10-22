@@ -47,12 +47,22 @@ what it verified.
 ## Returns
 
 - **Verified after the turn:** the tool lists the files the child wrote
-  (from the write log, not the child's reply), runs
-  [`lean_check`](../../lean/tools/lean_check.md) on each, and returns `{path, sha256,
-  declarations, verdict}` per file. Each target declaration is recorded in
-  the ledger as a `result` with that verdict, its `lean` source
-  `{path, declaration, file_sha256}`, alignment `not_reviewed`, and a
-  `uses` edge to the fact it formalizes.
+  (from the registry's answers to the child's `file_write` and `file_edit`
+  calls, not the child's reply), reads each back with
+  [`file_read`](../../files/tools/file_read.md) (its outline gives each
+  declaration's kind and whether it contains a `sorry`, with the name as
+  written in the file), runs [`lean_check`](../../lean/tools/lean_check.md) on each,
+  and returns `{path, sha256, declarations, verdict, errors, sorries}` per
+  file. Each theorem or lemma in the target `path` is recorded in the ledger
+  as a `result` when the file compiles (`checked` or `checked_with_sorry`),
+  with its `lean` source `{path, declaration, file_sha256}`, where
+  `declaration` is the fully qualified name taken from `lean_check`'s
+  `data.targets` (the outline's name is unqualified inside a `namespace`, and
+  the ledger checks the qualified one), `file_sha256` is
+  `data.provenance.file_sha256`, and the alignment
+  is `not_reviewed`, with a `uses` edge to the fact it formalizes: the
+  `{claim_id}` source itself, or, for an `{arxiv_id, label}` source, a `cited`
+  fact the tool records first. A `failed` or `unknown` file records nothing.
 - **Passed through, as untrusted prose:** the child's note on what it could
   not do, such as a missing definition, at most 80 words.
 - **Discarded:** the child's own claims about verdicts.
@@ -61,6 +71,10 @@ what it verified.
 ## Errors
 
 `INVALID_INPUT` for a bad path or source; `NOT_FOUND` for an unknown paper,
-label, or claim (checked before the turn); `CONFLICT` when `path` changed
-during the turn under another writer. A turn that runs out of budget is
+label, or claim (checked before the turn; the label is looked up by exact
+match in every page of
+[`lit_extract_statements`](../../literature/tools/lit_extract_statements.md)); `CONFLICT` when a file the child
+wrote has a different digest after the turn than its last write reported,
+that is, another writer changed it; `FORBIDDEN` for a call in another project
+than the one the tool serves. A turn that runs out of budget is
 `outcome: "unknown"`, with the files it wrote and their verdicts.
