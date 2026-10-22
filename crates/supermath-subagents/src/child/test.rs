@@ -194,3 +194,76 @@ mod control {
         assert_eq!(waiter.await.unwrap(), ControlSignal::Cancel);
     }
 }
+
+// ------------------------------------------------------------- limit hook
+
+mod limit_hook {
+    use std::sync::Arc;
+
+    use openhuman_embed::seams::{StopDecision, StopHook, TurnCost, TurnState};
+    use serde_json::json;
+    use supermath_tool::InMemoryCallLog;
+
+    use super::super::agent::LimitHook;
+    use crate::belt::Belt;
+    use crate::fake::{World, ctx};
+    use crate::limits::Limits;
+
+    fn hook() -> (LimitHook, Arc<Belt>) {
+        let belt = Arc::new(Belt::new(
+            "agent_formalize",
+            World::new().registry(),
+            Arc::new(InMemoryCallLog::new()),
+            ctx(),
+            None,
+        ));
+        (
+            LimitHook::new(Limits::new(4, 1_000, 60), Arc::clone(&belt)),
+            belt,
+        )
+    }
+
+    async fn check(hook: &LimitHook, iteration: u32, input: u64, output: u64) -> StopDecision {
+        let cost = TurnCost {
+            input_tokens: input,
+            output_tokens: output,
+            ..TurnCost::default()
+        };
+        hook.check(&TurnState {
+            iteration,
+            max_iterations: 64,
+            cost: &cost,
+            model: "m",
+        })
+        .await
+    }
+
+    #[tokio::test]
+    async fn the_token_limit_stops_the_turn_and_a_child_still_working_was_cut_off() {
+        let (hook, belt) = hook();
+        assert_eq!(check(&hook, 1, 500, 499).await, StopDecision::Continue);
+        assert_eq!(
+            check(&hook, 2, 600, 400).await,
+            StopDecision::Stop {
+                reason: "tokens budget reached".into()
+            }
+        );
+        let tally = hook.tally();
+        assert_eq!((tally.iterations, tally.input, tally.output), (2, 600, 400));
+        belt.call("file_list", json!({})).await;
+        assert_eq!(hook.cut_off().as_deref(), Some("tokens"));
+    }
+
+    #[tokio::test]
+    async fn a_final_reply_landing_on_the_limit_finished() {
+        let (hook, _belt) = hook();
+        assert_eq!(
+            check(&hook, 4, 0, 0).await,
+            StopDecision::Stop {
+                reason: "iterations budget reached".into()
+            }
+        );
+        assert_eq!(hook.cut_off(), None);
+        assert_eq!(hook.name(), "supermath-child-limits");
+    }
+}

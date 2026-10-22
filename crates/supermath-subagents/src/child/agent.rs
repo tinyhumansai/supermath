@@ -196,7 +196,7 @@ where
 
 /// What a turn has spent so far, as the stop hook last saw it.
 #[derive(Debug, Clone, Copy, Default)]
-struct Tally {
+pub(super) struct Tally {
     iterations: u32,
     input: u64,
     output: u64,
@@ -206,7 +206,7 @@ struct Tally {
 ///
 /// A turn is *cut off* only if the child still had tool calls to run after the
 /// hook fired; a final reply that happens to land on the limit finished.
-struct LimitHook {
+pub(super) struct LimitHook {
     limits: Limits,
     belt: Arc<Belt>,
     state: Mutex<HookState>,
@@ -219,7 +219,7 @@ struct HookState {
 }
 
 impl LimitHook {
-    fn new(limits: Limits, belt: Arc<Belt>) -> Self {
+    pub(super) fn new(limits: Limits, belt: Arc<Belt>) -> Self {
         Self {
             limits,
             belt,
@@ -227,7 +227,7 @@ impl LimitHook {
         }
     }
 
-    fn tally(&self) -> Tally {
+    pub(super) fn tally(&self) -> Tally {
         self.state
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -235,7 +235,7 @@ impl LimitHook {
     }
 
     /// The limit that cut the turn short, if the child was still working.
-    fn cut_off(&self) -> Option<String> {
+    pub(super) fn cut_off(&self) -> Option<String> {
         let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         let (reason, calls_then) = state.tripped.as_ref()?;
         (self.belt.tool_calls() > *calls_then).then(|| reason.clone())
