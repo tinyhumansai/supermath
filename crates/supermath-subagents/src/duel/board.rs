@@ -310,7 +310,7 @@ impl Board {
         let path = note.args.get("path").and_then(Value::as_str).unwrap_or("");
         let ours = within(path, &areas);
         let sha = data_text(note, "/provenance/file_sha256").unwrap_or("");
-        let fresh_run = ours && state.ran.insert(format!("{path}@{sha}"));
+        let mut fresh_run = || ours && state.ran.insert(format!("{path}@{sha}"));
         match note.tool.as_str() {
             "duel_post" => note.envelope.outcome == Outcome::Ok,
             "lean_check" if ours => {
