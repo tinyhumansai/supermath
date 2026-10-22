@@ -353,7 +353,7 @@ async fn progress_clears_the_drift_count() {
     watcher.observed(&idle_note());
     watcher.observed(&checked(PROVE, "failed", 2));
     watcher.observed(&idle_note());
-    assert!(steers(&control).is_empty());
+    assert_eq!(steers(&control).len(), 0);
     watcher.observed(&checked(PROVE, "failed", 2));
     assert_eq!(steers(&control).len(), 1);
     assert!(board.summary(Side::Prover)[0].contains("at best 2 errors"));
@@ -395,12 +395,12 @@ async fn the_refuter_progresses_by_new_frames_witnesses_and_fresh_runs() {
     for progress in [&frame, &witness, &run] {
         watcher.observed(progress);
     }
-    assert!(steers(&control).is_empty());
+    assert_eq!(steers(&control).len(), 0);
     watcher.observed(&frame);
     watcher.observed(&run);
     assert_eq!(steers(&control).len(), 2, "repeats are not progress");
     assert_eq!(board.take_unposted_frames(Side::Refuter).len(), 1);
-    assert!(board.take_unposted_frames(Side::Refuter).is_empty());
+    assert_eq!(board.take_unposted_frames(Side::Refuter).len(), 0);
 }
 
 #[tokio::test]
@@ -417,7 +417,7 @@ async fn partner_posts_arrive_as_one_capped_digest_after_enough_calls() {
         });
     }
     watcher.observed(&idle_note());
-    assert!(steers(&control).is_empty(), "not before digest_every calls");
+    assert_eq!(steers(&control).len(), 0, "not before digest_every calls");
     watcher.observed(&idle_note());
     let digest = steers(&control);
     assert_eq!(digest.len(), 1);
@@ -513,8 +513,8 @@ async fn a_lemma_with_sorry_or_outside_the_area_is_refused_and_not_relayed() {
         let answer = poster.call(&ctx(), args).await;
         assert_eq!(answer.code(), Some(ErrorCode::InvalidInput), "{answer:?}");
     }
-    assert!(board.take_inbox(Side::Refuter).is_empty());
-    assert!(records_of(&world, "fact").is_empty());
+    assert_eq!(board.take_inbox(Side::Refuter).len(), 0);
+    assert_eq!(records_of(&world, "fact").len(), 0);
 }
 
 #[tokio::test]
@@ -708,7 +708,7 @@ async fn the_prover_wins_with_a_result_entry() {
         results[0]["source"]["lean"]["declaration"],
         "Supermath.Duel.C1.settled_proved"
     );
-    assert!(records_of(&world, "refutation").is_empty());
+    assert_eq!(records_of(&world, "refutation").len(), 0);
 }
 
 #[tokio::test]
@@ -731,8 +731,8 @@ async fn a_sorry_proof_or_a_wrongly_typed_theorem_settles_nothing() {
     assert_eq!(answer.outcome, Outcome::Unknown, "{answer:?}");
     assert_eq!(answer.data["outcome"], "unknown");
     assert!(answer.data["settled"].is_null());
-    assert!(records_of(&world, "refutation").is_empty());
-    assert!(records_of(&world, "result").is_empty());
+    assert_eq!(records_of(&world, "refutation").len(), 0);
+    assert_eq!(records_of(&world, "result").len(), 0);
 }
 
 #[tokio::test]
@@ -750,8 +750,8 @@ async fn two_verified_sides_are_inconsistent_and_record_nothing() {
     assert_eq!(answer.outcome, Outcome::Unknown);
     assert_eq!(answer.data["outcome"], "inconsistent");
     assert_eq!(answer.data["inconsistent"].as_array().unwrap().len(), 2);
-    assert!(records_of(&world, "refutation").is_empty());
-    assert!(records_of(&world, "result").is_empty());
+    assert_eq!(records_of(&world, "refutation").len(), 0);
+    assert_eq!(records_of(&world, "result").len(), 0);
 }
 
 #[tokio::test]
@@ -884,7 +884,7 @@ async fn preconditions_are_checked_before_any_side_runs() {
         let tool = settle_tool(&world, &prover, &quitter());
         let answer = call(&tool, json!({"claim_id": "clm_1"})).await;
         assert_eq!(answer.code(), Some(code), "{answer:?}");
-        assert!(prover.prompts().is_empty());
+        assert_eq!(prover.prompts().len(), 0);
     }
 }
 

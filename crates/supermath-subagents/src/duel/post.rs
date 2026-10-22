@@ -83,7 +83,10 @@ impl DuelPost {
             )));
         };
         let areas = self.board.target().areas(self.side);
-        if !path.ends_with(".lean") || !within(path, &areas) {
+        let lean = std::path::Path::new(path)
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("lean"));
+        if !lean || !within(path, &areas) {
             return Err(Box::new(invalid(format!(
                 "a lemma must be in a Lean file under your area ({})",
                 areas.join(" or ")

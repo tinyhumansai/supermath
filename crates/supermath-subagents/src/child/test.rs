@@ -157,7 +157,7 @@ mod control {
         control.steer("second");
         assert_eq!(control.next().await, ControlSignal::Steer("first".into()));
         assert_eq!(control.next().await, ControlSignal::Steer("second".into()));
-        assert!(control.take_steers().is_empty());
+        assert_eq!(control.take_steers().len(), 0);
     }
 
     #[tokio::test]

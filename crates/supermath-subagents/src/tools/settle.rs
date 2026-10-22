@@ -38,7 +38,7 @@ struct Args {
     budget: Option<BudgetArg>,
 }
 
-fn win_json(win: &Win, entry: Value) -> Value {
+fn win_json(win: &Win, entry: &Value) -> Value {
     json!({
         "side": win.side.name(),
         "path": win.path,
@@ -138,13 +138,13 @@ impl AgentSettle {
                     Side::Prover => "proved",
                     Side::Refuter => "refuted",
                 },
-                win_json(win, entry),
+                win_json(win, &entry),
                 Value::Null,
             ),
             Verdict::Inconsistent(a, b) => (
                 "inconsistent",
                 Value::Null,
-                json!([win_json(a, Value::Null), win_json(b, Value::Null)]),
+                json!([win_json(a, &Value::Null), win_json(b, &Value::Null)]),
             ),
             Verdict::Unknown => ("unknown", Value::Null, Value::Null),
         };

@@ -442,7 +442,7 @@ impl Duel<'_> {
             match recorded {
                 Ok(entry) => settled.board.keep_entry(Bucket::Bound, entry.to_json()),
                 Err(why) => {
-                    unknowns.push(format!("the frame {} was not recorded: {why}", frame.range))
+                    unknowns.push(format!("the frame {} was not recorded: {why}", frame.range));
                 }
             }
         }
