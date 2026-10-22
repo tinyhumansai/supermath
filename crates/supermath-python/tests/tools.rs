@@ -79,7 +79,30 @@ fn routes(dir: PathBuf) -> impl Fn(&Recorded) -> Reply + Send + Sync + 'static {
             (_, _, "garbage") => Reply::ok(json!({"nonsense": true})),
             (_, _, "stale") => Reply::fixture("run_returned").with_file_sha("deadbeef"),
             (_, _, "slow") => Reply::fixture("run_returned").delayed(10_000),
+            (_, _, "truncated") => {
+                let mut body = fixture("run_returned");
+                body["stdout_truncated"] = json!(true);
+                body["stderr"] = json!("warn\n");
+                body["stderr_truncated"] = json!(true);
+                Reply::ok(body)
+            }
             (_, _, "prime_value") => Reply::fixture("search_found"),
+            (_, _, "pair") => {
+                let mut body = fixture("search_found");
+                body["search"] = json!({
+                    "checked": 6, "witness": [1, 2], "witness_json": "[1,2]",
+                    "witness_tuples": [[]],
+                });
+                Reply::ok(body)
+            }
+            (_, _, "noisy") => {
+                let mut body = fixture("search_found");
+                body["stdout"] = json!("lots\n");
+                body["stdout_truncated"] = json!(true);
+                body["stderr_truncated"] = json!(true);
+                Reply::ok(body)
+            }
+            (_, _, "stale_search") => Reply::fixture("search_found").with_file_sha("deadbeef"),
             (_, _, "always") => Reply::fixture("search_exhausted"),
             (_, _, "broken") => Reply::fixture("search_predicate_raised"),
             (_, _, "capped") => {
@@ -524,9 +547,12 @@ async fn a_found_witness_is_written_to_a_generated_file() {
     assert_eq!(d["witness_file"]["sha256"], json!(file.sha256));
     assert!(file.text.contains("from work.euler import prime_value"));
     assert!(file.text.contains("WITNESS = json.loads(\"40\")"));
-    assert!(answer.next[0].contains("py_run"));
-    assert!(answer.next[0].contains(relative));
-    assert!(answer.next[1].contains("Lean"));
+    // One concrete call, with arguments: re-run the witness file's check().
+    assert_eq!(answer.next.len(), 1, "{:?}", answer.next);
+    let (tool, arguments) = answer.next[0].split_once(' ').unwrap();
+    assert_eq!(tool, "py_run");
+    let arguments: Value = serde_json::from_str(arguments).unwrap();
+    assert_eq!(arguments, json!({"path": relative, "entry": "check"}));
 
     let log = rig.setup.workspace.write_log("demo").unwrap();
     let written = log.for_call("call-1").unwrap();
@@ -686,7 +712,119 @@ async fn an_unwritable_witness_is_reported_without_losing_the_witness() {
     assert_eq!(data(&answer)["witness"], 40);
     assert_eq!(data(&answer)["witness_file"], Value::Null);
     assert!(answer.unknowns[0].contains("could not be written"));
-    assert_eq!(answer.next.len(), 1);
+    assert!(answer.next.is_empty(), "{:?}", answer.next);
+}
+
+fn product_frame() -> Value {
+    json!({"kind": "product", "ranges": [{"from": 0, "to": 2}, {"from": 0, "to": 3}]})
+}
+
+fn generator_frame() -> Value {
+    json!({"kind": "generator", "entry": "values"})
+}
+
+fn witness_source(rig: &Rig, answer: &Envelope) -> String {
+    let relative = data(answer)["witness_file"]["path"].as_str().unwrap();
+    rig.setup
+        .workspace
+        .read("demo", &ProjectPath::parse(relative).unwrap())
+        .unwrap()
+        .text
+}
+
+#[tokio::test]
+async fn a_product_frame_witness_is_written_back_as_a_tuple() {
+    let rig = rig().await;
+    let mut args = search_args("pair");
+    args["frame"] = product_frame();
+    let answer = search(&rig, args).await;
+    assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
+    assert_eq!(data(&answer)["witness"], json!([1, 2]));
+    assert_eq!(data(&answer)["frame"]["kind"], "product");
+    assert!(witness_source(&rig, &answer).contains("WITNESS = tuple(json.loads(\"[1,2]\"))"));
+}
+
+#[tokio::test]
+async fn a_generator_that_yields_tuples_keeps_the_tuple_in_its_witness_file() {
+    let rig = rig().await;
+    let mut args = search_args("pair");
+    args["frame"] = generator_frame();
+    let answer = search(&rig, args).await;
+    assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
+    // JSON turned the tuple into a list; check() must see the tuple again.
+    assert!(witness_source(&rig, &answer).contains("WITNESS = tuple(json.loads(\"[1,2]\"))"));
+}
+
+#[tokio::test]
+async fn an_exhausted_product_frame_is_ok_and_names_the_box() {
+    let rig = rig().await;
+    let mut args = search_args("always");
+    args["frame"] = product_frame();
+    let answer = search(&rig, args).await;
+    assert_eq!(answer.outcome, Outcome::Ok);
+    assert_eq!(data(&answer)["result"], "exhausted");
+    let coverage = answer.coverage.unwrap();
+    assert_eq!(coverage.searched, [data(&answer)["frame_description"].as_str().unwrap()]);
+    assert!(coverage.searched[0].contains("0 to 2"), "{:?}", coverage.searched);
+}
+
+#[tokio::test]
+async fn limits_and_caps_on_product_and_generator_frames_are_unknown() {
+    let rig = rig().await;
+    for frame in [product_frame(), generator_frame()] {
+        let mut args = search_args("timed");
+        args["frame"] = frame.clone();
+        let timed = search(&rig, args).await;
+        assert_eq!(timed.outcome, Outcome::Unknown, "{frame}");
+        assert_eq!(data(&timed)["result"], "limit");
+        assert_eq!(data(&timed)["checked"], 77);
+        // Only a range has a simple covered prefix.
+        assert_eq!(data(&timed)["covered"], Value::Null, "{frame}");
+
+        let mut args = search_args("capped");
+        args["frame"] = frame.clone();
+        let capped = search(&rig, args).await;
+        assert_eq!(capped.outcome, Outcome::Unknown, "{frame}");
+        assert_eq!(data(&capped)["result"], "capped");
+        assert_eq!(data(&capped)["checked"], 1000);
+        assert!(capped.code().is_none());
+    }
+}
+
+#[tokio::test]
+async fn search_refusals_and_a_stale_file_map_onto_the_error_codes() {
+    let rig = rig().await;
+    for (predicate, code) in [
+        ("ghost", ErrorCode::InvalidInput),
+        ("gone", ErrorCode::NotFound),
+        ("unreachable", ErrorCode::BackendUnavailable),
+        ("stale_search", ErrorCode::BackendUnavailable),
+    ] {
+        let answer = search(&rig, search_args(predicate)).await;
+        assert_eq!(answer.code(), Some(code), "{predicate}: {answer:?}");
+    }
+    let stale = search(&rig, search_args("stale_search")).await;
+    assert!(stale.error.unwrap().message.contains("different version"));
+}
+
+#[tokio::test]
+async fn output_truncation_is_passed_through_by_run_and_search() {
+    let rig = rig().await;
+    let ran = run(&rig, run_args("truncated")).await;
+    assert_eq!(data(&ran)["stdout_truncated"], true);
+    assert_eq!(data(&ran)["stderr"], "warn\n");
+    assert_eq!(data(&ran)["stderr_truncated"], true);
+    let plain = run(&rig, run_args("largest")).await;
+    assert_eq!(data(&plain)["stdout_truncated"], false);
+    assert_eq!(data(&plain)["stderr_truncated"], false);
+
+    let searched = search(&rig, search_args("noisy")).await;
+    assert_eq!(data(&searched)["stdout"], "lots\n");
+    assert_eq!(data(&searched)["stdout_truncated"], true);
+    assert_eq!(data(&searched)["stderr_truncated"], true);
+    let exhausted = search(&rig, search_args("always")).await;
+    assert_eq!(data(&exhausted)["stdout_truncated"], false);
+    assert_eq!(data(&exhausted)["stderr_truncated"], false);
 }
 
 // --- py_solvers -----------------------------------------------------------
@@ -743,6 +881,25 @@ async fn an_unknown_area_is_invalid_input_and_an_empty_one_is_unknown() {
     assert_eq!(empty.outcome, Outcome::Ok);
     assert!(empty.unknowns[0].contains("no solver"));
     assert!(empty.coverage.unwrap().searched[0].contains("digest unavailable"));
+}
+
+#[tokio::test]
+async fn solvers_are_backend_unavailable_on_a_server_error_or_a_garbage_body() {
+    for reply in [
+        Reply::error(500, "internal", "cannot read the solver list"),
+        Reply::ok(json!({"nonsense": true})),
+        Reply::ok(json!("not even an object")),
+    ] {
+        let body = reply.body.clone();
+        let stub = Stub::start(move |_| reply.clone()).await;
+        let setup = Setup::new(Some(&stub.base));
+        let answer = setup.tool("py_solvers").call(&ctx(), json!({})).await;
+        assert_eq!(
+            answer.code(),
+            Some(ErrorCode::BackendUnavailable),
+            "{body}: {answer:?}"
+        );
+    }
 }
 
 #[tokio::test]
