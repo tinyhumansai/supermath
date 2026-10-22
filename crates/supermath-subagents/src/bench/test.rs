@@ -149,6 +149,34 @@ async fn the_runner_formalizes_an_arxiv_case_by_its_label() {
 }
 
 #[tokio::test]
+async fn the_runner_keeps_why_a_case_came_back_unknown() {
+    let world = World::new();
+    let runner = ScriptRunner::new(script(|_, _| async move { Ok(turn("NOTE: gave up")) }));
+    let built = subagents(&world.registry(), &runner);
+    let cases = &formalize_cases().unwrap()[..1];
+    let report = run_formalize(
+        tool(&built, "agent_formalize").as_ref(),
+        &ctx(),
+        "scripted",
+        cases,
+    )
+    .await;
+    let result = &report.results[0];
+    assert_eq!(result.outcome, Outcome::Unknown);
+    assert_eq!(result.unknowns, ["the child wrote no file"]);
+}
+
+#[test]
+fn only_selects_the_named_cases_in_set_order() {
+    let cases = formalize_cases().unwrap();
+    let picked = super::only(cases, Some("cantor, even-add"));
+    let ids: Vec<&str> = picked.iter().map(|c| c.id.as_str()).collect();
+    assert_eq!(ids, ["even-add", "cantor"]);
+    assert_eq!(super::only(formalize_cases().unwrap(), None).len(), 30);
+    assert_eq!(super::only(arxiv_cases().unwrap(), Some("cantor")).len(), 0);
+}
+
+#[tokio::test]
 async fn the_runner_counts_cases_whose_statement_compiles() {
     let world = World::new();
     world.set_verdict("lean/Supermath/Bench/Cantor.lean", "failed");
@@ -207,6 +235,7 @@ fn an_empty_report_has_a_zero_rate_and_a_refusal_is_not_checked() {
         verdict: None,
         error: Some(supermath_tool::ErrorCode::BudgetExceeded),
         usage: None,
+        unknowns: Vec::new(),
     };
     assert!(!refused.checked());
 }
