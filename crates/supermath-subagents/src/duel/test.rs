@@ -1058,3 +1058,76 @@ async fn agent_settle_keeps_the_tool_contract() {
     };
     assert!(format!("{settle:?}").contains("drift_calls: 12"));
 }
+
+// ------------------------------------------------------- caps and budgets
+
+#[tokio::test]
+async fn closing_bounds_are_capped_and_the_dropped_frames_are_named() {
+    let world = world_with("accepted");
+    world.answer_with("py_search_counterexample", |args| {
+        let to = args["frame"]["to"].as_i64().unwrap();
+        Envelope::ok(json!({"result": "exhausted", "frame_description": format!("n < {to}")}))
+    });
+    let refuter = ControlRunner::new(controlled(|prompt, belt, _| async move {
+        if !prompt.starts_with("You are continuing") {
+            for to in 1..=12 {
+                belt.call(
+                    "py_search_counterexample",
+                    json!({"path": "python/work/duel_c1/s.py", "predicate": "p",
+                           "frame": {"to": to}}),
+                )
+                .await;
+            }
+        }
+        Ok(turn("STATUS: nothing found"))
+    }));
+    let tool = settle_tool(&world, &quitter(), &refuter);
+    let answer = call(&tool, json!({"claim_id": "clm_1"})).await;
+    assert_eq!(answer.data["outcome"], "unknown", "{answer:?}");
+    assert_eq!(records_of(&world, "bound").len(), 10);
+    assert_eq!(answer.data["bounds"].as_array().unwrap().len(), 10);
+    assert!(
+        answer.unknowns.iter().any(|u| u
+            == "2 more frame(s) searched to the end were not recorded as bounds (at most 10 per duel)"),
+        "{:?}",
+        answer.unknowns
+    );
+}
+
+#[tokio::test]
+async fn a_wins_native_decide_debt_is_passed_through_from_the_verdict_check() {
+    let world = world_with("accepted");
+    world.set_debt(
+        "lean/Supermath/Duel/C1/Proved.lean",
+        &["Supermath.Duel.C1.settled_proved"],
+    );
+    let tool = settle_tool(&world, &winner(PROVE, PROOF), &waiter());
+    let answer = call(&tool, json!({"claim_id": "clm_1"})).await;
+    assert_eq!(answer.data["outcome"], "proved", "{answer:?}");
+    assert_eq!(
+        answer.data["settled"]["debt"],
+        json!(["Supermath.Duel.C1.settled_proved"])
+    );
+}
+
+#[test]
+fn no_new_turn_starts_with_under_ten_thousand_tokens_or_thirty_seconds_left() {
+    use super::remaining;
+    use supermath_tool::Usage;
+    let limits = Limits::new(10, 100_000, 600);
+    let spent = |tokens: u64| Usage {
+        input_tokens: tokens,
+        ..Usage::default()
+    };
+    assert_eq!(
+        remaining(limits, &spent(90_000), 570),
+        Some(Limits::new(10, 10_000, 30))
+    );
+    assert_eq!(remaining(limits, &spent(90_001), 0), None, "tokens");
+    assert_eq!(remaining(limits, &spent(0), 571), None, "seconds");
+    let turns = Usage {
+        turns: 9,
+        ..Usage::default()
+    };
+    assert_eq!(remaining(limits, &turns, 0), None, "iterations");
+}
