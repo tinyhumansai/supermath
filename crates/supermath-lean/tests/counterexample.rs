@@ -262,3 +262,134 @@ async fn lean_search_counterexample_passes_the_contract_checker() {
         .await
         .unwrap();
 }
+
+/// A stub whose `/counterexample` answers `search` and whose `/check` answers
+/// `check`.
+async fn split_stub(search: Reply, check: Reply) -> Stub {
+    Stub::start(move |r| match r.path.as_str() {
+        "/counterexample" => search.clone(),
+        "/check" => check.clone(),
+        _ => Reply::status(404, "no such route"),
+    })
+    .await
+}
+
+fn env_over(stub: &Stub) -> Env {
+    let mut cfg = config(Some(&stub.base));
+    cfg.check_timeout_ms = 100;
+    let env = Env::new(cfg);
+    env.put(SEARCH_PATH, SEARCH);
+    env
+}
+
+#[tokio::test]
+async fn a_memory_or_output_cap_hit_is_a_limit_with_the_coverage_so_far() {
+    for (status, words) in [("memory", "out of memory"), ("output_limit", "output size cap")] {
+        let reply = Reply::json(&json!({"status": status, "domain": "nat", "covered_to": 2000}));
+        let stub = split_stub(reply, Reply::status(500, "unused")).await;
+        let env = env_over(&stub);
+        let envelope = env
+            .call("lean_search_counterexample", args("noneSuch", 0, 100_000))
+            .await;
+        assert_eq!(envelope.outcome, Outcome::Unknown, "{status}");
+        assert_eq!(envelope.data["result"], "limit", "{status}");
+        assert_eq!(envelope.data["found"], false, "{status}");
+        assert_eq!(envelope.data["frame"]["covered_to"], 2000, "{status}");
+        assert!(envelope.unknowns[0].contains(words), "{:?}", envelope.unknowns);
+        assert!(envelope.unknowns[0].contains("0..=2000"), "{:?}", envelope.unknowns);
+    }
+}
+
+#[tokio::test]
+async fn a_cap_hit_before_any_value_says_so_and_leaves_the_domain_unknown() {
+    let stub = split_stub(
+        Reply::json(&json!({"status": "memory"})),
+        Reply::status(500, "unused"),
+    )
+    .await;
+    let env = env_over(&stub);
+    let envelope = env
+        .call("lean_search_counterexample", args("noneSuch", 0, 10))
+        .await;
+    assert_eq!(envelope.outcome, Outcome::Unknown);
+    assert!(envelope.unknowns[0].contains("before covering any value"));
+    assert_eq!(envelope.data["frame"]["covered_to"], Value::Null);
+    assert_eq!(envelope.data["frame"]["domain"], Value::Null);
+}
+
+#[tokio::test]
+async fn a_client_side_timeout_reports_the_domain_as_unknown_not_blank() {
+    let stub = Stub::start(|_| Reply::fixture("counter_found.json").delayed(400)).await;
+    let mut cfg = config(Some(&stub.base));
+    cfg.check_timeout_ms = 50;
+    let env = Env::new(cfg);
+    env.put(SEARCH_PATH, SEARCH);
+    let envelope = env
+        .call("lean_search_counterexample", args("noneSuch", 0, 10))
+        .await;
+    assert_eq!(envelope.data["result"], "limit");
+    assert_eq!(envelope.data["frame"]["domain"], Value::Null);
+}
+
+async fn witness_with_check(check: Reply) -> supermath_tool::Envelope {
+    let stub = split_stub(Reply::fixture("counter_found.json"), check).await;
+    let env = env_over(&stub);
+    env.call("lean_search_counterexample", args("Euler.notPrime", 0, 100))
+        .await
+}
+
+fn assert_witness_kept(envelope: &supermath_tool::Envelope, words: &str) {
+    assert_eq!(envelope.outcome, Outcome::Ok, "{envelope:?}");
+    assert_eq!(envelope.data["found"], true);
+    assert_eq!(envelope.data["witness"], 91);
+    assert_eq!(envelope.data["frame"]["covered_to"], 91);
+    assert_ne!(envelope.data["verdict"], "checked");
+    assert!(
+        envelope.unknowns.iter().any(|u| u.contains(words)),
+        "{:?}",
+        envelope.unknowns
+    );
+    assert!(envelope.unknowns.iter().any(|u| u.contains("not evidence")));
+}
+
+#[tokio::test]
+async fn a_witness_is_kept_when_the_service_is_down_for_its_check() {
+    let envelope = witness_with_check(Reply::status(500, "the repl pool is restarting")).await;
+    assert_witness_kept(&envelope, "could not be checked");
+    assert_eq!(envelope.data["witness_file"], WITNESS_PATH);
+    assert_eq!(envelope.data["verdict"], "unknown");
+    assert_eq!(envelope.data["provenance"], Value::Null);
+}
+
+#[tokio::test]
+async fn a_witness_is_kept_when_the_service_cannot_find_its_file() {
+    let envelope = witness_with_check(Reply::status(404, "no such file")).await;
+    assert_witness_kept(&envelope, "could not be checked");
+    assert_eq!(envelope.data["verdict"], "unknown");
+}
+
+#[tokio::test]
+async fn a_witness_is_kept_when_its_check_times_out() {
+    let envelope = witness_with_check(Reply::fixture("check_clean.json").delayed(400)).await;
+    assert_witness_kept(&envelope, "verdict unknown");
+    assert_eq!(envelope.data["verdict"], "unknown");
+}
+
+#[tokio::test]
+async fn a_witness_is_kept_when_its_file_cannot_be_written() {
+    let stub = split_stub(
+        Reply::fixture("counter_found.json"),
+        Reply::status(500, "unused"),
+    )
+    .await;
+    let env = env_over(&stub);
+    // A directory where the generated file belongs makes the write fail.
+    std::fs::create_dir_all(env.dir.path().join("demo").join(WITNESS_PATH)).unwrap();
+    let envelope = env
+        .call("lean_search_counterexample", args("Euler.notPrime", 0, 100))
+        .await;
+    assert_witness_kept(&envelope, "could not be written");
+    assert_eq!(envelope.data["witness_file"], Value::Null);
+    assert_eq!(envelope.data["verdict"], "unknown");
+    assert_eq!(stub.count("/check"), 0);
+}

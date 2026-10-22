@@ -449,6 +449,44 @@ async fn get_paper_reports_bad_requests() {
 }
 
 #[tokio::test]
+async fn get_paper_lists_a_starred_section_unnumbered_and_refuses_to_return_it() {
+    let source = "\\documentclass{article}\\begin{document}\\section{One}first\
+                  \\section*{Acknowledgements}thanks\\section{Two}second\\end{document}";
+    let stub = Stub::start(move |req| match req.path() {
+        "/api/query" => Reply::fixture("paper_2401.00001.xml"),
+        _ => Reply::ok(gzip(source)),
+    })
+    .await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let index = call(
+        &literature,
+        "lit_get_paper",
+        json!({"arxiv_id": "2401.00001"}),
+    )
+    .await;
+    let sections = index.data["sections"].as_array().unwrap();
+    let numbers: Vec<&Value> = sections.iter().map(|s| &s["number"]).collect();
+    assert_eq!(numbers, [&json!("1"), &Value::Null, &json!("2")]);
+    assert_eq!(sections[1]["title"], "Acknowledgements");
+    for wanted in ["Acknowledgements", "null", "*", ""] {
+        let out = call(
+            &literature,
+            "lit_get_paper",
+            json!({"arxiv_id": "2401.00001", "section": wanted}),
+        )
+        .await;
+        assert_eq!(out.code(), Some(ErrorCode::NotFound), "{wanted:?}");
+    }
+    let two = call(
+        &literature,
+        "lit_get_paper",
+        json!({"arxiv_id": "2401.00001", "section": "2"}),
+    )
+    .await;
+    assert_eq!(two.data["text"], "second", "the starred section is not counted");
+}
+
+#[tokio::test]
 async fn get_paper_flags_a_pdf_only_paper_in_unknowns() {
     let (_stub, literature) = setup().await;
     let index = call(
