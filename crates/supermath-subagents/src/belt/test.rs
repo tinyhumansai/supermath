@@ -261,3 +261,14 @@ fn service_failures_are_failures_with_a_status_the_harness_reads() {
         assert_eq!(sent["outcome"], "error");
     }
 }
+
+#[test]
+fn a_childs_primitives_ask_for_the_wall_time_of_the_call_that_runs_the_child() {
+    // A duel side's `py_run` may take minutes; OpenHuman's 120 s default
+    // would cut it off below the budget the side was given.
+    let world = World::new();
+    let (belt, _) = belt(&world, None);
+    for tool in belt.host_tools() {
+        assert_eq!(tool.policy().runtime.timeout_ms, Some(3_600_000), "{}", tool.name());
+    }
+}
