@@ -1141,6 +1141,28 @@ async fn a_lean_claim_keeps_its_id_when_reworded_and_revises_when_its_file_chang
     assert_eq!(revised.entry.lean.unwrap().file_sha256, "bb");
 }
 
+#[tokio::test]
+async fn one_read_checks_each_lean_declaration_once() {
+    // A list re-checks every `formalised` claim. Checked one by one, a live
+    // ledger of 17 Lean declarations took 52 s per `ledger_claims`; the
+    // checks now run together, and a declaration two claims share runs once.
+    let h = harness().await;
+    teach(&h, clean("aa"));
+    let result = h.ledger.record(&ctx(), lean_claim("thm", "aa")).await.unwrap().entry;
+    let fact = h
+        .ledger
+        .record(&ctx(), Claim::new(Kind::Fact, "thm, as a fact", lean_source("aa")))
+        .await
+        .unwrap()
+        .entry;
+    let before = h.lean.calls().len();
+
+    let effective = h.ledger.effective(SLUG, &[result, fact]).await.unwrap();
+
+    assert_eq!(h.lean.calls().len() - before, 1);
+    assert!(effective.iter().all(|e| e.status == Status::Formalised));
+}
+
 #[test]
 fn claim_ids_depend_on_kind_statement_and_source_only() {
     // A Lean claim is its declaration: wording and file digest do not move it.
