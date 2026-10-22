@@ -1,8 +1,8 @@
 # `lean_blueprint`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Lean](../lean.md) | deferred | read | P5 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Lean](../lean.md) | primitive | deferred | read | P5 |
 
 **Given → returns:** the project → the declaration DAG with status.
 

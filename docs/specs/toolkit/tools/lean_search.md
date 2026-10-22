@@ -1,8 +1,8 @@
 # `lean_search`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Lean](../lean.md) | deferred | read | P2 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Lean](../lean.md) | primitive | deferred | read | P2 |
 
 **Given → returns:** a name, pattern, or phrase → Mathlib declarations.
 

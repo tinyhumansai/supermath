@@ -47,15 +47,18 @@ entry is one finding.
 `source` is exactly one of:
 
 - `arxiv`: `{id, version, label}` or `{id, version, section}`;
-- `lean`: `{declaration, source_sha256}`, for a claim stated in Lean;
+- `lean`: `{path, declaration, file_sha256}`, for a claim stated in a file
+  of the project's Lean package ([`lean.md`](lean.md#files-not-source));
 - `tool`: `{tool, call_id}`, for a computation, with its arguments' digest;
 - `web`: `{url, title, class, retrieved_at}`, for a page a `web_*` tool
   surfaced; it caps the claim at `asserted` ([`web.md`](web.md#status-rules));
 - `supplied`: free text, for anything that arrived as text.
 
-`lean`, when present, is the declaration that states the claim and the
-latest verdict [`lean_check`](tools/lean_check.md) returned for it, with its
-provenance.
+`lean`, when present, is the file and declaration that state the claim and
+the latest verdict [`lean_check`](tools/lean_check.md) returned for them,
+with its provenance. A verdict holds only for the digest it was given for:
+once the file changes, the claim's effective status falls to `asserted`
+until `lean_check` runs on the new digest.
 
 ## Status
 
@@ -67,7 +70,7 @@ The statuses and what each needs are in
 | → `asserted` | always; the default on record |
 | → `cited` | `source` is `arxiv` |
 | → `checked` | `source` is a `tool` call this `supermath-mcp` process made, with `evidence_origin: collected` |
-| → `formalised` | `supermath-mcp` ran `lean_check` on `lean.declaration` in this process and got `checked` with no debt |
+| → `formalised` | `supermath-mcp` ran `lean_check` on `lean.path` at `lean.file_sha256` in this process and got `checked` with no debt for `lean.declaration` |
 | any → lower | a re-check failed or a Mathlib bump broke it; recorded with `supersedes` |
 
 `ledger_record` is called by a model or an MCP client, so it never takes a

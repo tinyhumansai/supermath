@@ -1,29 +1,48 @@
 # `lean_check`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Lean](../lean.md) | direct | read | P2 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Lean](../lean.md) | primitive | direct | read | P2 |
 
-**Given → returns:** Lean source → a [verdict](../lean.md#verdicts) with provenance.
+**Given → returns:** a Lean file in the project → a [verdict](../lean.md#verdicts) with provenance.
 
-Given Lean source and the names of its target declarations, returns a
-verdict.
+Checks a file in the project's Lean package as it stands on disk. It never
+takes Lean source as an argument: source gets into the package through
+[`lean_write`](lean_write.md) and [`lean_edit`](lean_edit.md), so every
+verdict names a file and a digest that anyone can re-check
+([`lean.md`](../lean.md#files-not-source)).
 
 ```json
 {
-  "source": "theorem two_add_two : 2 + 2 = 4 := by norm_num",
-  "targets": ["two_add_two"],
-  "depth": "proof"
+  "path": "Supermath/Sendov/Main.lean",
+  "targets": ["Sendov.main"]
 }
 ```
 
-- `source` starts after `import Mathlib`; the import is implicit and other
-  imports are refused (`INVALID_INPUT`), so every check sees the same
-  environment.
-- `depth: "statement"` checks only that the statement elaborates: the proof
-  is replaced by `sorry`, and the verdict is `checked_with_sorry` at best.
-  Formalizing a statement before proving it is the common case.
+- `path` is a module file in the package
+  ([path rules](../lean.md#files-not-source)). A path that does not exist is
+  `NOT_FOUND`.
+- `targets` names the declarations whose axioms are reported and whose
+  status the verdict speaks for. Omitted, every theorem and definition the
+  file declares is a target.
+- The file is elaborated in the package's environment, so it may import
+  Mathlib and other `Supermath.*` modules of the same project; those are
+  built first if their digests changed.
 - `data.errors` lists at most 20 errors as `{line, column, message}`, the
   messages trimmed to 400 characters. `data.sorries` lists each `sorry` with
-  its position and goal.
-- Budget: 60 s and 200 KB of source by default.
+  its position and goal, so the next call can be
+  [`lean_goals`](lean_goals.md) or [`lean_try_tactics`](lean_try_tactics.md)
+  on it.
+- The verdict is cached by the file's digest and the digests of its
+  imports: checking an unchanged file returns the cached verdict, marked as
+  such in `coverage`.
+- Budget: 60 s per file by default, and 1 MB of source.
+
+A statement with a `sorry` proof is the normal first step of formalizing,
+and its verdict is `checked_with_sorry`.
+
+## Errors
+
+`INVALID_INPUT` for a path outside the package rules; `NOT_FOUND` for a
+missing file or target; `TIMEOUT`, with `outcome: "unknown"`;
+`BACKEND_UNAVAILABLE` when the Lean service is down.
