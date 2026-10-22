@@ -123,8 +123,10 @@ They are journaled and logged like any other primitive.
 | `candidate` | refuter | nothing | `UNVERIFIED lead` | `lead`, `supplied` |
 
 A check that fails is `INVALID_INPUT` with the reason, and nothing is
-relayed. A kind sent by the wrong side is also `INVALID_INPUT`. A side's
-13th post is `RATE_LIMITED`.
+relayed. A kind sent by the wrong side is also `INVALID_INPUT`. Every
+well-formed post uses one of the side's 12, including one whose check fails,
+so a side cannot spend its calls re-posting an unchecked lemma. The 13th is
+`RATE_LIMITED`.
 
 `duel_board {}` returns `{goal, partner: {status, tool_calls, rounds},
 verified: [...], leads: [...], undelivered}` and marks the partner's posts
@@ -215,5 +217,11 @@ The unit tests, run on scripted sides and fake primitives, cover:
 - the drift nudge and the drift cancel;
 - equal limits, with no reallocation.
 
-`live_duel_*`, gated by `SUPERMATH_LIVE_SUBAGENTS=1`, refutes
-`∀ n : ℕ, Nat.Prime (n ^ 2 + n + 41)`.
+`tests/openhuman.rs` runs the duel on real OpenHuman agents with a scripted
+model. It checks that nudges arrive through turn steering, that a drift
+cancels the turn, and that a prover's win stops the refuter.
+
+A live test, `live_duel_*`, is still to be written. Gated by
+`SUPERMATH_LIVE_SUBAGENTS=1`, it should refute
+`∀ n : ℕ, Nat.Prime (n ^ 2 + n + 41)`. It needs the Lean and Python services,
+Surplus, and a formalised, aligned claim in the ledger.

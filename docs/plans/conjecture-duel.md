@@ -2,7 +2,7 @@
 
 - **Spec:** [`agent_settle`](../specs/toolkit/subagents/tools/agent_settle.md)
 - **Decision:** [ADR 0009](../adr/0009-settle-conjectures-by-a-prover-refuter-duel.md)
-- **Status:** In progress
+- **Status:** Implemented, except the live test (task 9)
 
 ## Goal
 
@@ -28,7 +28,9 @@ Write each task's test before the code, and give each task its own commit.
    `ChildTurn.unapplied`. `OpenHumanChild::run` passes steers to
    `TurnSteering::steer` and cancellation to `TurnCancellation::cancel`, and
    maps `CoreError::TurnCancelled` to `OutOfBudget("cancelled")`.
-   Tests: queueing, draining, cancel wake-up.
+   Tests: queueing, draining, cancel wake-up. Focus is enforced by the host
+   from the belt journal, through steering and cancellation. It does not use
+   a separate stop hook, so scripted runners exercise it too.
 2. **Belt watcher.** Add `Belt::with_watcher`, so the host sees each journaled
    call as it happens. Test: the watcher sees each call once, in order.
 3. **Duel children.** Add `ChildKind::DuelProver` and `DuelRefuter` with
@@ -72,12 +74,12 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace
 
 ## Checklist
 
-- [ ] 1 turn control
-- [ ] 2 belt watcher
-- [ ] 3 duel children and settings
-- [ ] 4 write guard
-- [ ] 5 target and verdict
-- [ ] 6 board, posts, relay
-- [ ] 7 the duel
-- [ ] 8 `agent_settle` and wiring
+- [x] 1 turn control
+- [x] 2 belt watcher
+- [x] 3 duel children and settings
+- [x] 4 write guard
+- [x] 5 target and verdict
+- [x] 6 board, posts, relay
+- [x] 7 the duel
+- [x] 8 `agent_settle` and wiring
 - [ ] 9 live test
