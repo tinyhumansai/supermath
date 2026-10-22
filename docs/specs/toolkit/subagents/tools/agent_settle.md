@@ -29,7 +29,10 @@ cancels the other side.
 
 The claim must have a Lean statement (`lean: {path, declaration,
 file_sha256}`) whose `alignment` is `accepted`, and the file's current digest
-(`file_read`) must still be `file_sha256`.
+(`file_read`) must still be `file_sha256`. Otherwise the tool answers
+`INVALID_INPUT` and names the missing step, which is `agent_formalize`, then
+`agent_review_alignment`. The duel never races on a statement nobody has
+reviewed.
 
 No tool sets a claim's own `alignment`, so `agent_review_alignment` records
 its acceptance as a separate fact and returns its id as `review_id`. Passing
@@ -37,10 +40,7 @@ that `review_id` stands in for `alignment: accepted`: the tool reads the
 entry itself and accepts it only when it is a `fact` that `uses` the claim,
 states `Alignment review of <claim> (<declaration>): accepted.` for the
 claim's own declaration, and has a `supplied` source naming the reviewer's
-model. Any other entry is `INVALID_INPUT`; an unknown id is `NOT_FOUND`. Otherwise the tool answers
-`INVALID_INPUT` and names the missing step, which is `agent_formalize`, then
-`agent_review_alignment`. The duel never races on a statement nobody has
-reviewed.
+model. Any other entry is `INVALID_INPUT`; an unknown id is `NOT_FOUND`.
 
 ## The pinned target
 
