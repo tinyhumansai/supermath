@@ -194,7 +194,15 @@ impl Ledger {
                 self.refuse_cycle(slug, &id, used, BTreeMap::new()).await?;
             }
         }
-        let earned = self.earn(ctx, &claim).await?;
+        let mut earned = self.earn(ctx, &claim).await?;
+        if let Some(old) = &existing
+            && earned.origin == EvidenceOrigin::Supplied
+            && old.status > earned.status
+        {
+            // Supplied text is not evidence either way: it cannot raise a
+            // claim, and it cannot take away a status collected evidence earned.
+            earned = earned.keep(old);
+        }
         let (revision, supersedes, alignment, merged_uses) = match &existing {
             Some(old)
                 if old.status == earned.status && uses.iter().all(|u| old.uses.contains(u)) =>
