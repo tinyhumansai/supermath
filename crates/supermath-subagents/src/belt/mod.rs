@@ -9,6 +9,10 @@
 //!
 //! [`HostTool`] adapts one registry tool into `OpenHuman`'s `Tool` trait, so
 //! the child sees each primitive as a real tool with its own schema.
+//!
+//! A host that has to react while the child works, rather than after its
+//! turn, attaches a [`Watcher`] with [`Belt::with_watcher`] and sees each
+//! journaled call as it lands.
 
 mod host;
 mod types;
@@ -21,6 +25,7 @@ use supermath_tool::{CallContext, CallLog, Envelope, ToolRegistry};
 
 pub use host::HostTool;
 pub use types::{CallNote, Progress};
+pub(crate) use types::Watcher;
 
 /// Most journal entries kept per turn; the oldest are dropped past it.
 const MAX_NOTES: usize = 2000;
@@ -34,6 +39,7 @@ pub struct Belt {
     notes: Mutex<Vec<CallNote>>,
     calls: AtomicU32,
     progress: Option<Arc<dyn Progress>>,
+    watcher: Option<Arc<dyn Watcher>>,
 }
 
 impl std::fmt::Debug for Belt {
@@ -65,7 +71,15 @@ impl Belt {
             notes: Mutex::new(Vec::new()),
             calls: AtomicU32::new(0),
             progress,
+            watcher: None,
         }
+    }
+
+    /// This belt with `watcher` told of every call once it is journaled.
+    #[must_use]
+    pub(crate) fn with_watcher(mut self, watcher: Arc<dyn Watcher>) -> Self {
+        self.watcher = Some(watcher);
+        self
     }
 
     /// The tools the child may call, in name order.
@@ -92,16 +106,20 @@ impl Belt {
         if let Some(progress) = &self.progress {
             progress.tool_ended(self.parent, tool, envelope.outcome);
         }
-        let mut notes = self.notes.lock().unwrap_or_else(PoisonError::into_inner);
-        if notes.len() >= MAX_NOTES {
-            notes.remove(0);
-        }
-        notes.push(CallNote {
+        let note = CallNote {
             tool: tool.to_owned(),
             call_id: ctx.call_id,
             args,
             envelope: envelope.clone(),
-        });
+        };
+        if let Some(watcher) = &self.watcher {
+            watcher.observed(&note);
+        }
+        let mut notes = self.notes.lock().unwrap_or_else(PoisonError::into_inner);
+        if notes.len() >= MAX_NOTES {
+            notes.remove(0);
+        }
+        notes.push(note);
         envelope
     }
 
