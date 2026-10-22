@@ -95,7 +95,7 @@ async fn check_boots_the_runner_and_reports_a_ready_stack() {
         "{stdout}"
     );
     assert!(
-        stdout.contains("agent: supermath-twin-primes with 34 tools"),
+        stdout.contains("agent: supermath-twin-primes with 35 tools"),
         "{stdout}"
     );
     let line = |prefix: &str| {
@@ -120,6 +120,7 @@ async fn check_boots_the_runner_and_reports_a_ready_stack() {
         "agent_formalize",
         "agent_refute",
         "agent_review_alignment",
+        "agent_settle",
     ] {
         assert!(agent_tools.contains(name), "{name} in {agent_tools}");
     }

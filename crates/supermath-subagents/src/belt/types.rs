@@ -25,3 +25,11 @@ pub trait Progress: Send + Sync {
     /// A child of `parent` finished calling `tool` with `outcome`.
     fn tool_ended(&self, parent: &str, tool: &str, outcome: Outcome);
 }
+
+/// Sees each call a child makes, as soon as the belt has its answer: the
+/// duel reads progress, wins, and the moment to deliver a digest from it.
+/// It runs on the child's call path, so it must not block.
+pub(crate) trait Watcher: Send + Sync {
+    /// The child made `note`.
+    fn observed(&self, note: &CallNote);
+}

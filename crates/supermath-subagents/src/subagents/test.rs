@@ -1,4 +1,4 @@
-//! Tests for assembling the four tools.
+//! Tests for assembling the five tools.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -18,7 +18,7 @@ fn idle() -> Arc<ScriptRunner> {
 }
 
 #[test]
-fn a_full_registry_yields_all_four_tools_in_catalogue_order() {
+fn a_full_registry_yields_all_five_tools_in_catalogue_order() {
     let world = World::new();
     let built = subagents(&world.registry(), &idle());
     let names: Vec<&str> = built.tools().iter().map(|t| t.name()).collect();
@@ -28,7 +28,8 @@ fn a_full_registry_yields_all_four_tools_in_catalogue_order() {
             "agent_digest_paper",
             "agent_formalize",
             "agent_review_alignment",
-            "agent_refute"
+            "agent_refute",
+            "agent_settle"
         ]
     );
     assert_eq!(built.unavailable().len(), 0);
@@ -62,7 +63,28 @@ fn a_tool_whose_primitives_are_missing_is_left_out_and_reported() {
         .unwrap();
     assert!(formalize.missing.contains(&"lean_check".to_owned()));
     assert!(!formalize.missing.contains(&"ledger_claims".to_owned()));
-    assert_eq!(built.unavailable().len(), 3);
+    let settle = built
+        .unavailable()
+        .iter()
+        .find(|u| u.tool == "agent_settle")
+        .unwrap();
+    assert!(
+        settle
+            .missing
+            .contains(&"py_search_counterexample".to_owned())
+    );
+    assert!(settle.missing.contains(&"lean_try_tactics".to_owned()));
+    assert!(!settle.missing.iter().any(|name| name.starts_with("duel_")));
+    assert_eq!(
+        settle
+            .missing
+            .iter()
+            .filter(|name| *name == "lean_check")
+            .count(),
+        1,
+        "a primitive both sides need is listed once"
+    );
+    assert_eq!(built.unavailable().len(), 4);
 }
 
 #[test]
@@ -109,7 +131,9 @@ async fn an_agentic_primitive_would_let_children_nest_and_is_refused() {
         reader: idle.clone(),
         formalizer: idle.clone(),
         reviewer: idle.clone(),
-        refuter: idle,
+        refuter: idle.clone(),
+        duel_prover: idle.clone(),
+        duel_refuter: idle,
     };
     let error = Subagents::with_runners(
         &registry,
@@ -165,7 +189,7 @@ fn registering_twice_reports_the_duplicate() {
     let built = subagents(&world.registry(), &idle());
     let mut registry = ToolRegistry::new();
     built.register_into(&mut registry).unwrap();
-    assert_eq!(registry.len(), 4);
+    assert_eq!(registry.len(), 5);
     let error = built.register_into(&mut registry).unwrap_err();
     assert!(matches!(error, Error::Registry(_)));
 }
@@ -190,4 +214,40 @@ fn the_config_debug_hides_the_provider_internals_and_defaults_are_the_rungs() {
     assert_eq!(config.models, Models::default());
     let text = format!("{config:?}");
     assert!(text.contains("progress: false"), "{text}");
+}
+
+#[test]
+fn an_agentic_primitive_only_a_duel_side_needs_is_refused() {
+    // Without lit_get_paper only agent_refute and the duel are buildable;
+    // agent_refute never calls lean_try_tactics, the duel prover does.
+    let world = World::new();
+    let names: Vec<&'static str> = crate::fake::world::PRIMITIVES
+        .into_iter()
+        .filter(|name| !matches!(*name, "lit_get_paper" | "lean_try_tactics"))
+        .collect();
+    let mut registry = world.registry_of(&names);
+    registry
+        .register(built_with_agentic("lean_try_tactics"))
+        .unwrap();
+    let error = subagents_result(&registry).unwrap_err();
+    assert!(matches!(error, Error::NotPrimitive(name) if name == "lean_try_tactics"));
+}
+
+fn subagents_result(registry: &ToolRegistry) -> crate::Result<Subagents> {
+    let idle: Arc<dyn ChildRunner> = idle();
+    let runners = Runners {
+        reader: idle.clone(),
+        formalizer: idle.clone(),
+        reviewer: idle.clone(),
+        refuter: idle.clone(),
+        duel_prover: idle.clone(),
+        duel_refuter: idle,
+    };
+    Subagents::with_runners(
+        registry,
+        Arc::new(InMemoryCallLog::new()),
+        &project(),
+        &runners,
+        None,
+    )
 }

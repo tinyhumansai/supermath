@@ -5,11 +5,13 @@ use std::sync::{Arc, Mutex, PoisonError};
 use openhuman_embed::seams::{StopDecision, StopHook, TurnCost, TurnState};
 use openhuman_embed::{
     Access, Agent, AgentDefinitionSpec, AgentSpec, CoreError, HostTurnTools, Provider, Runtime,
-    ToolScopeSpec,
+    ToolScopeSpec, TurnCancellation, TurnSteering,
 };
 use supermath_tool::Project;
 
-use super::{ChildEnd, ChildRequest, ChildRunner, ChildSpec, ChildTurn};
+use super::{
+    ChildEnd, ChildRequest, ChildRunner, ChildSpec, ChildTurn, ControlSignal, TurnControl,
+};
 use crate::belt::Belt;
 use crate::error::{Error, Result};
 use crate::limits::Limits;
@@ -90,19 +92,36 @@ impl ChildRunner for OpenHumanChild {
             prompt,
             limits,
             belt,
+            control,
         } = request;
         let hook = Arc::new(LimitHook::new(limits, Arc::clone(&belt)));
         let turn_belt = Arc::clone(&belt);
-        let sent = self
+        let mut turn = self
             .agent
             .turn(prompt)
             .tools(move |_| HostTurnTools::advertised(turn_belt.host_tools()))
             .stop_hook(hook.clone())
-            .timeout(limits.wall())
-            .send()
-            .await;
+            .timeout(limits.wall());
+        let (sent, steering) = match control {
+            None => (turn.send().await, None),
+            Some(control) => {
+                let steering = turn.steering_handle();
+                let cancellation = turn.cancellation_handle();
+                let sent = drive(turn.send(), &control, &steering, cancellation).await;
+                (sent, Some(steering))
+            }
+        };
         let tally = hook.tally();
         match sent {
+            Err(CoreError::TurnCancelled { .. }) => Ok(ChildTurn {
+                reply: String::new(),
+                session_id: String::new(),
+                turns: tally.iterations,
+                input_tokens: tally.input,
+                output_tokens: tally.output,
+                end: ChildEnd::OutOfBudget("cancelled".into()),
+                unapplied: steering.map(|s| s.take_unapplied()).unwrap_or_default(),
+            }),
             Ok(outcome) => {
                 let (input_tokens, output_tokens) = outcome
                     .usage
@@ -119,6 +138,7 @@ impl ChildRunner for OpenHumanChild {
                     end: hook
                         .cut_off()
                         .map_or(ChildEnd::Finished, ChildEnd::OutOfBudget),
+                    unapplied: outcome.unapplied_steers,
                 })
             }
             Err(CoreError::DeadlineExceeded { .. }) => Ok(ChildTurn {
@@ -128,8 +148,48 @@ impl ChildRunner for OpenHumanChild {
                 input_tokens: tally.input,
                 output_tokens: tally.output,
                 end: ChildEnd::OutOfBudget("wall time".into()),
+                unapplied: steering.map(|s| s.take_unapplied()).unwrap_or_default(),
             }),
             Err(error) => Err(error.to_string()),
+        }
+    }
+}
+
+/// Polls the turn to its end while forwarding the host's [`TurnControl`]:
+/// each steer to `OpenHuman`'s steering queue, and a cancellation to the
+/// turn's cancellation handle. The send future keeps being polled while the
+/// cancellation is acknowledged, as `TurnCancellation::cancel` requires.
+async fn drive<F, T>(
+    send: F,
+    control: &TurnControl,
+    steering: &TurnSteering,
+    cancellation: TurnCancellation,
+) -> T
+where
+    F: std::future::Future<Output = T>,
+{
+    tokio::pin!(send);
+    let mut listening = true;
+    loop {
+        tokio::select! {
+            outcome = &mut send => return outcome,
+            signal = control.next(), if listening => match signal {
+                ControlSignal::Steer(text) => {
+                    // A turn that has already ended refuses the steer and the
+                    // send future is about to return: the text goes back on
+                    // the host's queue, where `TurnControl::take_steers`
+                    // finds it.
+                    if let Err(refused) = steering.steer(text) {
+                        control.steer(refused.text());
+                        listening = false;
+                    }
+                }
+                ControlSignal::Cancel => {
+                    listening = false;
+                    let cancellation = cancellation.clone();
+                    tokio::spawn(async move { cancellation.cancel().await });
+                }
+            },
         }
     }
 }

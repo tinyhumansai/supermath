@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 use openhuman_embed::providers::{ChatModel, ModelRequest, ModelResponse};
 use openhuman_embed::{Provider, Runtime, RuntimeConfig, Workspace};
 use serde_json::{Value, json};
-use supermath_subagents::{Models, Progress, Subagents, SubagentsConfig};
+use supermath_subagents::{DuelSettings, Models, Progress, Subagents, SubagentsConfig};
 use supermath_tool::{
     Budget, CallContext, Envelope, ErrorCode, InMemoryCallLog, Outcome, Project, Tool,
 };
@@ -47,6 +47,8 @@ struct Seen {
     child: &'static str,
     tools: Vec<String>,
     model: Option<String>,
+    /// User messages the request carried that the duel's monitor wrote.
+    nudges: usize,
 }
 
 /// A model that plays a queue of steps per child, told apart by system prompt.
@@ -55,11 +57,13 @@ struct Scripted {
     seen: Mutex<Vec<Seen>>,
 }
 
-const MARKERS: [(&str, &str); 4] = [
+const MARKERS: [(&str, &str); 6] = [
     ("reader", "You read one arXiv paper"),
     ("formalizer", "You write Lean 4 files"),
     ("reviewer", "You judge whether a Lean declaration"),
     ("refuter", "You look for a counterexample"),
+    ("duel-prover", "You are the prover in a duel"),
+    ("duel-refuter", "You are the refuter in a duel"),
 ];
 
 impl Scripted {
@@ -111,10 +115,22 @@ impl ChatModel<()> for Scripted {
             .iter()
             .find(|(_, marker)| system.contains(marker))
             .map_or("unknown", |(name, _)| *name);
+        // OpenHuman forwards steers into a running turn every 50 ms; a duel
+        // side answers no faster than a real model would, so a steer queued
+        // between two calls is applied before the next one.
+        if child.starts_with("duel-") {
+            tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+        }
+        let nudges = request
+            .messages
+            .iter()
+            .filter(|m| matches!(m, Message::User(_)) && m.text().contains("[Duel monitor]"))
+            .count();
         self.seen.lock().unwrap().push(Seen {
             child,
             tools: request.tools.iter().map(|t| t.name.clone()).collect(),
             model: request.model.clone(),
+            nudges,
         });
         let step = self
             .queues
@@ -231,7 +247,7 @@ fn each_child_runs_as_a_scoped_openhuman_agent_and_the_tool_reports_what_it_veri
     runtime.block_on(async { tokio::spawn(scenarios()).await.unwrap() });
 }
 
-/// The runtime, the scripted model, the fake world, and the four tools.
+/// The runtime, the scripted model, the fake world, and the five tools.
 struct Rig {
     model: Arc<Scripted>,
     world: World,
@@ -265,9 +281,15 @@ impl Rig {
                 reader: "reader-rung".into(),
                 formalizer: "formalizer-rung".into(),
                 reviewer: "reviewer-rung".into(),
+                duel: "duel-rung".into(),
             },
             provider: Some(Provider::custom(model.clone())),
             progress: Some(events.clone()),
+            duel: DuelSettings {
+                drift_calls: 2,
+                max_rounds: 2,
+                digest_every: 8,
+            },
         };
         let built = Subagents::new(
             &host,
@@ -277,7 +299,7 @@ impl Rig {
             &config,
         )
         .unwrap();
-        assert_eq!(built.tools().len(), 4, "{:?}", built.unavailable());
+        assert_eq!(built.tools().len(), 5, "{:?}", built.unavailable());
         Self {
             model,
             world,
@@ -302,6 +324,8 @@ async fn scenarios() {
     a_turn_that_outruns_its_iterations_is_cut_off(&rig).await;
     reviewer_sees_signatures_only(&rig).await;
     refuter_witness_is_a_lead_until_lean_confirms(&rig).await;
+    a_drifting_duel_side_is_nudged_then_cut_through_openhuman(&rig).await;
+    the_duel_prover_wins_and_the_refuter_is_stopped(&rig).await;
     progress_and_usage_are_reported(&rig).await;
 }
 
@@ -511,4 +535,92 @@ async fn progress_and_usage_are_reported(rig: &Rig) {
     let bad = rig.call("agent_refute", json!({"claim_id": 1})).await;
     assert_eq!(bad.code(), Some(ErrorCode::InvalidInput));
     assert_eq!(bad.usage.unwrap().model, "formalizer-rung");
+}
+
+/// Adds an accepted claim with its Lean file and returns its id and the
+/// duel's directory.
+fn duel_claim(rig: &Rig) -> (String, String) {
+    let file = "lean/Supermath/Duel0.lean";
+    let text = "import Mathlib\n\ntheorem duel0 : ∀ n : ℕ, n = n := by\n  sorry\n";
+    rig.world.external_write(file, text);
+    let id = rig.world.add_claim(json!({
+        "kind": "fact",
+        "statement": "Every natural number equals itself.",
+        "lean": {"path": file, "declaration": "duel0", "file_sha256": world::digest(text)},
+        "alignment": "accepted",
+    }));
+    let dir = format!("lean/Supermath/Duel/C{}", id.trim_start_matches("clm_"));
+    (id, dir)
+}
+
+async fn a_drifting_duel_side_is_nudged_then_cut_through_openhuman(rig: &Rig) {
+    let (id, _) = duel_claim(rig);
+    // drift_calls is 2: nudges after calls 2 and 4 arrive as OpenHuman
+    // steers, and call 6 has the turn cancelled. The refuter only talks.
+    rig.model.queue(
+        "duel-prover",
+        (0..6)
+            .map(|n| Step::Call("file_list", json!({"page": n})))
+            .chain([Step::Say("STATUS: lost"), Step::Say("STATUS: still lost")])
+            .collect(),
+    );
+    rig.model.queue(
+        "duel-refuter",
+        vec![Step::Say("STATUS: nothing"), Step::Say("STATUS: nothing")],
+    );
+    let answer = rig.call("agent_settle", json!({"claim_id": id})).await;
+    assert_eq!(answer.outcome, Outcome::Unknown, "{answer:?}");
+    assert_eq!(
+        answer.data["sides"]["prover"]["ended"][0], "drift",
+        "{answer:?}"
+    );
+    let seen = rig.model.seen_for("duel-prover");
+    assert!(
+        seen.iter().any(|s| s.nudges == 2),
+        "both nudges reached the model as user messages: {:?}",
+        seen.iter().map(|s| s.nudges).collect::<Vec<_>>()
+    );
+    let mut scope = scope_of(&seen[0]);
+    scope.sort();
+    assert_eq!(
+        scope,
+        primitives(supermath_subagents::ChildKind::DuelProver)
+    );
+    assert_eq!(seen[0].model.as_deref(), Some("duel-rung"));
+}
+
+async fn the_duel_prover_wins_and_the_refuter_is_stopped(rig: &Rig) {
+    let (id, dir) = duel_claim(rig);
+    let main = format!("{dir}/Prove/Main.lean");
+    let ns = dir.trim_start_matches("lean/").replace('/', ".");
+    let proof = format!(
+        "import {ns}.Statement\n\nnamespace {ns}\ntheorem proof : Conjecture := fun n => rfl\nend {ns}\n"
+    );
+    rig.model.queue(
+        "duel-prover",
+        vec![
+            Step::Call("file_write", json!({"path": main, "content": proof})),
+            Step::Call("lean_check", json!({"path": main})),
+            Step::Say("STATUS: proved"),
+        ],
+    );
+    rig.model.queue(
+        "duel-refuter",
+        (0..4)
+            .map(|_| Step::Call("duel_board", json!({})))
+            .collect(),
+    );
+    let answer = rig.call("agent_settle", json!({"claim_id": id})).await;
+    assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
+    assert_eq!(answer.data["outcome"], "proved");
+    let result = rig
+        .world
+        .records()
+        .into_iter()
+        .rfind(|r| r["kind"] == "result")
+        .unwrap();
+    assert_eq!(
+        result["source"]["lean"]["path"],
+        format!("{dir}/Proved.lean")
+    );
 }

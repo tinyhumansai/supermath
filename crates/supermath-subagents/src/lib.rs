@@ -13,6 +13,15 @@
 //! | [`AgentFormalize`] | `SUPERMATH_FORMALIZER_MODEL` (`deepseek-v4-pro`) | Lean files with verdicts |
 //! | [`AgentReviewAlignment`] | `SUPERMATH_REVIEWER_MODEL` (`glm-5.3`) | `accepted` or `disputed` |
 //! | [`AgentRefute`] | `SUPERMATH_FORMALIZER_MODEL` | a Lean-confirmed counterexample, or the frames searched |
+//! | [`AgentSettle`] | `SUPERMATH_DUEL_MODEL` (`deepseek-v4-pro`), two children | `proved`, `refuted`, or `unknown` with the bounds searched |
+//!
+//! [`AgentSettle`] is the one tool with two children. A prover and a refuter
+//! run in parallel on one pinned conjecture, with equal budgets, in one
+//! workspace where each writes only to its own area. They exchange posts the
+//! tool checks before relaying, the tool nudges or restarts a side that
+//! stops making progress, and the first theorem it verifies against the
+//! pinned statement cancels the other side
+//! (`docs/specs/toolkit/subagents/tools/agent_settle.md`).
 //!
 //! # The rule that makes them trustworthy
 //!
@@ -29,7 +38,9 @@
 //! - [`Subagents::new`] builds the children on an `OpenHuman` [`Runtime`] and
 //!   the tools that drive them, for one project.
 //! - [`Subagents::register_into`] adds the tools to a registry.
-//! - [`Models`] reads the three model variables.
+//! - [`Models`] reads the four model variables, and [`DuelSettings`] how
+//!   `agent_settle` paces its sides.
+//! - [`TurnControl`] steers or cancels a running child turn.
 //! - [`ChildRunner`] is the port tests and hosts substitute for `OpenHuman`.
 //!
 //! # Example
@@ -50,14 +61,15 @@
 //! # }
 //! let idle: Arc<dyn ChildRunner> = Arc::new(Idle);
 //! let runners = Runners {
-//!     reader: idle.clone(), formalizer: idle.clone(), reviewer: idle.clone(), refuter: idle,
+//!     reader: idle.clone(), formalizer: idle.clone(), reviewer: idle.clone(),
+//!     refuter: idle.clone(), duel_prover: idle.clone(), duel_refuter: idle,
 //! };
 //! let project = Project::new("demo", "ws:demo/project:demo").unwrap();
 //! let subagents = Subagents::with_runners(
 //!     &ToolRegistry::new(), Arc::new(InMemoryCallLog::new()), &project, &runners, None,
 //! ).unwrap();
 //! assert!(subagents.tools().is_empty());
-//! assert_eq!(subagents.unavailable().len(), 4);
+//! assert_eq!(subagents.unavailable().len(), 5);
 //! ```
 //!
 //! # What this crate does not hold
@@ -66,12 +78,13 @@
 //! and the rest only through the [`ToolRegistry`] the composition hands it,
 //! which keeps it testable with fakes and keeps "children use primitives
 //! only" a property of what the registry holds. No model choice beyond the
-//! three Surplus model names in [`Models`], which the environment sets.
+//! four Surplus model names in [`Models`], which the environment sets.
 
 mod belt;
 pub mod bench;
 mod child;
 mod config;
+mod duel;
 mod error;
 mod limits;
 mod subagents;
@@ -79,13 +92,14 @@ mod tools;
 
 pub use belt::{Belt, CallNote, HostTool, Progress};
 pub use child::{
-    ChildEnd, ChildKind, ChildRequest, ChildRunner, ChildSpec, ChildTurn, OpenHumanChild,
+    ChildEnd, ChildKind, ChildRequest, ChildRunner, ChildSpec, ChildTurn, ControlSignal,
+    OpenHumanChild, TurnControl,
 };
-pub use config::Models;
+pub use config::{DuelSettings, Models};
 pub use error::{Error, Result};
 pub use limits::{BudgetArg, Limits, budget_schema};
 pub use subagents::{Runners, Subagents, SubagentsConfig, Unavailable};
-pub use tools::{AgentDigestPaper, AgentFormalize, AgentRefute, AgentReviewAlignment};
+pub use tools::{AgentDigestPaper, AgentFormalize, AgentRefute, AgentReviewAlignment, AgentSettle};
 
 #[cfg(doc)]
 use openhuman_embed::Runtime;

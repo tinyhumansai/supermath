@@ -22,6 +22,9 @@ pub(crate) struct LeanVerdict {
     pub(crate) errors: usize,
     /// How many `sorry`s the file holds.
     pub(crate) sorries: usize,
+    /// Targets that depend on `native_decide` or the compiler
+    /// (`data.provenance.debt`): `checked`, but named debt.
+    pub(crate) debt: Vec<String>,
     /// Why the verdict is `unknown`, when it is.
     pub(crate) reason: Option<String>,
 }
@@ -140,6 +143,7 @@ impl Agentic {
                 targets: Vec::new(),
                 errors: 0,
                 sorries: 0,
+                debt: Vec::new(),
                 reason: Some(describe(&envelope)),
             };
         }
@@ -177,6 +181,15 @@ impl Agentic {
                 .get("sorries")
                 .and_then(Value::as_array)
                 .map_or(0, Vec::len),
+            debt: data
+                .pointer("/provenance/debt")
+                .and_then(Value::as_array)
+                .map(|debt| {
+                    debt.iter()
+                        .filter_map(|item| item.as_str().map(str::to_owned))
+                        .collect()
+                })
+                .unwrap_or_default(),
             verdict,
             reason,
         }

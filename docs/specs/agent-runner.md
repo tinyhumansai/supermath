@@ -76,7 +76,7 @@ catalogue); the runner links them in process through `supermath-mcp`, and
 | python | `py_run`, `py_search_counterexample`, `py_solvers` | `supermath-python` | per tool |
 | literature | `lit_search_arxiv`, `lit_get_paper`, `lit_citations`, `lit_oeis`, ... | `supermath-literature` | per tool |
 | web | `web_search`, `web_research`, `web_read` | `supermath-web` | per tool |
-| sub-agents | `agent_digest_paper`, `agent_formalize`, `agent_review_alignment`, `agent_refute` | `supermath-subagents` | per tool |
+| sub-agents | `agent_digest_paper`, `agent_formalize`, `agent_review_alignment`, `agent_refute`, `agent_settle` | `supermath-subagents` | per tool |
 | MCP | `mcp_jacobian_*`, `mcp_lean_lsp_*` | external servers | deferred (OpenHuman's rule) |
 
 Deferred tools stay out of the model's initial catalogue and are revealed by
@@ -115,7 +115,8 @@ the server stored without indexing is an error.
 | `CORTEX_API_URL` | `http://localhost:3141` | CortexDB base URL |
 | `CORTEX_API_KEY` | required | CortexDB operator key |
 | `CORTEX_SCOPE_ROOT` | `ws:supermath` | scope subtree this deployment owns |
-| `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL` | `deepseek-v4.1-flash`, `deepseek-v4-pro`, `glm-5.3` | the Surplus model of each `agent_*` child |
+| `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL`, `SUPERMATH_DUEL_MODEL` | `deepseek-v4.1-flash`, `deepseek-v4-pro`, `glm-5.3`, `deepseek-v4-pro` | the Surplus model of each `agent_*` child |
+| `SUPERMATH_DUEL_DRIFT_CALLS`, `SUPERMATH_DUEL_MAX_ROUNDS`, `SUPERMATH_DUEL_DIGEST_EVERY` | `12`, `4`, `8` | how `agent_settle` keeps its two sides on task ([spec](toolkit/subagents/tools/agent_settle.md#focus)) |
 | `SUPERMATH_JACOBIAN_CMD` | unset | command line of the Jacobian MCP server (stdio) |
 | `SUPERMATH_LEAN_LSP_CMD` | unset | command line of lean-lsp-mcp (stdio) |
 | `SUPERMATH_PROJECTS`, `LEAN_URL`, `PYTHON_URL`, ... | see [`toolkit/mcp/`](toolkit/mcp/README.md) | the toolkit's own variables |
@@ -142,7 +143,11 @@ the server stored without indexing is an error.
 ## Open questions
 
 1. How the agent works on a problem: the loop, the prompt, and what it
-   reports.
+   reports. Settling one aligned conjecture is answered by
+   [`agent_settle`](toolkit/subagents/tools/agent_settle.md), a prover and
+   a refuter racing in parallel
+   ([ADR 0009](../adr/0009-settle-conjectures-by-a-prover-refuter-duel.md));
+   the loop around it is still open.
 2. Should memory move behind OpenHuman's own memory-engine seam, so every
    OpenHuman agent sees CortexDB?
 3. ~~Which tools come next?~~ Answered by [`toolkit/`](toolkit/README.md):

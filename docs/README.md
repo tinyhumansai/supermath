@@ -47,6 +47,13 @@ is specified in [`specs/toolkit/`](specs/toolkit/README.md), planned in
 ADRs [0003](adr/0003-run-lean-as-a-pinned-service.md) to
 [0007](adr/0007-run-python-solvers-as-a-pinned-service.md).
 
+Settling one conjecture by racing a prover against a refuter, `agent_settle`,
+is specified in
+[`specs/toolkit/subagents/tools/agent_settle.md`](specs/toolkit/subagents/tools/agent_settle.md),
+planned in [`plans/conjecture-duel.md`](plans/conjecture-duel.md), and
+decided in
+[ADR 0009](adr/0009-settle-conjectures-by-a-prover-refuter-duel.md).
+
 ## Conventions
 
 - Keep every Markdown file at 500 lines or fewer. When a topic outgrows that,

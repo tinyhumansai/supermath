@@ -8,7 +8,7 @@ use super::{
     Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_MODEL,
     DEFAULT_REASONING_EFFORT, DEFAULT_SURPLUS_URL,
 };
-use supermath_subagents::Models;
+use supermath_subagents::{DuelSettings, Models};
 
 use crate::error::Error;
 
@@ -44,6 +44,7 @@ fn fills_defaults_when_only_required_settings_are_given() {
     assert_eq!(config.toolkit.ledger.cortex_url, "http://localhost:3141");
     assert_eq!(config.toolkit.ledger.scope_root, "ws:supermath");
     assert_eq!(config.models, Models::default());
+    assert_eq!(config.duel, DuelSettings::default());
     assert_eq!(config.jacobian_cmd, None);
     assert_eq!(config.lean_lsp_cmd, None);
     assert_eq!(config.backend_url, None);
@@ -92,6 +93,7 @@ fn reads_overrides_and_strips_trailing_slashes() {
         ("SUPERMATH_REASONING_EFFORT", "high"),
         ("SUPERMATH_EMBEDDING_DIMS", "1536"),
         ("SUPERMATH_READER_MODEL", "glm-5.3-flash"),
+        ("SUPERMATH_DUEL_MAX_ROUNDS", "6"),
         ("SUPERMATH_JACOBIAN_CMD", " jacobian-mcp --stdio "),
         ("SUPERMATH_LEAN_LSP_CMD", "uvx lean-lsp-mcp"),
     ])))
@@ -104,6 +106,7 @@ fn reads_overrides_and_strips_trailing_slashes() {
     assert_eq!(config.reasoning_effort, "high");
     assert_eq!(config.embedding_dims, 1536);
     assert_eq!(config.models.reader, "glm-5.3-flash");
+    assert_eq!(config.duel.max_rounds, 6);
     assert_eq!(config.jacobian_cmd.as_deref(), Some("jacobian-mcp --stdio"));
     assert_eq!(config.lean_lsp_cmd.as_deref(), Some("uvx lean-lsp-mcp"));
 }

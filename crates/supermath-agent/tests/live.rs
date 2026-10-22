@@ -92,7 +92,7 @@ async fn bench() {
                     ..Models::default()
                 },
                 provider: Some(Provider::openai_compatible(&surplus_url, &surplus_key)),
-                progress: None,
+                ..SubagentsConfig::default()
             },
         )
         .unwrap();

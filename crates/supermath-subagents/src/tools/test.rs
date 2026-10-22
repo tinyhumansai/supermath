@@ -407,6 +407,7 @@ async fn a_digest_that_runs_out_of_budget_is_unknown_with_what_was_recorded() {
             .await;
             Ok(crate::child::ChildTurn {
                 end: ChildEnd::OutOfBudget("iterations".into()),
+                unapplied: Vec::new(),
                 ..turn("")
             })
         }
@@ -678,6 +679,7 @@ fn outline_names_are_matched_to_targets_in_file_order() {
         targets: vec!["A.foo".into(), "B.foo".into(), "top".into()],
         errors: 0,
         sorries: 0,
+        debt: Vec::new(),
         reason: None,
     };
     let names: Vec<Option<String>> = outline
@@ -909,6 +911,7 @@ async fn a_formalizer_out_of_budget_is_unknown_with_its_files_and_verdicts() {
         write(&belt, PATH, SORRY_FILE).await;
         Ok(crate::child::ChildTurn {
             end: ChildEnd::OutOfBudget("tokens".into()),
+            unapplied: Vec::new(),
             ..turn("")
         })
     }));
@@ -1173,6 +1176,7 @@ async fn a_reviewer_out_of_budget_is_unknown_and_the_reviewer_cannot_read_files(
         }
         Ok(crate::child::ChildTurn {
             end: ChildEnd::OutOfBudget("iterations".into()),
+            unapplied: Vec::new(),
             ..turn("VERDICT: accepted")
         })
     }));
@@ -1536,6 +1540,7 @@ async fn a_refuter_out_of_budget_is_unknown_and_unknown_claims_are_not_found() {
     let runner = ScriptRunner::new(script(|_, _| async {
         Ok(crate::child::ChildTurn {
             end: ChildEnd::OutOfBudget("wall time".into()),
+            unapplied: Vec::new(),
             ..turn("")
         })
     }));

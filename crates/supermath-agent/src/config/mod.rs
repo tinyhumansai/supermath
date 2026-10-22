@@ -16,7 +16,7 @@
 
 use std::path::PathBuf;
 
-use supermath_subagents::Models;
+use supermath_subagents::{DuelSettings, Models};
 
 use crate::error::{Error, Result};
 
@@ -70,6 +70,8 @@ pub struct Config {
     pub toolkit: supermath_mcp::Config,
     /// The Surplus model each `agent_*` child runs on.
     pub models: Models,
+    /// How `agent_settle` paces its prover and refuter.
+    pub duel: DuelSettings,
     /// Command line of the Jacobian MCP server, when `SUPERMATH_JACOBIAN_CMD`
     /// is set.
     pub jacobian_cmd: Option<String>,
@@ -92,6 +94,7 @@ impl std::fmt::Debug for Config {
             .field("cortex_url", &self.toolkit.ledger.cortex_url)
             .field("scope_root", &self.toolkit.ledger.scope_root)
             .field("models", &self.models)
+            .field("duel", &self.duel)
             .field("jacobian_cmd", &self.jacobian_cmd)
             .field("lean_lsp_cmd", &self.lean_lsp_cmd)
             .finish_non_exhaustive()
@@ -168,6 +171,7 @@ impl Config {
             workspace: PathBuf::from(or("SUPERMATH_WORKSPACE", DEFAULT_WORKSPACE)),
             toolkit,
             models: Models::from_lookup(&lookup)?,
+            duel: DuelSettings::from_lookup(&lookup)?,
             jacobian_cmd: get("SUPERMATH_JACOBIAN_CMD"),
             lean_lsp_cmd: get("SUPERMATH_LEAN_LSP_CMD"),
         })
