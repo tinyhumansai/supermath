@@ -10,7 +10,7 @@ use supermath_tool::{
 };
 
 use super::shared::{Agentic, out_of_budget, parse_args, words};
-use super::verify::refusal;
+use super::verify::{describe, refusal};
 use crate::limits::{BudgetArg, budget_schema};
 
 /// Most words of the child's account of the paper passed through.
@@ -101,7 +101,9 @@ impl AgentDigestPaper {
         };
 
         // Read back every id the child recorded; an id the ledger lacks is
-        // dropped, and a status above `cited` is flagged, not trusted.
+        // dropped, an id the ledger could not be asked about is unverified
+        // (an outage is not an absence), and a status above `cited` is
+        // flagged, not trusted.
         let mut ids: Vec<String> = Vec::new();
         for note in turn.belt.succeeded("ledger_record") {
             if let Some(id) = note.envelope.data.get("id").and_then(Value::as_str)
@@ -112,6 +114,8 @@ impl AgentDigestPaper {
         }
         let mut by_kind: BTreeMap<String, Vec<String>> = BTreeMap::new();
         let mut missing = 0usize;
+        let mut unverified: Vec<String> = Vec::new();
+        let mut outage: Option<String> = None;
         let mut notes = Vec::new();
         for id in &ids {
             match core.claim(ctx, id).await {
@@ -130,7 +134,11 @@ impl AgentDigestPaper {
                     }
                     by_kind.entry(kind).or_default().push(id.clone());
                 }
-                Err(_) => missing += 1,
+                Err(refused) if refused.code() == Some(ErrorCode::NotFound) => missing += 1,
+                Err(refused) => {
+                    unverified.push(id.clone());
+                    outage.get_or_insert_with(|| describe(&refused));
+                }
             }
         }
         let verified: usize = by_kind.values().map(Vec::len).sum();
@@ -138,11 +146,14 @@ impl AgentDigestPaper {
             "arxiv_id": args.arxiv_id,
             "recorded": by_kind,
             "count": verified,
+            "unverified": unverified,
             "session_id": turn.session_id,
             "untrusted": {"summary": words(&turn.reply, SUMMARY_WORDS)},
         });
         let mut envelope = if let Some(reason) = out_of_budget(&turn.end) {
             Envelope::unknown(reason)
+        } else if verified == 0 && !unverified.is_empty() {
+            Envelope::unknown("the ledger could not confirm what the turn recorded")
         } else if verified == 0 {
             Envelope::unknown("the turn recorded nothing the ledger holds")
         } else {
@@ -153,6 +164,12 @@ impl AgentDigestPaper {
         if missing > 0 {
             envelope = envelope.with_unknown(format!(
                 "{missing} id(s) the child claimed to record are not in the ledger"
+            ));
+        }
+        if let Some(why) = outage {
+            envelope = envelope.with_unknown(format!(
+                "{} id(s) could not be read back from the ledger: {why}",
+                unverified.len()
             ));
         }
         for note in notes {
