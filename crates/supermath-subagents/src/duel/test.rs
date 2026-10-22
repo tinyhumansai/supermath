@@ -12,7 +12,8 @@ use tokio::sync::Notify;
 
 use super::board::{Board, Event};
 use super::guard::within;
-use super::post::{DuelPost, MAX_POSTS};
+use super::guard::WriteGuard;
+use super::post::{DuelBoard, DuelPost, MAX_POSTS};
 use super::side_scope;
 use super::target::{Target, module_of};
 use super::types::{Item, PostKind, Side};
@@ -308,6 +309,20 @@ async fn a_side_writes_its_own_area_and_is_forbidden_everywhere_else() {
     assert_eq!(edit.code(), Some(ErrorCode::Forbidden));
     let read = belt.call("file_read", json!({"path": CLAIM_FILE})).await;
     assert_eq!(read.outcome, Outcome::Ok, "reads are not confined");
+}
+
+#[test]
+fn the_guard_keeps_the_wrapped_tools_face_and_adds_forbidden() {
+    let world = World::new();
+    let inner = Arc::clone(world.registry().get("file_write").unwrap());
+    let guard = WriteGuard::new(Arc::clone(&inner), target().areas(Side::Prover));
+    assert_eq!(guard.name(), inner.name());
+    assert_eq!(guard.description(), inner.description());
+    assert_eq!(guard.schema(), inner.schema());
+    assert_eq!(guard.exposure(), inner.exposure());
+    assert_eq!(guard.permission(), inner.permission());
+    assert_eq!(guard.kind(), inner.kind());
+    assert!(guard.errors().contains(&ErrorCode::Forbidden));
 }
 
 // ---------------------------------------------------------------- board
@@ -642,6 +657,34 @@ async fn the_board_tool_shows_the_view_and_takes_no_arguments() {
         super::Offline("duel_post").schema()["required"],
         json!(["kind", "text"])
     );
+}
+
+#[test]
+fn the_duel_tools_are_direct_primitives_with_closed_schemas() {
+    let world = World::new();
+    let (board, _events) = Board::new(target(), DuelSettings::default());
+    let tools: [Arc<dyn Tool>; 4] = [
+        Arc::new(post(&world, Side::Prover, &board)),
+        Arc::new(DuelBoard {
+            side: Side::Prover,
+            board: Arc::clone(&board),
+        }),
+        Arc::new(super::Offline("duel_post")),
+        Arc::new(super::Offline("duel_board")),
+    ];
+    for tool in &tools {
+        assert!(tool.name().starts_with("duel_"));
+        assert_eq!(tool.exposure(), supermath_tool::Exposure::Direct);
+        assert_eq!(tool.kind(), supermath_tool::Kind::Primitive);
+        assert_eq!(tool.schema()["additionalProperties"], false);
+        assert!(tool.errors().contains(&ErrorCode::InvalidInput));
+        assert!(!tool.description().is_empty());
+    }
+    assert_eq!(tools[0].permission(), supermath_tool::Permission::Write);
+    assert_eq!(tools[1].permission(), supermath_tool::Permission::Read);
+    assert_eq!(tools[0].description(), tools[2].description());
+    assert_eq!(tools[1].schema(), tools[3].schema());
+    assert!(tools[0].errors().contains(&ErrorCode::RateLimited));
 }
 
 // ---------------------------------------------------------------- the duel
@@ -980,4 +1023,30 @@ async fn a_drifting_side_is_restarted_in_a_fresh_turn() {
     assert_eq!(ended[0], "drift");
     assert_eq!(ended[1], "finished");
     assert!(prover.prompts()[1].contains("Your last turn ended: drift"));
+}
+
+#[tokio::test]
+async fn agent_settle_keeps_the_tool_contract() {
+    let world = world_with("accepted");
+    world.add_claim(claim("disputed"));
+    let tool = settle_tool(&world, &quitter(), &quitter());
+    let fixture = |args: Value| supermath_tool::contract::Fixture::with_ctx(ctx(), args);
+    let broke = ctx().with_budget(Budget::agentic(1, 1));
+    let other = CallContext::new(
+        supermath_tool::Project::new("other", "ws:test/project:other").unwrap(),
+        "call-2",
+    )
+    .with_budget(ctx().budget);
+    let fixtures = [
+        fixture(json!({"claim_id": "clm_1"})),
+        fixture(json!({"claim_id": "clm_2"})),
+        fixture(json!({"claim_id": "clm_404"})),
+        fixture(json!({})),
+        supermath_tool::contract::Fixture::with_ctx(broke, json!({"claim_id": "clm_1"})),
+        supermath_tool::contract::Fixture::with_ctx(other, json!({"claim_id": "clm_1"})),
+    ];
+    supermath_tool::contract::check(tool.as_ref(), "agent", &fixtures)
+        .await
+        .unwrap();
+    assert!(format!("{tool:?}").is_empty() || tool.name() == "agent_settle");
 }

@@ -60,8 +60,17 @@ impl Tool for WriteGuard {
         self.inner.kind()
     }
 
+    /// What `file_write` and `file_edit` can answer, and the guard's own
+    /// `FORBIDDEN`.
     fn errors(&self) -> &'static [ErrorCode] {
-        self.inner.errors()
+        &[
+            ErrorCode::InvalidInput,
+            ErrorCode::NotFound,
+            ErrorCode::Conflict,
+            ErrorCode::BudgetExceeded,
+            ErrorCode::BackendUnavailable,
+            ErrorCode::Forbidden,
+        ]
     }
 
     async fn call(&self, ctx: &CallContext, args: Value) -> Envelope {
