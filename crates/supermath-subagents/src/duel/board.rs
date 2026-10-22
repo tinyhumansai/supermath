@@ -310,7 +310,7 @@ impl Board {
         let path = note.args.get("path").and_then(Value::as_str).unwrap_or("");
         let ours = within(path, &areas);
         let sha = data_text(note, "/provenance/file_sha256").unwrap_or("");
-        let mut fresh_run = || ours && state.ran.insert(format!("{path}@{sha}"));
+        let run = format!("{path}@{sha}");
         match note.tool.as_str() {
             "duel_post" => note.envelope.outcome == Outcome::Ok,
             "lean_check" if ours => {
@@ -338,9 +338,14 @@ impl Board {
                     // duel is over and nobody needs to.
                     let _ = self.events.send(Event::Checked(side));
                 }
-                improved || (side == Side::Refuter && fresh_run)
+                improved || (side == Side::Refuter && state.ran.insert(run))
             }
-            "py_run" => side == Side::Refuter && note.envelope.outcome == Outcome::Ok && fresh_run,
+            "py_run" => {
+                side == Side::Refuter
+                    && ours
+                    && note.envelope.outcome == Outcome::Ok
+                    && state.ran.insert(run)
+            }
             "py_search_counterexample" | "lean_search_counterexample" => {
                 let mut progress = witness_of(note).is_some();
                 if let Some(frame) = frame_of(note)
