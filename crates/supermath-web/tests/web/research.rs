@@ -341,6 +341,49 @@ async fn findings_left_without_a_source_by_the_source_limit_are_counted() {
 }
 
 #[tokio::test]
+async fn a_facet_whose_findings_all_lost_their_sources_says_so() {
+    // `status` cites 32 preprints, `approaches` one blog post; preferring
+    // preprints ranks the blog post past the thirty-source limit.
+    let stub = gemini_stub(|request| {
+        if facet_of(&request.body) == "status" {
+            let sentences: Vec<String> =
+                WORDS.iter().map(|w| format!("Claim {w} is true.")).collect();
+            let uris: Vec<String> = (0..32)
+                .map(|i| format!("https://arxiv.org/abs/2401.{:05}", i + 1))
+                .collect();
+            grounded_answer(&sentences, &uris, |i| (i * 4..i * 4 + 4).collect())
+        } else {
+            let sentences = vec!["A blog sketches an approach.".to_owned()];
+            let uris = vec!["https://someone.wordpress.com/post".to_owned()];
+            grounded_answer(&sentences, &uris, |_| vec![0])
+        }
+    })
+    .await;
+    let envelope = toolkit(config(&stub))
+        .research()
+        .call(
+            &ctx(),
+            json!({"question": "Q", "facets": ["status", "approaches"], "prefer": ["preprint"]}),
+        )
+        .await;
+    assert_eq!(envelope.outcome, Outcome::Ok, "{envelope:?}");
+    let sources = envelope.data["sources"].as_array().unwrap();
+    assert_eq!(sources.len(), 30);
+    assert!(sources.iter().all(|s| s["class"] == "preprint"));
+    let approaches = &envelope.data["facets"]["approaches"];
+    assert_eq!(approaches["findings"], json!([]));
+    assert_eq!(approaches["note"], "findings omitted by the source limit");
+    assert!(
+        envelope
+            .unknowns
+            .iter()
+            .any(|u| u == "1 finding omitted by the source limit"),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+#[tokio::test]
 async fn the_brief_is_cut_by_whole_findings_to_stay_under_1500_words() {
     // Five facets of eight sixty-word findings: 2,400 words.
     let filler = "alpha ".repeat(57);
