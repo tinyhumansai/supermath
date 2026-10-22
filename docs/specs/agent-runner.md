@@ -17,15 +17,16 @@ selection, a toolkit, and memory.
 
 - `crates/supermath-agent` embeds [OpenHuman](https://github.com/tinyhumansai/openhuman)
   through `openhuman-embed` and registers one agent per project.
-- Every chat completion and embedding goes through the LLM ladder. Turns run
-  on the `flash` ladder at `medium` reasoning effort by default.
+- Every chat completion and embedding goes straight to Surplus Intelligence
+  ([ADR 0008](../adr/0008-call-surplus-intelligence-directly.md)). Turns run
+  on `deepseek-v4.1-flash` at `medium` reasoning effort by default.
 - Jev, the decision model OpenRouter serves, ranks `tool_search` over the
   agent's deferred tools.
 - The composed toolkit (`supermath-mcp`) and the `agent_*` sub-agents
   (`supermath-subagents`) are handed to the agent as host tools.
 - Jacobian and lean-lsp-mcp join as stdio MCP servers when configured.
 - CortexDB holds durable memory, scoped per project.
-- `docker compose up` runs the ladder, CortexDB, and `supermath-agent check`.
+- `docker compose up` runs CortexDB and `supermath-agent check`.
 
 ## Non-goals
 
@@ -43,9 +44,9 @@ supermath-agent check [project]     # default project: scratch
 
 1. Reads [configuration](#configuration); a missing required variable is
    `Error::MissingConfig` naming it.
-2. Boots the OpenHuman runtime with the ladder as its provider and the Jev
+2. Boots the OpenHuman runtime with Surplus as its provider and the Jev
    ranker installed (`tool_search.ranker = jev`, `jev_route = openrouter`).
-   The ranker retrieves with the ladder's `vectors` model.
+   The ranker retrieves with Surplus's embedding model.
 3. Composes the toolkit for the project (`Toolkit::compose`), builds the
    `agent_*` children on the same runtime, and registers the agent
    `supermath-<project>` with a `ToolScopeSpec::Named` list: every toolkit
@@ -102,11 +103,11 @@ the server stored without indexing is an error.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `LADDER_URL` | `http://localhost:6969/v1` | the ladder's API root |
-| `LADDER_API_KEY` | required | bearer token the ladder requires |
-| `SUPERMATH_MODEL` | `flash` | the ladder turns run on |
+| `SURPLUS_URL` | `https://api.surplusintelligence.ai/v1` | Surplus Intelligence's API root |
+| `SURPLUS_API_KEY` | required | bearer token Surplus requires |
+| `SUPERMATH_MODEL` | `deepseek-v4.1-flash` | the Surplus model turns run on |
 | `SUPERMATH_REASONING_EFFORT` | `medium` | `none` … `xhigh`, sent on every turn |
-| `SUPERMATH_EMBEDDING_MODEL` | `vectors` | the embeddings ladder |
+| `SUPERMATH_EMBEDDING_MODEL` | `venice-embed-1` | the Surplus embedding model |
 | `SUPERMATH_EMBEDDING_DIMS` | `1024` | its width; CortexDB pins it on first ingest |
 | `OPENROUTER_API_KEY` | required | Jev's credential, and nothing else |
 | `SUPERMATH_WORKSPACE` | `./.supermath` | OpenHuman workspace and logs |
@@ -114,7 +115,7 @@ the server stored without indexing is an error.
 | `CORTEX_API_URL` | `http://localhost:3141` | CortexDB base URL |
 | `CORTEX_API_KEY` | required | CortexDB operator key |
 | `CORTEX_SCOPE_ROOT` | `ws:supermath` | scope subtree this deployment owns |
-| `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL` | `flash`, `formalize`, `reasoning` | the ladder rung of each `agent_*` child |
+| `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL` | `deepseek-v4.1-flash`, `deepseek-v4-pro`, `glm-5.3` | the Surplus model of each `agent_*` child |
 | `SUPERMATH_JACOBIAN_CMD` | unset | command line of the Jacobian MCP server (stdio) |
 | `SUPERMATH_LEAN_LSP_CMD` | unset | command line of lean-lsp-mcp (stdio) |
 | `SUPERMATH_PROJECTS`, `LEAN_URL`, `PYTHON_URL`, ... | see [`toolkit/mcp/`](toolkit/mcp/README.md) | the toolkit's own variables |
@@ -131,7 +132,7 @@ the server stored without indexing is an error.
 - Unit tests cover configuration, the host adapter (every adapted tool
   matches the composed toolkit's name, schema, exposure, permission and
   kind), the agent's pinned tool list, and the MCP command parsing.
-- `tests/check.rs` runs the binary against loopback stubs of the ladder,
+- `tests/check.rs` runs the binary against loopback stubs of Surplus,
   CortexDB, and the backend, asserts the tool listing, and asserts no
   completion was requested.
 - `tests/live.rs` holds `live_subagents_formalize_bench`, skipped unless

@@ -157,7 +157,7 @@ the shape [`../tools.md`](../tools.md) sets out.
 
 - No `web_*` tool returns a sentence without a source supporting it.
 - No `web_*` tool raises a claim above `asserted`.
-- No `web_*` tool falls back to another search engine or to the ladder
+- No `web_*` tool falls back to another search engine or to Surplus
   when Gemini is unavailable.
 - Web content is never executed, and never treated as an instruction.
 

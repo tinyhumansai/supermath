@@ -41,7 +41,7 @@ trust no further than the evidence behind its answer.
 - The solving loop: how the top-level agent sequences these tools, its
   prompt, and its final report. That is a separate spec.
 - A proof search engine of our own. Search is Lean tactics, Mathlib search,
-  and models on the ladder.
+  and models on Surplus Intelligence.
 - Accepting a result as published mathematics. A checked proof is evidence
   that a Lean statement holds, not that it says what the paper says; that is
   [alignment](ledger/README.md#alignment), a separate axis.
@@ -95,7 +95,7 @@ Every tool is one of two kinds, declared by the tool and shown in the
     turns with Google Search grounding, where Gemini chooses the queries
     ([`web/`](web/README.md)). Lives in `supermath-web`.
   - **`agentic (OpenHuman)`**, the `agent_*` tools: a full OpenHuman agent
-    turn, on its own ladder rung, with its own prompt and its own subset
+    turn, on its own Surplus model, with its own prompt and its own subset
     of primitives, running up to dozens of tool calls
     ([`subagents/`](subagents/README.md)). Lives in `supermath-subagents`.
 

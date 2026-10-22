@@ -1,7 +1,7 @@
 # Formalization benchmark
 
 Thirty informal statements, each a Mathlib theorem with a known
-formalization, for comparing rungs of the model ladder on `agent_formalize`.
+formalization, for comparing Surplus models on `agent_formalize`.
 `statements.json` is an array of `{id, area, statement, expected}`:
 
 - `id` is a unique slug; the benchmark writes `lean/Supermath/Bench/<Id>.lean`.

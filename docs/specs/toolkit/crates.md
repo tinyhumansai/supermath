@@ -67,7 +67,7 @@ crates/
   `cargo test -p` on any other crate never compiles it.
 - Only `supermath-web` calls a model (Gemini, as its search backend;
   [ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)), and
-  only `supermath-subagents` runs model turns on the ladder.
+  only `supermath-subagents` runs model turns on Surplus Intelligence.
 
 CI enforces the rules with a script over `cargo metadata`: it fails if a
 domain crate depends on a domain crate other than `supermath-files`, or if
@@ -146,7 +146,6 @@ the [Python solver environment](python/README.md#the-solver-environment).
 
 | Service | Image | Role |
 | --- | --- | --- |
-| `ladder` | as today | model routing |
 | `cortexdb` | as today | memory |
 | `lean` | `docker/lean/` | the pinned Lean service ([`lean/`](lean/README.md#the-lean-service)) |
 | `python` | `docker/python/` | the pinned Python solver service ([`python/`](python/README.md#the-python-service)) |

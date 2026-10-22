@@ -1,6 +1,7 @@
 # 2. Build the agent on OpenHuman, routed through the LLM ladder
 
-- **Status:** Proposed
+- **Status:** Proposed; the ladder routing is superseded by
+  [ADR 0008](0008-call-surplus-intelligence-directly.md)
 - **Date:** 2026-10-22
 
 ## Context

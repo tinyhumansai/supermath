@@ -2,10 +2,10 @@
 
 ## Shipped
 
-- the agent scaffold on OpenHuman: the ladder as provider (`flash`, medium
-  effort), Jev ranking `tool_search` through OpenRouter, a three-tool toolkit,
+- the agent scaffold on OpenHuman: Surplus Intelligence as provider
+  (`deepseek-v4.1-flash`, medium effort), Jev ranking `tool_search` through OpenRouter, a three-tool toolkit,
   and CortexDB memory scoped per project
-- `docker compose up`: the ladder, CortexDB, and `supermath-agent check`
+- `docker compose up`: CortexDB and `supermath-agent check`
 - CI: format, clippy, tests, per-file coverage, rustdoc, and the compose file
 
 ## Next

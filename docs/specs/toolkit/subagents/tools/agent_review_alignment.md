@@ -22,7 +22,7 @@ can.
 
 | | |
 | --- | --- |
-| Model | `SUPERMATH_REVIEWER_MODEL` (default `reasoning`), a different rung from the formalizer's |
+| Model | `SUPERMATH_REVIEWER_MODEL` (default `glm-5.3`), a different model from the formalizer's |
 | Tools in the turn | `lean_decl`, `lean_search`, `lit_get_paper`, `recall_memory` |
 | Budget | 12 iterations, 100,000 tokens, 300 s by default |
 | Prompt | compare quantifiers, hypotheses, degenerate cases, and conventions; list every hypothesis of the informal statement and where it appears in Lean |

@@ -21,7 +21,7 @@ stays in the child's context.
 
 | | |
 | --- | --- |
-| Model | `SUPERMATH_READER_MODEL` (default `flash`) |
+| Model | `SUPERMATH_READER_MODEL` (default `deepseek-v4.1-flash`) |
 | Tools in the turn | `lit_get_paper`, `lit_extract_statements`, `lit_citations`, `ledger_record`, `ledger_link`, `recall_memory` |
 | Budget | 24 iterations, 200,000 tokens, 600 s by default ([`subagents/`](../README.md#budgets)) |
 | Prompt | read the statement list first, then only the sections the main results need; record one entry per finding; cite every entry by label |

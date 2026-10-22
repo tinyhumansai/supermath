@@ -6,9 +6,9 @@ outcome. Spec: [`docs/specs/toolkit/subagents/`](../../docs/specs/toolkit/subage
 
 | Tool | Child model | Returns |
 | --- | --- | --- |
-| `agent_digest_paper` | `SUPERMATH_READER_MODEL` (`flash`) | ledger ids recorded from an arXiv paper, read back from the ledger |
-| `agent_formalize` | `SUPERMATH_FORMALIZER_MODEL` (`formalize`) | Lean files written, each with a `lean_check` verdict the tool ran |
-| `agent_review_alignment` | `SUPERMATH_REVIEWER_MODEL` (`reasoning`) | `accepted` or `disputed`; the reviewer never sees a proof |
+| `agent_digest_paper` | `SUPERMATH_READER_MODEL` (`deepseek-v4.1-flash`) | ledger ids recorded from an arXiv paper, read back from the ledger |
+| `agent_formalize` | `SUPERMATH_FORMALIZER_MODEL` (`deepseek-v4-pro`) | Lean files written, each with a `lean_check` verdict the tool ran |
+| `agent_review_alignment` | `SUPERMATH_REVIEWER_MODEL` (`glm-5.3`) | `accepted` or `disputed`; the reviewer never sees a proof |
 | `agent_refute` | `SUPERMATH_FORMALIZER_MODEL` | a counterexample only after Lean confirms it, else the frames searched |
 
 ## The rule
@@ -61,7 +61,7 @@ subagents.register_into(&mut registry)?;      // or iterate subagents.tools()
 for missing in subagents.unavailable() { /* log: tool needs these primitives */ }
 ```
 
-`provider: None` keeps the runtime's own provider (the ladder); each child sets
+`provider: None` keeps the runtime's own provider (Surplus Intelligence); each child sets
 only its model. The agent ids are `supermath-<slug>-<reader|formalizer|reviewer|refuter>`,
 so one runtime holds one `Subagents` per project. `Subagents::with_runners`
 builds the same tools over `ChildRunner`s the host supplies.

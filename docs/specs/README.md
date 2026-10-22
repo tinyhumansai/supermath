@@ -25,7 +25,7 @@ A specification that outgrows 500 lines becomes a directory with a
 
 ## Index
 
-- [`agent-runner.md`](agent-runner.md): the OpenHuman runner, ladder, Jev,
+- [`agent-runner.md`](agent-runner.md): the OpenHuman runner, Surplus, Jev,
   and CortexDB wiring.
 - [`toolkit/`](toolkit/README.md): the conjecture toolkit, one folder per
   crate (files, Lean, Python, literature, web, ledger, calc, sub-agents,

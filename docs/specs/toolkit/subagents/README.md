@@ -63,22 +63,20 @@ project's package, under the [path rules](../lean/README.md#files-not-source).
 
 ### Models
 
-Each child runs on its own ladder rung, set by configuration:
+Each child runs on its own Surplus Intelligence model, set by
+configuration:
 
 | Variable | Default | Used by |
 | --- | --- | --- |
-| `SUPERMATH_READER_MODEL` | `flash` | `agent_digest_paper` |
-| `SUPERMATH_FORMALIZER_MODEL` | `formalize` | `agent_formalize`, `agent_refute` |
-| `SUPERMATH_REVIEWER_MODEL` | `reasoning` | `agent_review_alignment` |
+| `SUPERMATH_READER_MODEL` | `deepseek-v4.1-flash` | `agent_digest_paper` |
+| `SUPERMATH_FORMALIZER_MODEL` | `deepseek-v4-pro` | `agent_formalize`, `agent_refute` |
+| `SUPERMATH_REVIEWER_MODEL` | `glm-5.3` | `agent_review_alignment` |
 
-`formalize` is a new ladder rung. The first candidate is a Mistral model
-through the ladder's Mistral seller; open Lean provers (Kimina-Prover,
-DeepSeek-Prover, Goedel-Prover) are candidates to benchmark against it on
-the [acceptance set](#acceptance-criteria). The rung is a ladder name, so
-the choice changes in the ladder's config, not here. A child sets its model
-with `AgentSpec::model`, keeping the runtime's ladder route.
+The formalizer's model is a candidate, to be benchmarked against other
+Surplus models on the [acceptance set](#acceptance-criteria). A child sets
+its model with `AgentSpec::model`, keeping the runtime's Surplus route.
 
-The reviewer runs on a different rung from the formalizer by default, so
+The reviewer runs on a different model from the formalizer by default, so
 the model that wrote a statement is not the one that judges it.
 
 ### Budgets
