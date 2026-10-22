@@ -42,7 +42,9 @@
 //!
 //! - is named `<domain>_<words>` for its crate's domain (or is
 //!   `recall_memory` in the ledger);
-//! - has a description, and an agentic tool's begins "Runs a";
+//! - has a description whose first sentence names the question: a
+//!   primitive's begins "Given " (given X, returns Y), an agentic tool's
+//!   begins "Runs a";
 //! - has a schema that is an object schema with `additionalProperties:
 //!   false` and whose `required` names are all `properties`;
 //! - returns every code in `errors()` from at least one fixture, and no code
@@ -172,10 +174,10 @@ pub fn description_violation(tool: &dyn Tool) -> Option<Violation> {
     let description = tool.description().trim();
     if description.is_empty() {
         Some(Violation::EmptyDescription)
-    } else if tool.kind().is_agentic() && !description.starts_with("Runs a") {
-        Some(Violation::AgenticDescription)
+    } else if tool.kind().is_agentic() {
+        (!description.starts_with("Runs a")).then_some(Violation::AgenticDescription)
     } else {
-        None
+        (!description.starts_with("Given ")).then_some(Violation::PrimitiveDescription)
     }
 }
 
