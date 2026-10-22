@@ -79,8 +79,10 @@ A run that happened answers `200`, whatever came of it:
 - `/search` `result` is `found`, `exhausted`, `capped` (a generator reached
   `max_frame`), `predicate_raised`, `raised`, or `limit`; `search` holds
   `checked` (values that passed before the end or the witness), plus
-  `witness` and `witness_json` (the witness as lossless JSON text, for the
-  generated file) for `found`, and `input` and `exception` for
+  `witness`, `witness_json` (the witness as lossless JSON text, for the
+  generated file), and `witness_tuples` (where the witness held tuples, as
+  paths of indices and keys from the root, `[]` for the witness itself, so
+  the generated file can rebuild them) for `found`, and `input` and `exception` for
   `predicate_raised`. After a `limit`, `search.checked` is the last progress
   the run recorded.
 - `file_sha256` is the digest of the file as the service ran it; the client
