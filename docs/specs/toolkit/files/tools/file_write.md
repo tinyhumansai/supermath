@@ -38,7 +38,7 @@ produced the file a result was given for.
 
 ## Errors
 
-`INVALID_INPUT` for a bad path, non-UTF-8 content, or a forbidden import;
+`INVALID_INPUT` for a bad path, an `if_sha256` that is not a digest, non-UTF-8 content, or a forbidden import;
 `CONFLICT` when `if_sha256` does not match; `BUDGET_EXCEEDED` over the size
 cap; `BACKEND_UNAVAILABLE` when the workspace disk cannot be written. A path
 in a generated directory (`Witnesses/`, `witnesses/`) is `INVALID_INPUT`.
