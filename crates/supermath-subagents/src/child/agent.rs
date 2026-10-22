@@ -5,11 +5,13 @@ use std::sync::{Arc, Mutex, PoisonError};
 use openhuman_embed::seams::{StopDecision, StopHook, TurnCost, TurnState};
 use openhuman_embed::{
     Access, Agent, AgentDefinitionSpec, AgentSpec, CoreError, HostTurnTools, Provider, Runtime,
-    ToolScopeSpec,
+    ToolScopeSpec, TurnCancellation, TurnSteering,
 };
 use supermath_tool::Project;
 
-use super::{ChildEnd, ChildRequest, ChildRunner, ChildSpec, ChildTurn};
+use super::{
+    ChildEnd, ChildRequest, ChildRunner, ChildSpec, ChildTurn, ControlSignal, TurnControl,
+};
 use crate::belt::Belt;
 use crate::error::{Error, Result};
 use crate::limits::Limits;
@@ -167,22 +169,23 @@ where
     F: std::future::Future<Output = T>,
 {
     tokio::pin!(send);
-    let mut cancelling = false;
+    let mut listening = true;
     loop {
         tokio::select! {
             sent = &mut send => return sent,
-            signal = control.next(), if !cancelling => match signal {
+            signal = control.next(), if listening => match signal {
                 ControlSignal::Steer(text) => {
-                    // A turn that has already ended refuses the steer; the
-                    // send future is about to return, and the host learns
-                    // of the text from `unapplied`.
+                    // A turn that has already ended refuses the steer and the
+                    // send future is about to return: the text goes back on
+                    // the host's queue, where `TurnControl::take_steers`
+                    // finds it.
                     if let Err(refused) = steering.steer(text) {
-                        control.steer(refused.text);
-                        cancelling = true;
+                        control.steer(refused.text());
+                        listening = false;
                     }
                 }
                 ControlSignal::Cancel => {
-                    cancelling = true;
+                    listening = false;
                     let cancellation = cancellation.clone();
                     tokio::spawn(async move { cancellation.cancel().await });
                 }
