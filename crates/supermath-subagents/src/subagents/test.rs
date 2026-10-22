@@ -63,7 +63,20 @@ fn a_tool_whose_primitives_are_missing_is_left_out_and_reported() {
         .unwrap();
     assert!(formalize.missing.contains(&"lean_check".to_owned()));
     assert!(!formalize.missing.contains(&"ledger_claims".to_owned()));
-    assert_eq!(built.unavailable().len(), 3);
+    let settle = built
+        .unavailable()
+        .iter()
+        .find(|u| u.tool == "agent_settle")
+        .unwrap();
+    assert!(settle.missing.contains(&"py_search_counterexample".to_owned()));
+    assert!(settle.missing.contains(&"lean_try_tactics".to_owned()));
+    assert!(!settle.missing.iter().any(|name| name.starts_with("duel_")));
+    assert_eq!(
+        settle.missing.iter().filter(|name| *name == "lean_check").count(),
+        1,
+        "a primitive both sides need is listed once"
+    );
+    assert_eq!(built.unavailable().len(), 4);
 }
 
 #[test]
