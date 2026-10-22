@@ -93,6 +93,9 @@ services:
       SUPERMATH_REASONING_EFFORT: ${SUPERMATH_REASONING_EFFORT:-medium}
       SUPERMATH_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-venice-embed-1}
       SUPERMATH_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-1024}
+      # Another embedding endpoint for Jev's retriever; empty means Surplus.
+      SUPERMATH_EMBEDDING_URL: ${SUPERMATH_EMBEDDING_URL:-}
+      SUPERMATH_EMBEDDING_API_KEY: ${SUPERMATH_EMBEDDING_API_KEY:-}
       # The Surplus model each `agent_*` child runs on.
       SUPERMATH_READER_MODEL: ${SUPERMATH_READER_MODEL:-deepseek-v4.1-flash}
       SUPERMATH_FORMALIZER_MODEL: ${SUPERMATH_FORMALIZER_MODEL:-deepseek-v4-pro}
