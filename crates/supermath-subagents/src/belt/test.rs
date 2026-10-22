@@ -142,7 +142,7 @@ async fn a_host_tool_runs_through_the_belt_and_returns_the_envelope_as_json() {
         .await
         .unwrap();
     assert!(!ok.is_error);
-    assert!(ok.output().contains("\"outcome\":\"ok\""));
+    assert_eq!(result_body(&ok)["outcome"], "ok");
     let read = tools.iter().find(|t| t.name() == "file_read").unwrap();
     let refused = read
         .execute(json!({"path": "lean/Nope.lean"}))
