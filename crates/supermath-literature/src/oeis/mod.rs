@@ -19,7 +19,7 @@ pub use types::{OeisPage, Sequence};
 const SOURCE: &str = "oeis";
 const DEFAULT_RETRY_MS: u64 = 1_000;
 /// Rows OEIS returns per search request; `start=` pages through the rest.
-pub const PAGE_SIZE: usize = 10;
+const PAGE_SIZE: usize = 10;
 
 /// A client for `https://oeis.org/search?fmt=json`.
 #[derive(Debug)]
@@ -99,7 +99,7 @@ impl OeisClient {
     /// Searches OEIS for `query` (words, or comma-separated terms), `start`
     /// rows in, returning up to `limit` sequences.
     ///
-    /// OEIS answers [`PAGE_SIZE`] rows per request, so a `limit` above that
+    /// OEIS answers ten rows per request, so a `limit` above that
     /// fetches the following pages (`start + 10`, `start + 20`, …) until the
     /// limit is met or the matches run out. The page's `next` is the offset
     /// just past the last row shown, whichever request it came from.
