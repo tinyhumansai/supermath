@@ -207,3 +207,37 @@ fn the_config_debug_hides_the_provider_internals_and_defaults_are_the_rungs() {
     let text = format!("{config:?}");
     assert!(text.contains("progress: false"), "{text}");
 }
+
+#[test]
+fn an_agentic_primitive_only_a_duel_side_needs_is_refused() {
+    // Without lit_get_paper only agent_refute and the duel are buildable;
+    // agent_refute never calls lean_try_tactics, the duel prover does.
+    let world = World::new();
+    let names: Vec<&'static str> = crate::fake::world::PRIMITIVES
+        .into_iter()
+        .filter(|name| !matches!(*name, "lit_get_paper" | "lean_try_tactics"))
+        .collect();
+    let mut registry = world.registry_of(&names);
+    registry.register(built_with_agentic("lean_try_tactics")).unwrap();
+    let error = subagents_result(&registry).unwrap_err();
+    assert!(matches!(error, Error::NotPrimitive(name) if name == "lean_try_tactics"));
+}
+
+fn subagents_result(registry: &ToolRegistry) -> crate::Result<Subagents> {
+    let idle: Arc<dyn ChildRunner> = idle();
+    let runners = Runners {
+        reader: idle.clone(),
+        formalizer: idle.clone(),
+        reviewer: idle.clone(),
+        refuter: idle.clone(),
+        duel_prover: idle.clone(),
+        duel_refuter: idle,
+    };
+    Subagents::with_runners(
+        registry,
+        Arc::new(InMemoryCallLog::new()),
+        &project(),
+        &runners,
+        None,
+    )
+}
