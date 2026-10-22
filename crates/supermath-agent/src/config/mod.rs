@@ -2,9 +2,10 @@
 //!
 //! Two model endpoints, each with one job:
 //!
-//! - **The LLM ladder** (`SURPLUS_URL`, `SURPLUS_API_KEY`) serves every chat
-//!   completion and every embedding. It is an OpenAI-compatible router that
-//!   picks the best-priced model for a named ladder such as `reasoning`.
+//! - **Surplus Intelligence** (`SURPLUS_URL`, `SURPLUS_API_KEY`) serves every
+//!   chat completion and every embedding, called directly through its
+//!   OpenAI-compatible API with a concrete model name such as
+//!   `deepseek-v4.1-flash`.
 //! - **`OpenRouter`** (`OPENROUTER_API_KEY`) serves Jev only: the decision model
 //!   `OpenHuman`'s `tool_search` uses to pick deferred tools.
 //!
@@ -19,11 +20,11 @@ use supermath_subagents::Models;
 
 use crate::error::{Error, Result};
 
-/// The ladder's API root when none is configured.
-pub const DEFAULT_SURPLUS_URL: &str = "http://localhost:6969/v1";
+/// Surplus Intelligence's API root when none is configured.
+pub const DEFAULT_SURPLUS_URL: &str = "https://api.surplusintelligence.ai/v1";
 
-/// The ladder the solver's turns run on when none is configured.
-pub const DEFAULT_MODEL: &str = "flash";
+/// The Surplus model the solver's turns run on when none is configured.
+pub const DEFAULT_MODEL: &str = "deepseek-v4.1-flash";
 
 /// How hard the solver's model thinks when nothing else is configured.
 pub const DEFAULT_REASONING_EFFORT: &str = "medium";
@@ -33,8 +34,8 @@ pub const REASONING_EFFORTS: [&str; 8] = [
     "none", "minimal", "low", "medium", "high", "xhigh", "off", "max",
 ];
 
-/// The ladder that serves embeddings when none is configured.
-pub const DEFAULT_EMBEDDING_MODEL: &str = "vectors";
+/// The Surplus model that serves embeddings when none is configured.
+pub const DEFAULT_EMBEDDING_MODEL: &str = "venice-embed-1";
 
 /// The width of [`DEFAULT_EMBEDDING_MODEL`]'s vectors.
 pub const DEFAULT_EMBEDDING_DIMS: usize = 1024;
@@ -45,16 +46,17 @@ pub const DEFAULT_WORKSPACE: &str = ".supermath";
 /// Everything one run needs to reach its models and its memory.
 #[derive(Clone)]
 pub struct Config {
-    /// The ladder's OpenAI-compatible API root.
+    /// Surplus's OpenAI-compatible API root.
     pub surplus_url: String,
-    /// Bearer token the ladder requires.
+    /// Bearer token Surplus requires.
     pub surplus_api_key: String,
-    /// The ladder the solver's turns run on, such as `flash`.
+    /// The Surplus model the solver's turns run on, such as
+    /// `deepseek-v4.1-flash`.
     pub model: String,
-    /// The reasoning effort every turn asks for, such as `medium`. The ladder
-    /// forwards a request's own effort to whichever rung serves it.
+    /// The reasoning effort every turn asks for, such as `medium`, sent with
+    /// each request.
     pub reasoning_effort: String,
-    /// The ladder that serves embeddings.
+    /// The Surplus model that serves embeddings.
     pub embedding_model: String,
     /// The width of [`Self::embedding_model`]'s vectors.
     pub embedding_dims: usize,
@@ -66,7 +68,7 @@ pub struct Config {
     pub workspace: PathBuf,
     /// Every tool domain's settings, including `CortexDB` (the ledger).
     pub toolkit: supermath_mcp::Config,
-    /// The ladder rung each `agent_*` child runs on.
+    /// The Surplus model each `agent_*` child runs on.
     pub models: Models,
     /// Command line of the Jacobian MCP server, when `SUPERMATH_JACOBIAN_CMD`
     /// is set.
