@@ -218,7 +218,7 @@ fn lyx_protected_theorem_names_read_as_their_kind() {
         \\begin{thm}x\\end{thm}\\begin{question}y\\end{question}\\begin{lem}z\\end{lem}";
     let mut tree = crate::SourceTree::new();
     tree.insert("main.tex", source.to_owned());
-    let flat = crate::flatten_latex(&tree, "main.tex").unwrap();
+    let flat = crate::flatten_latex(&tree);
     let kinds: Vec<String> = extract_statements(&flat.text)
         .statements
         .into_iter()
