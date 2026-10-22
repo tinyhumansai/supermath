@@ -9,6 +9,7 @@ use openhuman_embed::{PermissionLevel, Tool as _, ToolExposure, ToolPolicy};
 use serde_json::{Value, json};
 use supermath_mcp::{Config, Toolkit};
 use supermath_subagents::{ChildRequest, ChildRunner, ChildTurn, Runners, Subagents};
+use supermath_tool::contract::description_violation;
 use supermath_tool::{Exposure, Outcome, Permission, Tool};
 
 use super::Host;
@@ -239,4 +240,32 @@ fn the_belt_boxes_every_adapted_tool_and_debug_names_a_tool() {
     assert_eq!(host.belt().len(), host.tool_names().len());
     let first = host.adapt().remove(0);
     assert_eq!(format!("{first:?}"), "HostTool(\"calc_factor\")");
+}
+
+#[test]
+fn the_runners_catalogue_has_exactly_six_direct_tools_and_question_descriptions() {
+    let host = host();
+    let adapted = host.adapt();
+    let mut direct: Vec<&str> = adapted
+        .iter()
+        .filter(|tool| tool.exposure() == ToolExposure::Direct)
+        .map(|tool| tool.name())
+        .collect();
+    direct.sort_unstable();
+    assert_eq!(
+        direct,
+        [
+            "lean_check",
+            "ledger_record",
+            "lit_search_arxiv",
+            "py_run",
+            "recall_memory",
+            "web_search"
+        ]
+    );
+    assert!(adapted.iter().any(|tool| tool.name() == "agent_settle"));
+    let tools = host.toolkit().registry();
+    for tool in tools.iter().chain(host.agents.iter()) {
+        assert_eq!(description_violation(tool.as_ref()), None, "{}", tool.name());
+    }
 }

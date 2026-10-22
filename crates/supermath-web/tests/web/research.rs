@@ -270,7 +270,11 @@ async fn the_per_facet_and_total_caps_hold() {
 /// A grounded Gemini answer of `sentences`, sentence `i` supported by the
 /// chunks `cites(i)`, over `uris`. The URIs are not redirect hosts, so they
 /// are reported as given and never requested.
-fn grounded_answer(sentences: &[String], uris: &[String], cites: impl Fn(usize) -> Vec<usize>) -> Response {
+fn grounded_answer(
+    sentences: &[String],
+    uris: &[String],
+    cites: impl Fn(usize) -> Vec<usize>,
+) -> Response {
     let text = sentences.join(" ");
     let mut at = 0;
     let supports: Vec<_> = sentences
@@ -295,15 +299,24 @@ fn grounded_answer(sentences: &[String], uris: &[String], cites: impl Fn(usize) 
     )
 }
 
-const WORDS: [&str; 8] = ["one", "two", "three", "four", "five", "six", "seven", "eight"];
+const WORDS: [&str; 8] = [
+    "one", "two", "three", "four", "five", "six", "seven", "eight",
+];
 
 #[tokio::test]
 async fn findings_left_without_a_source_by_the_source_limit_are_counted() {
     // Eight findings, each citing five distinct pages: forty sources, of
     // which thirty are kept, so the last two findings lose every source.
-    let sentences: Vec<String> = WORDS.iter().map(|w| format!("Claim {w} is true.")).collect();
-    let uris: Vec<String> = (0..40).map(|i| format!("https://example.org/page-{i}")).collect();
-    let stub = gemini_stub(move |_| grounded_answer(&sentences, &uris, |i| (i * 5..i * 5 + 5).collect())).await;
+    let sentences: Vec<String> = WORDS
+        .iter()
+        .map(|w| format!("Claim {w} is true."))
+        .collect();
+    let uris: Vec<String> = (0..40)
+        .map(|i| format!("https://example.org/page-{i}"))
+        .collect();
+    let stub =
+        gemini_stub(move |_| grounded_answer(&sentences, &uris, |i| (i * 5..i * 5 + 5).collect()))
+            .await;
     let envelope = toolkit(config(&stub))
         .research()
         .call(&ctx(), json!({"question": "Q", "facets": ["status"]}))
@@ -349,7 +362,12 @@ async fn the_brief_is_cut_by_whole_findings_to_stay_under_1500_words() {
         let findings = facet["findings"].as_array().unwrap();
         // Cut round by round, so every facet keeps its leading findings.
         assert_eq!(findings.len(), 5, "{name}");
-        assert!(findings[0]["text"].as_str().unwrap().starts_with("Claim one"));
+        assert!(
+            findings[0]["text"]
+                .as_str()
+                .unwrap()
+                .starts_with("Claim one")
+        );
         words += findings
             .iter()
             .map(|f| f["text"].as_str().unwrap().split_whitespace().count())

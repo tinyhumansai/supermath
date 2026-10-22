@@ -4,7 +4,8 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use serde_json::json;
-use supermath_tool::{ErrorCode, Outcome};
+use supermath_tool::contract::description_violation;
+use supermath_tool::{ErrorCode, Exposure, Outcome};
 
 use super::Toolkit;
 use crate::{Config, Error};
@@ -40,6 +41,17 @@ const CATALOGUE: [&str; 30] = [
     "recall_memory",
     "web_read",
     "web_research",
+    "web_search",
+];
+
+/// The tools always in the model's catalogue; every other tool is deferred
+/// (`docs/specs/toolkit/README.md`, "Progressive disclosure").
+const DIRECT: [&str; 6] = [
+    "lean_check",
+    "ledger_record",
+    "lit_search_arxiv",
+    "py_run",
+    "recall_memory",
     "web_search",
 ];
 
@@ -122,4 +134,19 @@ fn the_domain_handles_are_reachable_and_gemini_is_a_presence_only() {
     assert!(!toolkit.has_gemini_key());
     assert!(!toolkit.lean().client().is_configured());
     let _ = (toolkit.python(), toolkit.literature(), toolkit.memory());
+}
+
+#[test]
+fn exactly_the_six_direct_tools_are_direct_and_every_description_names_its_question() {
+    let registry = toolkit().registry();
+    let mut direct: Vec<&str> = registry
+        .iter()
+        .filter(|tool| tool.exposure() == Exposure::Direct)
+        .map(|tool| tool.name())
+        .collect();
+    direct.sort_unstable();
+    assert_eq!(direct, DIRECT);
+    for tool in registry.iter() {
+        assert_eq!(description_violation(tool.as_ref()), None, "{}", tool.name());
+    }
 }

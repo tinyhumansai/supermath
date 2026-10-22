@@ -75,12 +75,12 @@ fn the_generated_file_passes_the_workspace_import_rules_and_write() {
     let nested = render("work.m", "p", "[[1]]", &[json!([]), json!([0])], &range());
     for source in [source, nested] {
         let path = ProjectPath::parse(&path_for("is_prime_value", &source)).unwrap();
-    assert!(path.is_generated());
-    let meta = WriteMeta::new("py_search_counterexample", "call-1").allowing_generated();
-    let written = workspace
-        .write("demo", &path, &source, None, &meta)
-        .unwrap();
-    assert_eq!(workspace.sha256("demo", &path).unwrap(), written.sha256);
+        assert!(path.is_generated());
+        let meta = WriteMeta::new("py_search_counterexample", "call-1").allowing_generated();
+        let written = workspace
+            .write("demo", &path, &source, None, &meta)
+            .unwrap();
+        assert_eq!(workspace.sha256("demo", &path).unwrap(), written.sha256);
     }
 }
 

@@ -578,7 +578,11 @@ async fn a_drifting_duel_side_is_nudged_then_cut_through_openhuman(rig: &Rig) {
     // the turn started.
     let prover = &answer.data["sides"]["prover"];
     let sessions = prover["sessions"].as_array().unwrap();
-    assert_eq!(Some(sessions.len() as u64), prover["rounds"].as_u64(), "{prover}");
+    assert_eq!(
+        Some(sessions.len() as u64),
+        prover["rounds"].as_u64(),
+        "{prover}"
+    );
     assert!(
         sessions[0]
             .as_str()
