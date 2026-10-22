@@ -367,6 +367,53 @@ async fn an_id_the_ledger_lacks_is_dropped_and_counted_in_unknowns() {
     assert!(unknowns(&answer).contains("1 id(s)"), "{answer:?}");
 }
 
+/// A reader that records `n` facts and then sees the ledger stop answering.
+fn reader_then_outage(world: &World, n: usize) -> Arc<ScriptRunner> {
+    let world = world.clone();
+    ScriptRunner::new(script(move |_, belt| {
+        let world = world.clone();
+        async move {
+            for statement in ["a", "b", "c"].into_iter().take(n) {
+                belt.call(
+                    "ledger_record",
+                    json!({"kind": "fact", "statement": statement, "source": arxiv_source()}),
+                )
+                .await;
+            }
+            world.override_tool(
+                "ledger_claims",
+                Envelope::error(ErrorCode::BackendUnavailable, "cortex is down"),
+            );
+            Ok(turn("ok"))
+        }
+    }))
+}
+
+#[tokio::test]
+async fn a_ledger_that_cannot_be_read_back_is_unknown_never_missing() {
+    let world = World::new();
+    world.add_paper("2012.04125", &[]);
+    let runner = reader_then_outage(&world, 2);
+    let built = subagents(&world.registry(), &runner);
+    let answer = call(
+        &built,
+        "agent_digest_paper",
+        json!({"arxiv_id": "2012.04125"}),
+    )
+    .await;
+    assert_eq!(answer.outcome, Outcome::Unknown, "{answer:?}");
+    assert_eq!(answer.data["count"], 0);
+    assert_eq!(answer.data["unverified"], json!(["clm_1", "clm_2"]));
+    let said = unknowns(&answer);
+    assert!(!said.contains("not in the ledger"), "{said}");
+    assert!(
+        said.contains("2 id(s) could not be read back from the ledger")
+            && said.contains("cortex is down"),
+        "{said}"
+    );
+    assert!(answer.next.is_empty());
+}
+
 #[tokio::test]
 async fn a_status_above_cited_is_flagged_not_trusted() {
     let world = World::new();
