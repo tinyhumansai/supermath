@@ -1,8 +1,8 @@
 # `lit_extract_statements`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Literature](../literature.md) | deferred | read | P3 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Literature](../literature.md) | primitive | deferred | read | P3 |
 
 **Given → returns:** an arXiv id → numbered statements and their `\ref` edges.
 

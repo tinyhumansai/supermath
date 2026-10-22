@@ -1,8 +1,8 @@
 # `ledger_record`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Ledger](../ledger.md) | direct | write | P2 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Ledger](../ledger.md) | primitive | direct | write | P2 |
 
 **Given → returns:** a claim or fact → its id and status.
 

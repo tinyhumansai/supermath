@@ -69,6 +69,56 @@ postcondition, stated in its description as "given X, returns Y such that P".
 Workflows are composed by the agent or by an `agent_*` tool, never hidden in
 a primitive.
 
+### Primitive and agentic tools
+
+Every tool is one of two kinds, declared by the tool and shown in the
+[catalogue](#catalogue):
+
+- **Primitive.** Code over a backend: a parser, an HTTP API, the Lean
+  kernel, CortexDB. No model runs. The same arguments against the same
+  backend state give the same answer, in roughly bounded time and cost.
+- **Agentic.** It looks like a tool call, but behind it **a model takes a
+  turn**: it decides what to search or which tools to call, possibly many
+  times, and the tool returns what that turn produced. There are two
+  families:
+  - **`agentic (Gemini)`**, the `web_*` search tools: one or more Gemini
+    turns with Google Search grounding, where Gemini chooses the queries
+    ([`web.md`](web.md)). Lives in `supermath-mcp`.
+  - **`agentic (OpenHuman)`**, the `agent_*` tools: a full OpenHuman agent
+    turn, on its own ladder rung, with its own prompt and its own subset
+    of primitives, running up to dozens of tool calls
+    ([`agents.md`](agents.md)). Lives in `supermath-agent`.
+
+An agentic tool is a different thing to call, and the contract says so:
+
+| | Primitive | Agentic |
+| --- | --- | --- |
+| Deterministic | yes, given backend state | no; the model chooses |
+| Cost | backend time | model tokens, reported in `usage` |
+| Latency | seconds | tens of seconds to minutes |
+| Budget | admission caps | iterations, tokens, wall time; exhausting it is `unknown` |
+| Description starts | "Given X, returns Y" | "Runs a <model> turn that …", so the caller knows it is delegating |
+| Trust in its output | the backend's | none on its own; see below |
+| May call | — | primitives only; never another agentic tool |
+
+Rules for agentic tools:
+
+- **Never the source of a verdict.** What a model turn says it did is a
+  claim. An agentic tool reports verdicts and statuses only from
+  primitives it ran *after* the turn ended: `agent_formalize` re-runs
+  [`lean_check`](tools/lean_check.md) on the files the child wrote; `web_*`
+  tools keep only sentences that a grounding source supports.
+- **Usage is part of the answer.** The envelope carries
+  `usage: {model, turns, tool_calls, input_tokens, output_tokens,
+  elapsed_ms}`, so the calling agent can account for what it spent.
+- **No nesting.** A turn inside an agentic tool sees primitives only, so a
+  call is one level of delegation, never a tree.
+- **Progress is visible.** OpenHuman agentic tools forward their child's
+  tool events to the caller's progress stream; Gemini tools report the
+  queries Google ran in `coverage`.
+- **Each tool file has a "Turn" section**: the model, the tools the turn
+  may call, its budget, what is returned, and what is discarded.
+
 ### Progressive disclosure
 
 Five tools are **direct**, always in the model's catalogue: `recall_memory`,
@@ -114,6 +164,7 @@ An `error` carries a stable `code` and a one-line `message`:
 | `TIMEOUT` | the call ran out of time; the result is unknown |
 | `RATE_LIMITED` | an upstream asked us to slow down; retry after `retry_after_ms` |
 | `FORBIDDEN` | the caller may not make this transition (see the ledger) |
+| `CONFLICT` | a file changed since the caller last saw it (`if_sha256` mismatch) |
 
 Tests assert codes, never message text.
 
@@ -125,15 +176,19 @@ Tests assert codes, never message text.
 - No silent fallback. If a backend is missing, the tool says so; it never
   answers from a different engine than the one it names.
 - Every call is admitted against a budget (time, size, rows) before it runs.
+- Lean tools take files in the project's package, never Lean source as an
+  argument; only `lean_write` and `lean_edit` put source on disk
+  ([`lean.md`](lean.md#files-not-source)).
 - Provenance only where it carries trust: `lean_check` records the
-  toolchain, Mathlib revision, source digest, and elapsed time; a literature
+  toolchain, Mathlib revision, file digest, and elapsed time; a literature
   row records its source and version. Arithmetic does not.
 
 ### Permissions
 
 Every tool declares `Read` or `Write` honestly; the runner maps it to
 OpenHuman's permission levels and the MCP server to `readOnlyHint`
-([`crates.md`](crates.md)). `lean_write` and the ledger writes are `Write`.
+([`crates.md`](crates.md)). `lean_write`, `lean_edit`, and the ledger
+writes are `Write`.
 `agent_*` tools are `Read` themselves, because the writing happens inside
 the child agent, which has its own scope ([`agents.md`](agents.md#scopes)).
 
@@ -161,36 +216,39 @@ is a separate field: `not_reviewed`, `accepted`, or `disputed`
 Every tool lives in `supermath-mcp` except the `agent_*` tools, which need
 models and live in `supermath-agent`; MCP clients get everything but those.
 
-| Tool | Exposure | Permission | Phase | Given → returns |
-| --- | --- | --- | --- | --- |
-| [`recall_memory`](tools/recall_memory.md) | direct | read | shipped | a query → this project's notes |
-| [`lit_search_arxiv`](tools/lit_search_arxiv.md) | direct | read | P3 | a query → paged papers |
-| [`lit_get_paper`](tools/lit_get_paper.md) | deferred | read | P3 | an arXiv id → metadata, section index, a section's text |
-| [`lit_extract_statements`](tools/lit_extract_statements.md) | deferred | read | P3 | an arXiv id → numbered statements and their `\ref` edges |
-| [`lit_citations`](tools/lit_citations.md) | deferred | read | P5 | an arXiv id → references or citing papers |
-| [`lit_oeis`](tools/lit_oeis.md) | deferred | read | P3 | terms or a query → matching sequences |
-| [`web_search`](tools/web_search.md) | direct | read | P3 | a question → grounded findings with their sources |
-| [`web_research`](tools/web_research.md) | deferred | read | P3 | a research question → a sourced brief across several searches |
-| [`web_read`](tools/web_read.md) | deferred | read | P3 | a URL → the page's main text, paged |
-| [`lean_check`](tools/lean_check.md) | direct | read | P2 | Lean source → a [verdict](lean.md#verdicts) with provenance |
-| [`lean_search`](tools/lean_search.md) | deferred | read | P2 | a name, pattern, or phrase → Mathlib declarations |
-| [`lean_decl`](tools/lean_decl.md) | deferred | read | P2 | a declaration name → signature, docstring, module |
-| [`lean_goals`](tools/lean_goals.md) | deferred | read | P4 | source and a position → the goal state there |
-| [`lean_try_tactics`](tools/lean_try_tactics.md) | deferred | read | P4 | source, a `sorry`, tactics → per-tactic outcome |
-| [`lean_write`](tools/lean_write.md) | deferred | write | P4 | a module path and source → the file, checked |
-| [`lean_build`](tools/lean_build.md) | deferred | read | P5 | the project package → per-module verdicts |
-| [`lean_blueprint`](tools/lean_blueprint.md) | deferred | read | P5 | the project → the declaration DAG with status |
-| [`calc_factor`](tools/calc_factor.md) | deferred | read | P1 | an integer → its factorization |
-| [`calc_gcd_lcm`](tools/calc_gcd_lcm.md) | deferred | read | P1 | two integers → gcd and lcm |
-| [`calc_search_counterexample`](tools/calc_search_counterexample.md) | deferred | read | P5 | a decidable Lean predicate and a range → a witness, or none in range |
-| [`ledger_record`](tools/ledger_record.md) | direct | write | P2 | a claim or fact → its id and status |
-| [`ledger_claims`](tools/ledger_claims.md) | deferred | read | P2 | filters → paged claims |
-| [`ledger_link`](tools/ledger_link.md) | deferred | write | P4 | two claim ids → a `uses` edge |
-| [`ledger_bound`](tools/ledger_bound.md) | deferred | write | P5 | a quantity and a bound → the best bound so far |
-| [`agent_digest_paper`](tools/agent_digest_paper.md) | deferred | read | P4 | an arXiv id → facts recorded from it |
-| [`agent_formalize`](tools/agent_formalize.md) | deferred | read | P4 | a statement or paper locator → Lean declarations and their verdict |
-| [`agent_review_alignment`](tools/agent_review_alignment.md) | deferred | read | P4 | a declaration and its informal statement → alignment |
-| [`agent_refute`](tools/agent_refute.md) | deferred | read | P5 | a statement → a counterexample, or a repaired statement |
+| Tool | Kind | Exposure | Permission | Phase | Given → returns |
+| --- | --- | --- | --- | --- | --- |
+| [`recall_memory`](tools/recall_memory.md) | primitive | direct | read | shipped | a query → this project's notes |
+| [`lit_search_arxiv`](tools/lit_search_arxiv.md) | primitive | direct | read | P3 | a query → paged papers |
+| [`lit_get_paper`](tools/lit_get_paper.md) | primitive | deferred | read | P3 | an arXiv id → metadata, section index, a section's text |
+| [`lit_extract_statements`](tools/lit_extract_statements.md) | primitive | deferred | read | P3 | an arXiv id → numbered statements and their `\ref` edges |
+| [`lit_citations`](tools/lit_citations.md) | primitive | deferred | read | P5 | an arXiv id → references or citing papers |
+| [`lit_oeis`](tools/lit_oeis.md) | primitive | deferred | read | P3 | terms or a query → matching sequences |
+| [`web_search`](tools/web_search.md) | agentic (Gemini) | direct | read | P3 | a question → grounded findings with their sources |
+| [`web_research`](tools/web_research.md) | agentic (Gemini) | deferred | read | P3 | a research question → a sourced brief across several searches |
+| [`web_read`](tools/web_read.md) | primitive | deferred | read | P3 | a URL → the page's main text, paged |
+| [`lean_write`](tools/lean_write.md) | primitive | deferred | write | P2 | a module path and its content → the file written, with its digest |
+| [`lean_edit`](tools/lean_edit.md) | primitive | deferred | write | P2 | a file and exact replacements → the edited file's digest and changed lines |
+| [`lean_read`](tools/lean_read.md) | primitive | deferred | read | P2 | a file and a line range → its numbered lines and digest |
+| [`lean_files`](tools/lean_files.md) | primitive | deferred | read | P2 | the project → its Lean files with their last verdicts |
+| [`lean_check`](tools/lean_check.md) | primitive | direct | read | P2 | a Lean file in the project → a [verdict](lean.md#verdicts) with provenance |
+| [`lean_search`](tools/lean_search.md) | primitive | deferred | read | P2 | a name, pattern, or phrase → Mathlib declarations |
+| [`lean_decl`](tools/lean_decl.md) | primitive | deferred | read | P2 | a declaration name → signature, docstring, module |
+| [`lean_goals`](tools/lean_goals.md) | primitive | deferred | read | P4 | a file and a position → the goal state there |
+| [`lean_try_tactics`](tools/lean_try_tactics.md) | primitive | deferred | read | P4 | a file, one of its `sorry`s, and tactics → per-tactic outcome |
+| [`lean_build`](tools/lean_build.md) | primitive | deferred | read | P5 | the project package → per-file verdicts |
+| [`lean_blueprint`](tools/lean_blueprint.md) | primitive | deferred | read | P5 | the project → the declaration DAG with status |
+| [`calc_factor`](tools/calc_factor.md) | primitive | deferred | read | P1 | an integer → its factorization |
+| [`calc_gcd_lcm`](tools/calc_gcd_lcm.md) | primitive | deferred | read | P1 | two integers → gcd and lcm |
+| [`calc_search_counterexample`](tools/calc_search_counterexample.md) | primitive | deferred | read | P5 | a decidable predicate in a project file and a range → a witness, or none in range |
+| [`ledger_record`](tools/ledger_record.md) | primitive | direct | write | P2 | a claim or fact → its id and status |
+| [`ledger_claims`](tools/ledger_claims.md) | primitive | deferred | read | P2 | filters → paged claims |
+| [`ledger_link`](tools/ledger_link.md) | primitive | deferred | write | P4 | two claim ids → a `uses` edge |
+| [`ledger_bound`](tools/ledger_bound.md) | primitive | deferred | write | P5 | a quantity and a bound → the best bound so far |
+| [`agent_digest_paper`](tools/agent_digest_paper.md) | agentic (OpenHuman) | deferred | read | P4 | an arXiv id → facts recorded from it |
+| [`agent_formalize`](tools/agent_formalize.md) | agentic (OpenHuman) | deferred | read | P4 | a statement or paper locator → Lean files and their verdicts |
+| [`agent_review_alignment`](tools/agent_review_alignment.md) | agentic (OpenHuman) | deferred | read | P4 | a declaration and its informal statement → alignment |
+| [`agent_refute`](tools/agent_refute.md) | agentic (OpenHuman) | deferred | read | P5 | a statement → a counterexample, or a repaired statement |
 
 `factor_integer` and `gcd_lcm` move to `supermath-mcp` as `calc_factor` and
 `calc_gcd_lcm` in P1. Jacobian's ~1,400 operations are reached over MCP, not

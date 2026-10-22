@@ -3,6 +3,12 @@
 - **Status:** Draft
 - **Parent:** [`README.md`](README.md)
 
+These are the toolkit's **agentic (OpenHuman)** tools: each call is a full
+OpenHuman agent turn behind a tool interface
+([`README.md`](README.md#primitive-and-agentic-tools)). Each tool's file
+has a **Turn** section giving its model, the primitives the turn may call,
+its budget, and what the tool verifies, returns, and discards.
+
 The `agent_*` tools live in `supermath-agent`, the OpenHuman runner, because
 they drive models; `supermath-mcp` does not serve them
 ([`crates.md`](crates.md)). Their children use the `supermath-mcp` tools
@@ -36,12 +42,15 @@ calls except what they wrote to the ledger and the Lean package.
 
 ### Scopes
 
-A child that writes Lean files needs `lean_write`, a `Write` tool, and
-`HostOnly` agents are held to read-only. Children therefore use
-`ToolScopeSpec::Named` with exactly the tools listed for them below, and
-`disallow_tools(["memory"])` so OpenHuman's own memory tool does not shadow
-the ledger. The `agent_*` tool itself stays `ReadOnly`: the top-level agent
-cannot write Lean files except through a child, whose tools are fixed.
+A child that writes Lean files needs `lean_write` and `lean_edit`, which
+are `Write` tools, and `HostOnly` agents are held to read-only. Children
+therefore use `ToolScopeSpec::Named` with exactly the tools listed in their
+tool's **Turn** section, and `disallow_tools(["memory"])` so OpenHuman's own
+memory tool does not shadow the ledger. A child's list holds primitives
+only: no child can call an agentic tool
+([`README.md`](README.md#primitive-and-agentic-tools)). The `agent_*` tool
+itself is `Read`; its writes happen inside the child, to files in the
+project's package, under the [path rules](lean.md#files-not-source).
 
 ### Models
 
@@ -92,7 +101,7 @@ Each tool is specified in its own file under [`tools/`](tools/README.md).
 | Tool | Given → returns |
 | --- | --- |
 | [`agent_digest_paper`](tools/agent_digest_paper.md) | an arXiv id → facts recorded from it |
-| [`agent_formalize`](tools/agent_formalize.md) | a statement or paper locator → Lean declarations and their verdict |
+| [`agent_formalize`](tools/agent_formalize.md) | a statement or paper locator → Lean files and their verdicts |
 | [`agent_review_alignment`](tools/agent_review_alignment.md) | a declaration and its informal statement → alignment |
 | [`agent_refute`](tools/agent_refute.md) | a statement → a counterexample, or a repaired statement |
 

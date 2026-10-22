@@ -1,8 +1,8 @@
 # `web_read`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Web](../web.md) | deferred | read | P3 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Web](../web.md) | primitive | deferred | read | P3 |
 
 **Given → returns:** a URL → the page's main text, paged.
 

@@ -1,8 +1,8 @@
 # `lit_citations`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Literature](../literature.md) | deferred | read | P5 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Literature](../literature.md) | primitive | deferred | read | P5 |
 
 **Given → returns:** an arXiv id → references or citing papers.
 

@@ -1,8 +1,8 @@
 # `lit_search_arxiv`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Literature](../literature.md) | direct | read | P3 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Literature](../literature.md) | primitive | direct | read | P3 |
 
 **Given → returns:** a query → paged papers.
 

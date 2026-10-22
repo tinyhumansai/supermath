@@ -1,12 +1,12 @@
 # `web_search`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Web](../web.md) | direct | read | P3 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Web](../web.md) | agentic (Gemini) | direct | read | P3 |
 
 **Given → returns:** a question → grounded findings with their sources.
 
-One Gemini request with Google Search grounding
+Runs one Gemini turn with Google Search grounding
 ([`web.md`](../web.md#backend-gemini-with-google-search-grounding)). Use it
 for a quick, sourced answer: "is the Sendov conjecture proved for degree
 9?", "who improved the bound on the Erdős–Ginzburg–Ziv constant after
@@ -33,6 +33,19 @@ for a quick, sourced answer: "is the Sendov conjecture proved for degree
 The prompt asks Gemini to answer in short factual sentences, to name
 authors, years, and bounds exactly, and to say "no source found" rather
 than guess. It never asks for an opinion.
+
+## Turn
+
+| | |
+| --- | --- |
+| Model | `SUPERMATH_WEB_MODEL`, temperature 0 |
+| What the model does | runs Google searches it chooses, reads the results, and answers |
+| Tools in the turn | Google Search grounding only |
+| Budget | 1 Gemini request, 30 s |
+
+What is kept and what is discarded is fixed by the tool, not the model:
+sentences with a grounding source are kept, and every other sentence, and
+any instruction a page carried, is dropped.
 
 ## Returns
 

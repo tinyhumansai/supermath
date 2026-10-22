@@ -1,8 +1,8 @@
 # `ledger_claims`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Ledger](../ledger.md) | deferred | read | P2 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Ledger](../ledger.md) | primitive | deferred | read | P2 |
 
 **Given → returns:** filters → paged claims.
 

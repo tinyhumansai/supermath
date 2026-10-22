@@ -1,8 +1,8 @@
 # `calc_gcd_lcm`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | Compute | deferred | read | P1 (renamed from `gcd_lcm`) |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | Compute | primitive | deferred | read | P1 (renamed from `gcd_lcm`) |
 
 **Given → returns:** two integers → gcd and lcm.
 

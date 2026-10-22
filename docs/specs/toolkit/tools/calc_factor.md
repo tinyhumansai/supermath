@@ -1,8 +1,8 @@
 # `calc_factor`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | Compute | deferred | read | P1 (renamed from `factor_integer`) |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | Compute | primitive | deferred | read | P1 (renamed from `factor_integer`) |
 
 **Given → returns:** an integer → its factorization.
 

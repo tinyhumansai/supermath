@@ -74,6 +74,7 @@ pub trait Tool: Send + Sync {
     fn schema(&self) -> serde_json::Value;   // JSON Schema of the arguments
     fn exposure(&self) -> Exposure;          // Direct | Deferred
     fn permission(&self) -> Permission;      // Read | Write
+    fn kind(&self) -> Kind;                  // Primitive | Agentic
     async fn call(&self, args: serde_json::Value) -> Envelope;
 }
 ```
@@ -113,7 +114,9 @@ supermath-mcp check                # Lean service, CortexDB, and arXiv reachable
   `isError` on an `error` envelope.
 - The project comes from the command line, never from a tool argument.
 - Read-only tools are annotated `readOnlyHint: true`; `lean_write`,
-  `ledger_*` writes are not.
+  `lean_edit`, and the `ledger_*` writes are not.
+- Agentic tools (the `web_*` search tools here) say so in the first
+  sentence of their description, and their envelope carries `usage`.
 
 Registering it with Claude Code:
 
@@ -126,6 +129,7 @@ claude mcp add supermath -- supermath-mcp serve my-project
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `LEAN_URL` | `http://localhost:3150` | the Lean service |
+| `SUPERMATH_LEAN_PROJECTS` | `./.supermath/lean` | the per-project Lean packages; the Lean service mounts the same directory |
 | `CORTEX_API_URL`, `CORTEX_API_KEY`, `CORTEX_SCOPE_ROOT` | as today | CortexDB, moved from the runner |
 | `SUPERMATH_CONTACT` | required for arXiv | the contact in the arXiv `User-Agent` |
 | `SEMANTIC_SCHOLAR_API_KEY` | unset | raises the Semantic Scholar rate limit |
@@ -183,6 +187,10 @@ lean-lsp-mcp answers never set a status.
 | `cortexdb` | as today | memory |
 | `lean` | `docker/lean/` | the pinned Lean service ([`lean.md`](lean.md#the-lean-service)) |
 | `agent` | `Dockerfile` | `supermath-agent check`, linking `supermath-mcp` |
+
+`agent` and `lean` share the `lean-projects` volume: `supermath-mcp`
+writes Lean sources there, and the Lean service builds them
+([`lean.md`](lean.md#files-not-source)).
 
 `docker/mcp/Dockerfile` builds a small image with only `supermath-mcp`, for
 running the server without OpenHuman. It is not a compose service, since

@@ -1,8 +1,8 @@
 # `recall_memory`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Ledger](../ledger.md) | direct | read | shipped; moves in P1 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Ledger](../ledger.md) | primitive | direct | read | shipped; moves in P1 |
 
 **Given → returns:** a query → this project's notes.
 

@@ -1,13 +1,13 @@
 # `web_research`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Web](../web.md) | deferred | read | P3 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Web](../web.md) | agentic (Gemini) | deferred | read | P3 |
 
 **Given → returns:** a research question → a sourced brief across several searches.
 
 The intake tool for a problem: what is known, who worked on it, what was
-tried, what is open. It runs several grounded Gemini requests, one per
+tried, what is open. It runs several grounded Gemini turns, one per
 facet, and assembles them into one brief whose every sentence carries its
 sources. Use [`web_search`](web_search.md) for a single fact; use this
 before starting on a conjecture
@@ -39,6 +39,20 @@ before starting on a conjecture
 The facets are deterministic: the tool writes each facet's prompt from a
 template, and Gemini runs the searches. The tool does not ask a model to
 plan, so the same arguments run the same searches.
+
+## Turn
+
+| | |
+| --- | --- |
+| Model | `SUPERMATH_WEB_MODEL`, temperature 0 |
+| What the model does | one grounded turn per facet; in each, it runs the Google searches it chooses and answers that facet |
+| Tools in the turn | Google Search grounding only |
+| Budget | at most 6 Gemini requests, 180 s |
+
+The facets and their prompts are fixed by the tool. The tool merges
+sources, detects disagreements by comparing numbers and status words, and
+drops unsupported sentences; no model plans the research or adjudicates
+between sources.
 
 ## Returns
 

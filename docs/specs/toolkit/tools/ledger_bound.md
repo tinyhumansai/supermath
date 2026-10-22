@@ -1,8 +1,8 @@
 # `ledger_bound`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Ledger](../ledger.md) | deferred | write | P5 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Ledger](../ledger.md) | primitive | deferred | write | P5 |
 
 **Given → returns:** a quantity and a bound → the best bound so far.
 

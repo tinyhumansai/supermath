@@ -27,7 +27,11 @@ x-goog-api-key: $GEMINI_API_KEY
 }
 ```
 
-Gemini decides which searches to run, reads the results, and answers. The
+Gemini decides which searches to run, reads the results, and answers, so
+`web_search` and `web_research` are **agentic (Gemini)** tools: a model turn
+behind a tool interface
+([`README.md`](README.md#primitive-and-agentic-tools)). `web_read` is a
+primitive. The
 response's `candidates[0].groundingMetadata` carries what we keep:
 
 | Field | Becomes |

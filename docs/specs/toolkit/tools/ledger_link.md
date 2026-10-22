@@ -1,8 +1,8 @@
 # `ledger_link`
 
-| Crate | Area | Exposure | Permission | Phase |
-| --- | --- | --- | --- | --- |
-| `supermath-mcp` | [Ledger](../ledger.md) | deferred | write | P4 |
+| Crate | Area | Kind | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Ledger](../ledger.md) | primitive | deferred | write | P4 |
 
 **Given → returns:** two claim ids → a `uses` edge.
 
