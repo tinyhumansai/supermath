@@ -10,7 +10,7 @@ use url::Url;
 
 use crate::cache::SEARCH_TTL_MS;
 use crate::error::{Error, Result};
-use crate::http::{Fetcher, Policy, age_secs};
+use crate::http::{Body, Fetcher, Policy, age_secs};
 use crate::{Clock, LiteratureConfig, SystemClock};
 
 use types::{MAX_FORMULA_LINES, MAX_REFERENCE_LINES, MAX_TERMS};
@@ -18,6 +18,8 @@ pub use types::{OeisPage, Sequence};
 
 const SOURCE: &str = "oeis";
 const DEFAULT_RETRY_MS: u64 = 1_000;
+/// Rows OEIS returns per search request; `start=` pages through the rest.
+const PAGE_SIZE: usize = 10;
 
 /// A client for `https://oeis.org/search?fmt=json`.
 #[derive(Debug)]
@@ -95,13 +97,51 @@ impl OeisClient {
     }
 
     /// Searches OEIS for `query` (words, or comma-separated terms), `start`
-    /// rows in.
+    /// rows in, returning up to `limit` sequences.
+    ///
+    /// OEIS answers ten rows per request, so a `limit` above that
+    /// fetches the following pages (`start + 10`, `start + 20`, …) until the
+    /// limit is met or the matches run out. The page's `next` is the offset
+    /// just past the last row shown, whichever request it came from.
     ///
     /// # Errors
     ///
     /// [`Error::RateLimited`], [`Error::Timeout`], [`Error::Unavailable`],
-    /// [`Error::Upstream`] or [`Error::Decode`] when OEIS cannot answer.
+    /// [`Error::Upstream`] or [`Error::Decode`] when OEIS cannot answer any
+    /// of the pages.
     pub async fn search(&self, query: &str, start: u64, limit: usize) -> Result<OeisPage> {
+        let mut sequences: Vec<Sequence> = Vec::new();
+        let mut total = None;
+        let mut cached_age_ms: Option<u64> = None;
+        let mut offset = start;
+        while sequences.len() < limit {
+            let body = self.fetch(query, offset).await?;
+            cached_age_ms = cached_age_ms.max(body.cached_age_ms);
+            let (raws, count) = parse(&body.bytes)?;
+            total = count;
+            let returned = raws.len();
+            let wanted = limit - sequences.len();
+            sequences.extend(raws.into_iter().take(wanted).map(Sequence::from));
+            offset += returned as u64;
+            let exhausted = total.is_some_and(|t| offset >= t);
+            if returned < PAGE_SIZE || exhausted {
+                break;
+            }
+        }
+        let shown = sequences.len() as u64;
+        let next = total
+            .filter(|t| shown > 0 && start + shown < *t)
+            .map(|_| start + shown);
+        Ok(OeisPage {
+            sequences,
+            total,
+            next,
+            cached_age_secs: age_secs(cached_age_ms),
+        })
+    }
+
+    /// One OEIS request: the page of matches beginning `start` rows in.
+    async fn fetch(&self, query: &str, start: u64) -> Result<Body> {
         let mut url = Url::parse(&self.url).map_err(|e| Error::Unavailable {
             source_name: SOURCE.into(),
             reason: format!("bad url: {e}"),
@@ -117,19 +157,7 @@ impl OeisClient {
             headers: Vec::new(),
             default_retry_ms: DEFAULT_RETRY_MS,
         };
-        let body = self.fetcher.get(url.as_str(), &policy).await?;
-        let (raws, total) = parse(&body.bytes)?;
-        let sequences: Vec<Sequence> = raws.into_iter().take(limit).map(Sequence::from).collect();
-        let shown = sequences.len() as u64;
-        let next = total
-            .filter(|t| shown > 0 && start + shown < *t)
-            .map(|_| start + shown);
-        Ok(OeisPage {
-            sequences,
-            total,
-            next,
-            cached_age_secs: age_secs(body.cached_age_ms),
-        })
+        self.fetcher.get(url.as_str(), &policy).await
     }
 }
 

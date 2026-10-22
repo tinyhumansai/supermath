@@ -316,6 +316,72 @@ async fn supplied_evidence_never_earns_checked_or_formalised() {
     );
 }
 
+fn arxiv(label: Option<&str>, section: Option<&str>) -> Source {
+    Source::Arxiv {
+        id: "2012.04125".into(),
+        version: "v3".into(),
+        label: label.map(str::to_string),
+        section: section.map(str::to_string),
+    }
+}
+
+#[tokio::test]
+async fn an_arxiv_source_needs_a_version_and_exactly_one_locator() {
+    let h = harness().await;
+    let blank_version = Source::Arxiv {
+        id: "2012.04125".into(),
+        version: " ".into(),
+        label: Some("thm:main".into()),
+        section: None,
+    };
+    for source in [
+        arxiv(None, None),
+        arxiv(Some("thm:main"), Some("2")),
+        arxiv(Some("  "), None),
+        blank_version,
+    ] {
+        let claim = Claim::new(Kind::Fact, "located?", source.clone());
+        let error = h.ledger.record(&ctx(), claim).await.unwrap_err();
+        assert!(matches!(error, Error::InvalidArguments(_)), "{source:?}");
+    }
+    assert_eq!(h.cortex.events().len(), 0);
+    for source in [arxiv(Some("thm:main"), None), arxiv(None, Some("2"))] {
+        let claim = Claim::new(Kind::Fact, "located", source);
+        assert_eq!(
+            h.ledger.record(&ctx(), claim).await.unwrap().entry.status,
+            Status::Cited
+        );
+    }
+}
+
+#[tokio::test]
+async fn supplied_evidence_never_earns_cited() {
+    let h = harness().await;
+    let supplied_ctx = ctx().with_evidence_origin(EvidenceOrigin::Supplied);
+    let claim = Claim::new(Kind::Fact, "a cited lemma", arxiv(Some("thm:main"), None));
+    let recorded = h.ledger.record(&supplied_ctx, claim).await.unwrap();
+    assert_eq!(recorded.entry.status, Status::Asserted);
+    assert_eq!(recorded.entry.evidence_origin, EvidenceOrigin::Supplied);
+    assert_eq!(recorded.notes.len(), 1, "the reason the status is low");
+}
+
+#[tokio::test]
+async fn supplied_evidence_never_demotes_a_claim_already_cited() {
+    let h = harness().await;
+    let claim = || Claim::new(Kind::Fact, "a cited lemma", arxiv(Some("thm:main"), None));
+    let cited = h.ledger.record(&ctx(), claim()).await.unwrap().entry;
+    assert_eq!(cited.status, Status::Cited);
+    let supplied_ctx = ctx().with_evidence_origin(EvidenceOrigin::Supplied);
+    let again = h.ledger.record(&supplied_ctx, claim()).await.unwrap();
+    assert!(!again.created, "nothing is written");
+    assert_eq!(again.entry, cited);
+    assert!(
+        again.notes.iter().any(|n| n.contains("kept")),
+        "the call says why it changed nothing: {:?}",
+        again.notes
+    );
+}
+
 #[tokio::test]
 async fn a_clean_lean_check_earns_formalised_with_alignment_not_reviewed() {
     let h = harness().await;
@@ -471,6 +537,32 @@ async fn re_recording_keeps_alignment_and_merges_new_uses() {
     assert!(merged.created);
     assert_eq!(merged.entry.uses, [a.id, b.id]);
     assert_eq!(merged.entry.alignment, Alignment::Accepted);
+}
+
+#[tokio::test]
+async fn re_recording_refuses_uses_that_would_close_a_cycle() {
+    let h = harness().await;
+    let a = h.ledger.record(&ctx(), supplied("a")).await.unwrap().entry;
+    let mut b = supplied("b");
+    b.uses = vec![a.id.clone()];
+    let b = h.ledger.record(&ctx(), b).await.unwrap().entry;
+    let written = h.cortex.events().len();
+
+    for uses in [vec![a.id.clone()], vec![b.id.clone()]] {
+        let mut again = supplied("a");
+        again.uses = uses;
+        let error = h.ledger.record(&ctx(), again).await.unwrap_err();
+        assert!(
+            matches!(&error, Error::LinkCycle { from, .. } if *from == a.id),
+            "{error}"
+        );
+        assert_eq!(error.code(), ErrorCode::InvalidInput);
+    }
+    assert_eq!(
+        h.cortex.events().len(),
+        written,
+        "a refused cycle writes nothing"
+    );
 }
 
 #[tokio::test]

@@ -22,7 +22,7 @@ can.
 
 | | |
 | --- | --- |
-| Model | `SUPERMATH_REVIEWER_MODEL` (default `glm-5.3`), a different model from the formalizer's |
+| Model | `SUPERMATH_REVIEWER_MODEL` (default `glm-5.3`), a different model from the formalizer's: `Models` refuses an equal pair with `Error::ReviewerIsFormalizer` |
 | Tools in the turn | `lean_decl`, `lean_search`, `lit_get_paper`, `recall_memory` |
 | Budget | 12 iterations, 100,000 tokens, 300 s by default |
 | Prompt | compare quantifiers, hypotheses, degenerate cases, and conventions; list every hypothesis of the informal statement and where it appears in Lean |
@@ -61,5 +61,9 @@ nor `disputed` leaves alignment `not_reviewed` and returns `unknown`.
 ## Errors
 
 `NOT_FOUND` for an unknown claim or declaration (`lean_decl` is asked with
-`{name}` before the turn); `INVALID_INPUT` for a claim with no `lean` source or
-for arguments that are neither `{claim_id}` nor `{declaration, statement}`.
+`{name}` before the turn); `INVALID_INPUT` for a claim with no `lean` source,
+for arguments that are neither `{claim_id}` nor `{declaration, statement}`, or
+a `budget` out of range; `BUDGET_EXCEEDED` when the project's budget cannot
+admit a turn; `FORBIDDEN` for a call from another project than the one the
+tool serves; `BACKEND_UNAVAILABLE` when the ledger or Lean cannot be read or
+the child's model backend fails.

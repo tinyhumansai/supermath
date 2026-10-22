@@ -90,6 +90,7 @@ impl ChildRunner for OpenHumanChild {
     async fn run(&self, request: ChildRequest) -> std::result::Result<ChildTurn, String> {
         let ChildRequest {
             prompt,
+            session_id,
             limits,
             belt,
             control,
@@ -99,6 +100,7 @@ impl ChildRunner for OpenHumanChild {
         let mut turn = self
             .agent
             .turn(prompt)
+            .session(session_id.clone())
             .tools(move |_| HostTurnTools::advertised(turn_belt.host_tools()))
             .stop_hook(hook.clone())
             .timeout(limits.wall());
@@ -115,7 +117,7 @@ impl ChildRunner for OpenHumanChild {
         match sent {
             Err(CoreError::TurnCancelled { .. }) => Ok(ChildTurn {
                 reply: String::new(),
-                session_id: String::new(),
+                session_id,
                 turns: tally.iterations,
                 input_tokens: tally.input,
                 output_tokens: tally.output,
@@ -143,7 +145,7 @@ impl ChildRunner for OpenHumanChild {
             }
             Err(CoreError::DeadlineExceeded { .. }) => Ok(ChildTurn {
                 reply: String::new(),
-                session_id: String::new(),
+                session_id,
                 turns: tally.iterations,
                 input_tokens: tally.input,
                 output_tokens: tally.output,
@@ -196,17 +198,17 @@ where
 
 /// What a turn has spent so far, as the stop hook last saw it.
 #[derive(Debug, Clone, Copy, Default)]
-struct Tally {
-    iterations: u32,
-    input: u64,
-    output: u64,
+pub(super) struct Tally {
+    pub(super) iterations: u32,
+    pub(super) input: u64,
+    pub(super) output: u64,
 }
 
 /// Stops a turn before its next model call once a limit is reached.
 ///
 /// A turn is *cut off* only if the child still had tool calls to run after the
 /// hook fired; a final reply that happens to land on the limit finished.
-struct LimitHook {
+pub(super) struct LimitHook {
     limits: Limits,
     belt: Arc<Belt>,
     state: Mutex<HookState>,
@@ -219,7 +221,7 @@ struct HookState {
 }
 
 impl LimitHook {
-    fn new(limits: Limits, belt: Arc<Belt>) -> Self {
+    pub(super) fn new(limits: Limits, belt: Arc<Belt>) -> Self {
         Self {
             limits,
             belt,
@@ -227,7 +229,7 @@ impl LimitHook {
         }
     }
 
-    fn tally(&self) -> Tally {
+    pub(super) fn tally(&self) -> Tally {
         self.state
             .lock()
             .unwrap_or_else(PoisonError::into_inner)
@@ -235,7 +237,7 @@ impl LimitHook {
     }
 
     /// The limit that cut the turn short, if the child was still working.
-    fn cut_off(&self) -> Option<String> {
+    pub(super) fn cut_off(&self) -> Option<String> {
         let state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
         let (reason, calls_then) = state.tripped.as_ref()?;
         (self.belt.tool_calls() > *calls_then).then(|| reason.clone())

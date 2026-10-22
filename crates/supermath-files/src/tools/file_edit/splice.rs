@@ -10,14 +10,23 @@ pub(super) struct Edit {
     pub(super) new: String,
 }
 
-/// Why an edit list could not be applied.
+/// Why an edit list could not be applied; `index` is the zero-based index
+/// of the offending edit.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) struct Fault {
-    /// Zero-based index of the offending edit.
-    pub(super) index: usize,
-    /// How many times its `old` string occurs (0 for an empty `old`, which
-    /// is refused outright).
-    pub(super) occurrences: usize,
+pub(super) enum Fault {
+    /// Its `old` string is empty, which names nothing to replace.
+    EmptyOld {
+        /// The edit.
+        index: usize,
+    },
+    /// Its `old` string occurs `occurrences` times (zero, or several), in
+    /// the text as the earlier edits left it.
+    NotOnce {
+        /// The edit.
+        index: usize,
+        /// How many times `old` occurs, overlaps included.
+        occurrences: usize,
+    },
 }
 
 /// The edited text and the byte span each edit left behind.
@@ -46,13 +55,15 @@ pub(super) fn apply(original: &str, edits: &[Edit]) -> Result<Applied, Fault> {
     let mut text = original.to_owned();
     let mut spans: Vec<(usize, usize)> = Vec::new();
     for (index, edit) in edits.iter().enumerate() {
-        let (count, first) = occurrences(&text, &edit.old);
-        let at = match (count, first) {
-            (1, Some(at)) if !edit.old.is_empty() => at,
-            _ => {
-                return Err(Fault {
+        if edit.old.is_empty() {
+            return Err(Fault::EmptyOld { index });
+        }
+        let at = match occurrences(&text, &edit.old) {
+            (1, Some(at)) => at,
+            (count, _) => {
+                return Err(Fault::NotOnce {
                     index,
-                    occurrences: if edit.old.is_empty() { 0 } else { count },
+                    occurrences: count,
                 });
             }
         };

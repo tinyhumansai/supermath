@@ -41,6 +41,13 @@ says so only for the sources it covered.
 - A timeout is `TIMEOUT`; a refused connection, any other bad status, or an
   undecodable answer is `BACKEND_UNAVAILABLE`.
 
+### Limits
+
+Every paged tool takes `limit` (default 10) and advertises `maximum: 50` in
+its schema. A value above 50 is clamped to 50, and 0 to 1, by the shared
+`clamp_limit`; it is not rejected, so a caller asking for "everything" gets
+the largest page and a `cursor` for the rest.
+
 ### Reading the source
 
 An e-print is a gzipped tarball, a single gzipped `.tex`, a bare tarball, or

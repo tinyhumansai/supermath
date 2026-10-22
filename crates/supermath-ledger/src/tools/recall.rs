@@ -70,7 +70,11 @@ impl Tool for RecallMemory {
     }
 
     fn errors(&self) -> &'static [ErrorCode] {
-        &[ErrorCode::InvalidInput, ErrorCode::BackendUnavailable]
+        &[
+            ErrorCode::InvalidInput,
+            ErrorCode::BackendUnavailable,
+            ErrorCode::BudgetExceeded,
+        ]
     }
 
     async fn call(&self, ctx: &CallContext, args: Value) -> Envelope {

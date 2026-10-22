@@ -37,3 +37,23 @@ fn missing_fields_become_none_and_a_blank_venue_is_dropped() {
     assert_eq!(row.title, None);
     assert!(row.authors.is_empty() && row.arxiv_id.is_none() && row.doi.is_none());
 }
+
+#[test]
+fn an_arxiv_id_from_semantic_scholar_loses_its_version() {
+    for (given, want) in [
+        ("2310.01234v3", "2310.01234"),
+        ("math/0301234v1", "math/0301234"),
+        ("2310.01234", "2310.01234"),
+        ("not-an-id", "not-an-id"),
+    ] {
+        let parsed = page(&format!(
+            r#"{{"data": [{{"citedPaper": {{"externalIds": {{"ArXiv": "{given}"}}}}}}]}}"#
+        ));
+        let raw = parsed.data.into_iter().next().unwrap().cited.unwrap();
+        assert_eq!(
+            CitedPaper::from(raw).arxiv_id.as_deref(),
+            Some(want),
+            "{given}"
+        );
+    }
+}

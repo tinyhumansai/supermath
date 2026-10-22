@@ -29,5 +29,5 @@ worktrees/*
 core.token
 .supermath/
 
-# Python bytecode from running the service tests
+# Python bytecode from running the service tests locally.
 __pycache__/

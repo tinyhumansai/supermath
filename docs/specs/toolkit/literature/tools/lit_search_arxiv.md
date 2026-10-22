@@ -21,7 +21,8 @@ Given a query, returns papers.
   published, abstract}`. `authors` is capped at three plus a count; the
   abstract is trimmed to 600 characters.
 - Sorted by relevance unless `sort: "recent"`.
-- `limit` defaults to 10 (maximum 50); `cursor` is the offset of the next
+- `limit` defaults to 10 (maximum 50; a larger value is clamped to 50, not
+  rejected); `cursor` is the offset of the next
   page and is returned while more results remain.
 - `next` suggests `lit_get_paper` on the top row. A search with no result
   says so in `unknowns`, naming the sources it did not cover.

@@ -163,7 +163,8 @@ pub struct TacticResult {
     pub goals: Vec<String>,
     /// Lean's error, when it failed.
     pub error: Option<String>,
-    /// The term `exact?` (or a similar tactic) found, when it closed the goal.
+    /// The term an `exact` suggestion carried (as `exact?` gives), when the
+    /// tactic closed the goal; `None` for any other suggestion.
     pub term: Option<String>,
 }
 

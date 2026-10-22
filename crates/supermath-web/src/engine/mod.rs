@@ -20,7 +20,7 @@ use crate::grounding::{Grounding, Reading};
 use crate::redirect::{redirect_client, resolve_redirect};
 use crate::source::Source;
 
-pub(crate) use types::{Finding, SourceTable, Turn, TurnFinding};
+pub(crate) use types::{Finding, Ranking, SourceTable, Turn, TurnFinding};
 
 /// How a bounded call ended.
 pub(crate) enum Run<T> {

@@ -8,10 +8,12 @@
 //!
 //! `CortexDB` recall is by similarity and does not filter by label exactly
 //! (`docs/specs/toolkit/ledger/README.md`, open question 1), so every read
-//! recalls a window of the project's recent notes, parses each as an
-//! [`Entry`], skips notes that are not entries, and filters client-side. The
-//! window is [`DEFAULT_WINDOW`] notes; a ledger larger than that can hide
-//! older entries from a list, which `ledger_claims` reports in `unknowns`.
+//! recalls a window of the project's notes, ranked by similarity to a query,
+//! parses each as an [`Entry`], skips notes that are not entries, and filters
+//! client-side. The window is [`DEFAULT_WINDOW`] notes; a ledger larger than
+//! that can hide entries from a read, which `ledger_claims` and
+//! `ledger_bound` report in `unknowns`. Nothing records when an entry was
+//! written, so reads come in recall order, not time order.
 //! A single claim is looked up exactly, by its `claim:` label
 //! (`GET /v1/events`), never by recall: entries that cite a claim mention its
 //! id more often than the claim itself and outrank it.
@@ -28,7 +30,7 @@ mod types;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use supermath_tool::{CallContext, CallLog};
+use supermath_tool::{CallContext, CallLog, EvidenceOrigin};
 
 use crate::error::{Error, Result};
 use crate::evidence::LeanEvidence;
@@ -36,6 +38,7 @@ use crate::memory::{self, Memory, Project as MemoryProject};
 use crate::types::{Alignment, BoundSpec, Direction, Entry, Kind, Source};
 
 pub use effective::Effective;
+pub(crate) use types::Recalled;
 pub use types::{BoundOutcome, BoundRequest, Claim, Recorded};
 
 /// How many recent notes a read recalls.
@@ -96,22 +99,46 @@ impl Ledger {
         )
     }
 
-    /// Every claim in the project's recent window, newest first, one entry
-    /// per claim (its highest revision), recalled by similarity to `query`.
+    /// Every claim in the project's window, one entry per claim (its highest
+    /// revision), recalled by similarity to `query`.
+    ///
+    /// Entries come in the order memory recalled their notes, each claim at
+    /// the place of the first of its notes recalled. That is `CortexDB`'s
+    /// ranking for `query`, not time: neither an entry nor a recalled note
+    /// carries a creation time, and `revision` counts within one claim only.
     ///
     /// # Errors
     ///
     /// [`Error::InvalidProject`] for a slug with no usable characters, and
     /// the memory errors of [`Memory::recall_notes`].
     pub async fn entries(&self, slug: &str, query: &str) -> Result<Vec<Entry>> {
+        Ok(self.recall(slug, query).await?.entries)
+    }
+
+    /// The entries of [`Ledger::entries`], and whether the recall filled
+    /// the window.
+    pub(crate) async fn recall(&self, slug: &str, query: &str) -> Result<Recalled> {
         let project = MemoryProject::new(slug)?;
         let notes = self
             .memory
             .recall_notes(&project, query, self.window)
             .await?;
-        Ok(latest_revisions(notes.iter().filter_map(|note| {
-            serde_json::from_str::<Entry>(note).ok()
-        })))
+        Ok(Recalled {
+            window_full: notes.len() as u64 >= self.window,
+            entries: latest_revisions(
+                notes
+                    .iter()
+                    .filter_map(|note| serde_json::from_str::<Entry>(note).ok()),
+            ),
+        })
+    }
+
+    /// The caveat a read that filled the window carries.
+    pub(crate) fn window_note(&self) -> String {
+        format!(
+            "the ledger was read through a window of {} recalled notes; older entries may be missing",
+            self.window
+        )
     }
 
     /// The claim with this id, at its highest revision.
@@ -144,9 +171,12 @@ impl Ledger {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidArguments`] for an empty statement or a `uses` that
+    /// [`Error::InvalidArguments`] for an empty statement, an `arxiv`
+    /// source without a version and exactly one locator, or a `uses` that
     /// repeats; [`Error::ClaimNotFound`] when a `uses` id is not in the
-    /// ledger; [`Error::MissingFrame`], [`Error::UnrecordedCall`],
+    /// ledger; [`Error::LinkCycle`] when re-recording a claim with a new
+    /// `uses` id that is the claim itself or already reaches it, the rule
+    /// [`Ledger::link`] applies; [`Error::MissingFrame`], [`Error::UnrecordedCall`],
     /// [`Error::CallNotUsable`], [`Error::StaleDigest`], and the evidence
     /// errors from [`Ledger`]'s trust rules; and the memory errors.
     pub async fn record(&self, ctx: &CallContext, claim: Claim) -> Result<Recorded> {
@@ -157,6 +187,7 @@ impl Ledger {
                 "`statement` must not be empty".into(),
             ));
         }
+        earn::check_source(&claim.source)?;
         let mut uses = Vec::new();
         for id in &claim.uses {
             if uses.contains(id) {
@@ -167,9 +198,22 @@ impl Ledger {
             }
             uses.push(id.clone());
         }
-        let earned = self.earn(ctx, &claim).await?;
         let id = Self::claim_id(claim.kind, &statement, &claim.source);
         let existing = self.get(slug, &id).await?;
+        if let Some(old) = &existing {
+            for used in uses.iter().filter(|u| !old.uses.contains(u)) {
+                self.refuse_cycle(slug, &id, used, BTreeMap::new()).await?;
+            }
+        }
+        let mut earned = self.earn(ctx, &claim).await?;
+        if let Some(old) = &existing
+            && earned.origin == EvidenceOrigin::Supplied
+            && old.status > earned.status
+        {
+            // Supplied text is not evidence either way: it cannot raise a
+            // claim, and it cannot take away a status collected evidence earned.
+            earned = earned.keep(old);
+        }
         let (revision, supersedes, alignment, merged_uses) = match &existing {
             Some(old)
                 if old.status == earned.status && uses.iter().all(|u| old.uses.contains(u)) =>
@@ -235,14 +279,8 @@ impl Ledger {
         let Some(target) = self.get(slug, to).await? else {
             return Err(Error::ClaimNotFound(to.to_string()));
         };
-        let cache = BTreeMap::from([(target.id.clone(), target.clone())]);
-        let reach = self.closure(slug, &[to.to_string()], cache).await?;
-        if from == to || reach.contains_key(from) {
-            return Err(Error::LinkCycle {
-                from: from.to_string(),
-                to: to.to_string(),
-            });
-        }
+        let cache = BTreeMap::from([(target.id.clone(), target)]);
+        self.refuse_cycle(slug, from, to, cache).await?;
         if source.uses.iter().any(|used| used == to) {
             return Ok(Recorded {
                 entry: source,
@@ -296,10 +334,14 @@ impl Ledger {
     /// and returns the best bound either way.
     ///
     /// A bound that does not improve is kept as a `fact`, not as the bound.
+    /// The best bound is found among the bounds one read of the window
+    /// recalls; [`BoundOutcome::window_full`] says when that read may have
+    /// missed an older one.
     ///
     /// # Errors
     ///
-    /// The errors of [`Ledger::record`].
+    /// The errors of [`Ledger::record`], and the memory errors of
+    /// [`Ledger::effective`] for the best bound.
     pub async fn bound(&self, ctx: &CallContext, request: BoundRequest) -> Result<BoundOutcome> {
         let slug = ctx.project.slug();
         let quantity = request
@@ -325,9 +367,9 @@ impl Ledger {
             direction: request.direction,
             value: request.value.clone(),
         };
-        let bounds: Vec<Entry> = self
-            .entries(slug, &quantity)
-            .await?
+        let recalled = self.recall(slug, &quantity).await?;
+        let bounds: Vec<Entry> = recalled
+            .entries
             .into_iter()
             .filter(|e| e.kind == Kind::Bound)
             .filter(|e| {
@@ -380,9 +422,12 @@ impl Ledger {
         } else {
             best_before.unwrap_or_else(|| recorded.entry.clone())
         };
+        let best_effective = self.effective_of(slug, &best).await?;
         Ok(BoundOutcome {
             improved: improved && !already_recorded,
             best,
+            best_effective,
+            window_full: recalled.window_full,
             recorded,
         })
     }
@@ -396,6 +441,26 @@ impl Ledger {
         let labels = entry.labels();
         let labels: Vec<&str> = labels.iter().map(String::as_str).collect();
         self.memory.remember(&project, &text, &labels).await
+    }
+
+    /// Refuses a `uses` edge from `from` to `to` that would close a cycle:
+    /// `to` is `from`, or `to` already reaches `from`. `cache` holds claims
+    /// already loaded.
+    async fn refuse_cycle(
+        &self,
+        slug: &str,
+        from: &str,
+        to: &str,
+        cache: BTreeMap<String, Entry>,
+    ) -> Result<()> {
+        let reach = self.closure(slug, &[to.to_string()], cache).await?;
+        if from == to || reach.contains_key(from) {
+            return Err(Error::LinkCycle {
+                from: from.to_string(),
+                to: to.to_string(),
+            });
+        }
+        Ok(())
     }
 
     /// Loads every claim reachable from `roots` through `uses`, taking

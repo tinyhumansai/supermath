@@ -14,7 +14,9 @@ use crate::limits::{BudgetArg, budget_schema};
 
 /// Most words of the repaired statement the child proposes.
 const REPAIR_WORDS: usize = 80;
-/// Most Python leads and search frames one call records.
+/// Most Python leads, and most search frames, one call records. The cap
+/// bounds the ledger writes one call makes; it counts only searches that
+/// gave a witness or a frame, and whatever it drops is named in `unknowns`.
 const MAX_RECORDS: usize = 5;
 
 /// Runs a refuter child and returns a counterexample the tool confirmed with
@@ -173,15 +175,18 @@ impl AgentRefute {
         claim_id: &str,
         unknowns: &mut Vec<String>,
     ) -> Vec<Value> {
-        let mut leads = Vec::new();
-        for note in belt
+        let found: Vec<(CallNote, String)> = belt
             .succeeded("py_search_counterexample")
-            .iter()
-            .take(MAX_RECORDS)
-        {
-            let Some(witness) = witness_of(note) else {
-                continue;
-            };
+            .into_iter()
+            .filter_map(|note| witness_of(&note).map(|witness| (note, witness)))
+            .collect();
+        if let Some(dropped) = found.len().checked_sub(MAX_RECORDS).filter(|n| *n > 0) {
+            unknowns.push(format!(
+                "{dropped} more Python witness(es) were not recorded as leads (at most {MAX_RECORDS} per call)"
+            ));
+        }
+        let mut leads = Vec::new();
+        for (note, witness) in found.into_iter().take(MAX_RECORDS) {
             let recorded = self
                 .core
                 .record(
@@ -212,15 +217,19 @@ impl AgentRefute {
         claim_id: &str,
         unknowns: &mut Vec<String>,
     ) -> Vec<Value> {
-        let searched = ["py_search_counterexample", "lean_search_counterexample"]
-            .into_iter()
-            .flat_map(|tool| belt.notes().into_iter().filter(move |n| n.tool == tool))
-            .filter(|n| n.envelope.outcome == Outcome::Ok);
+        let searched: Vec<(CallNote, String)> =
+            ["py_search_counterexample", "lean_search_counterexample"]
+                .into_iter()
+                .flat_map(|tool| belt.notes().into_iter().filter(move |n| n.tool == tool))
+                .filter_map(|note| frame_of(&note).map(|frame| (note, frame)))
+                .collect();
+        if let Some(dropped) = searched.len().checked_sub(MAX_RECORDS).filter(|n| *n > 0) {
+            unknowns.push(format!(
+                "{dropped} more frame(s) searched to the end were not recorded as bounds (at most {MAX_RECORDS} per call)"
+            ));
+        }
         let mut frames = Vec::new();
-        for note in searched.take(MAX_RECORDS) {
-            let Some(frame) = frame_of(&note) else {
-                continue;
-            };
+        for (note, frame) in searched.into_iter().take(MAX_RECORDS) {
             let recorded = self
                 .core
                 .record(

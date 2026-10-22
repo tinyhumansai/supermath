@@ -112,3 +112,25 @@ fn a_duel_setting_that_is_zero_or_not_a_number_is_refused_by_name() {
     }
     let _ = DuelSettings::from_env();
 }
+
+#[test]
+fn a_reviewer_on_the_formalizers_model_is_refused() {
+    let error = Models::from_lookup(|name| {
+        (name == "SUPERMATH_REVIEWER_MODEL").then(|| "deepseek-v4-pro".into())
+    })
+    .unwrap_err();
+    assert!(
+        matches!(&error, Error::ReviewerIsFormalizer(model) if model == "deepseek-v4-pro"),
+        "{error}"
+    );
+    assert_eq!(
+        error.to_string(),
+        "the reviewer must not run on the formalizer's model `deepseek-v4-pro`"
+    );
+    let same = Models {
+        reviewer: "deepseek-v4-pro".into(),
+        ..Models::default()
+    };
+    assert!(matches!(same.check(), Err(Error::ReviewerIsFormalizer(_))));
+    assert!(Models::default().check().is_ok());
+}

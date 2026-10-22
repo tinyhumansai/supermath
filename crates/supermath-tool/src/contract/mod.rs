@@ -42,7 +42,9 @@
 //!
 //! - is named `<domain>_<words>` for its crate's domain (or is
 //!   `recall_memory` in the ledger);
-//! - has a description, and an agentic tool's begins "Runs a";
+//! - has a description whose first sentence names the question: a
+//!   primitive's begins "Given " (given X, returns Y), an agentic tool's
+//!   begins "Runs a";
 //! - has a schema that is an object schema with `additionalProperties:
 //!   false` and whose `required` names are all `properties`;
 //! - returns every code in `errors()` from at least one fixture, and no code
@@ -163,13 +165,24 @@ fn check_name(name: &str, domain: &str, found: &mut Vec<Violation>) {
     }
 }
 
-fn check_description(tool: &dyn Tool, found: &mut Vec<Violation>) {
+/// The description rule alone: the one [`Violation`] `tool`'s description
+/// breaks, if any.
+///
+/// A catalogue test runs it over every composed tool without calling any.
+#[must_use]
+pub fn description_violation(tool: &dyn Tool) -> Option<Violation> {
     let description = tool.description().trim();
     if description.is_empty() {
-        found.push(Violation::EmptyDescription);
-    } else if tool.kind().is_agentic() && !description.starts_with("Runs a") {
-        found.push(Violation::AgenticDescription);
+        Some(Violation::EmptyDescription)
+    } else if tool.kind().is_agentic() {
+        (!description.starts_with("Runs a")).then_some(Violation::AgenticDescription)
+    } else {
+        (!description.starts_with("Given ")).then_some(Violation::PrimitiveDescription)
     }
+}
+
+fn check_description(tool: &dyn Tool, found: &mut Vec<Violation>) {
+    found.extend(description_violation(tool));
 }
 
 fn check_schema(schema: &Value, found: &mut Vec<Violation>) {

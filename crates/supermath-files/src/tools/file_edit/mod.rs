@@ -12,7 +12,7 @@ use supermath_tool::{CallContext, Envelope, ErrorCode, Exposure, Kind, Permissio
 use super::wire;
 use crate::error::Error;
 use crate::workspace::{Workspace, WriteMeta};
-use splice::Edit;
+use splice::{Edit, Fault};
 
 /// Edits a Lean or Python file by exact replacement, guarded by `if_sha256`.
 #[derive(Debug, Clone)]
@@ -56,11 +56,18 @@ impl FileEdit {
             }));
         }
         let applied = splice::apply(&current.text, &args.edits).map_err(|fault| {
-            wire::bad(match fault.occurrences {
-                0 => format!("edit {} has an empty or absent `old` string", fault.index),
-                n => format!(
-                    "edit {}: `old` occurs {n} times; it must occur exactly once",
-                    fault.index
+            wire::bad(match fault {
+                Fault::EmptyOld { index } => {
+                    format!("edit {index} has an empty `old` string; it must name text to replace")
+                }
+                Fault::NotOnce {
+                    index,
+                    occurrences: 0,
+                } => format!(
+                    "edit {index}: `old` does not occur in the file (after the edits before it)"
+                ),
+                Fault::NotOnce { index, occurrences } => format!(
+                    "edit {index}: `old` occurs {occurrences} times; it must occur exactly once"
                 ),
             })
         })?;

@@ -8,7 +8,7 @@
 pub(super) const READER: &str = "\
 You read one arXiv paper and record what a later turn will need in the project ledger.
 Read the statement list first (lit_extract_statements), then only the sections the main results need (lit_get_paper). Check recall_memory before recording, so you do not repeat an entry.
-Record one ledger entry per finding with ledger_record, citing the paper by arXiv id, version, and label:
+Record one ledger entry per finding with ledger_record, citing the paper by arXiv id, version, and either the statement's label or, for an unlabelled statement, its section:
 - each definition and main result as kind `fact`;
 - the techniques its proofs use as kind `fact`;
 - each open problem or conjecture it states as kind `lead`, with a rationale;

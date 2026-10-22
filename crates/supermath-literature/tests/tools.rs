@@ -114,6 +114,48 @@ async fn only_search_is_direct_and_every_tool_is_a_read() {
     }
 }
 
+#[tokio::test]
+async fn a_limit_above_fifty_is_clamped_to_fifty_not_rejected() {
+    let (stub, literature) = setup().await;
+    let search = call(
+        &literature,
+        "lit_search_arxiv",
+        json!({"query": "Sendov", "limit": 500}),
+    )
+    .await;
+    assert!(search.is_ok(), "{search:?}");
+    assert_eq!(
+        stub.requests()[0].query("max_results").as_deref(),
+        Some("50")
+    );
+    let citations = call(
+        &literature,
+        "lit_citations",
+        json!({"arxiv_id": "2401.00001", "direction": "references", "limit": 500}),
+    )
+    .await;
+    assert!(citations.is_ok(), "{citations:?}");
+    assert_eq!(stub.requests()[1].query("limit").as_deref(), Some("50"));
+    let statements = call(
+        &literature,
+        "lit_extract_statements",
+        json!({"arxiv_id": "2401.00001", "limit": 500}),
+    )
+    .await;
+    assert!(statements.is_ok(), "{statements:?}");
+
+    let oeis = Stub::start(oeis_pages(80)).await;
+    let literature = Literature::new(&config(&oeis.base)).unwrap();
+    let out = call(
+        &literature,
+        "lit_oeis",
+        json!({"query": "many", "limit": 500}),
+    )
+    .await;
+    assert_eq!(out.data["sequences"].as_array().unwrap().len(), 50);
+    assert_eq!(out.cursor.as_deref(), Some("50"));
+}
+
 // --- lit_search_arxiv -----------------------------------------------------
 
 #[tokio::test]
@@ -233,6 +275,24 @@ async fn a_429_becomes_rate_limited_with_the_servers_retry_after() {
     .await;
     assert_eq!(out.code(), Some(ErrorCode::RateLimited));
     assert_eq!(out.error.unwrap().retry_after_ms, Some(7_000));
+}
+
+#[tokio::test]
+async fn a_503_is_rate_limited_and_arxiv_defaults_to_three_seconds_without_retry_after() {
+    let stub = Stub::start(|_| Reply::status(503)).await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(&literature, "lit_search_arxiv", json!({"query": "x"})).await;
+    assert_eq!(out.code(), Some(ErrorCode::RateLimited));
+    assert_eq!(out.error.unwrap().retry_after_ms, Some(3_000));
+}
+
+#[tokio::test]
+async fn a_503_with_retry_after_reports_the_servers_wait() {
+    let stub = Stub::start(|_| Reply::status(503).header("Retry-After", "11")).await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(&literature, "lit_search_arxiv", json!({"query": "x"})).await;
+    assert_eq!(out.code(), Some(ErrorCode::RateLimited));
+    assert_eq!(out.error.unwrap().retry_after_ms, Some(11_000));
 }
 
 #[tokio::test]
@@ -394,6 +454,47 @@ async fn get_paper_reports_bad_requests() {
         let out = call(&literature, "lit_get_paper", json!({"arxiv_id": bad})).await;
         assert_eq!(out.code(), Some(ErrorCode::InvalidInput), "{bad:?}");
     }
+}
+
+#[tokio::test]
+async fn get_paper_lists_a_starred_section_unnumbered_and_refuses_to_return_it() {
+    let source = "\\documentclass{article}\\begin{document}\\section{One}first\
+                  \\section*{Acknowledgements}thanks\\section{Two}second\\end{document}";
+    let stub = Stub::start(move |req| match req.path() {
+        "/api/query" => Reply::fixture("paper_2401.00001.xml"),
+        _ => Reply::ok(gzip(source)),
+    })
+    .await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let index = call(
+        &literature,
+        "lit_get_paper",
+        json!({"arxiv_id": "2401.00001"}),
+    )
+    .await;
+    let sections = index.data["sections"].as_array().unwrap();
+    let numbers: Vec<&Value> = sections.iter().map(|s| &s["number"]).collect();
+    assert_eq!(numbers, [&json!("1"), &Value::Null, &json!("2")]);
+    assert_eq!(sections[1]["title"], "Acknowledgements");
+    for wanted in ["Acknowledgements", "null", "*", ""] {
+        let out = call(
+            &literature,
+            "lit_get_paper",
+            json!({"arxiv_id": "2401.00001", "section": wanted}),
+        )
+        .await;
+        assert_eq!(out.code(), Some(ErrorCode::NotFound), "{wanted:?}");
+    }
+    let two = call(
+        &literature,
+        "lit_get_paper",
+        json!({"arxiv_id": "2401.00001", "section": "2"}),
+    )
+    .await;
+    assert_eq!(
+        two.data["text"], "second",
+        "the starred section is not counted"
+    );
 }
 
 #[tokio::test]
@@ -581,6 +682,16 @@ async fn extract_statements_is_unknown_for_a_pdf_only_paper() {
     .await;
     assert_eq!(out.outcome, Outcome::Unknown);
     assert_eq!(out.data["statements"], json!([]));
+    let data = out.data.as_object().unwrap();
+    assert_eq!(
+        data.get("total"),
+        Some(&Value::Null),
+        "total is present and null: nothing was counted, which is not zero"
+    );
+    assert_eq!(
+        out.data["locator"],
+        json!({"arxiv_id": "2402.00002", "version": 1})
+    );
     assert!(out.unknowns[0].contains("PDF only"));
 }
 
@@ -683,6 +794,52 @@ async fn citations_maps_a_bare_429_to_a_default_retry_and_rejects_bad_arguments(
 }
 
 #[tokio::test]
+async fn citations_suggest_no_next_step_when_no_row_has_an_arxiv_id() {
+    let stub = Stub::start(|_| {
+        Reply::ok(
+            json!({"data": [
+                {"citedPaper": {"paperId": "a", "title": "Journal only", "externalIds": {"DOI": "10.1/a"}}},
+                {"citedPaper": {"paperId": "b", "title": "No ids"}}
+            ]})
+            .to_string(),
+        )
+    })
+    .await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(
+        &literature,
+        "lit_citations",
+        json!({"arxiv_id": "2401.00001", "direction": "references"}),
+    )
+    .await;
+    assert_eq!(out.outcome, Outcome::Ok, "{out:?}");
+    assert_eq!(out.data["papers"].as_array().unwrap().len(), 2);
+    assert!(out.next.is_empty(), "{:?}", out.next);
+}
+
+#[tokio::test]
+async fn citations_suggest_reading_a_versioned_arxiv_row_without_its_version() {
+    let stub = Stub::start(|_| {
+        Reply::ok(
+            json!({"data": [
+                {"citingPaper": {"paperId": "c", "externalIds": {"ArXiv": "2311.04567v3"}}}
+            ]})
+            .to_string(),
+        )
+    })
+    .await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(
+        &literature,
+        "lit_citations",
+        json!({"arxiv_id": "2401.00001", "direction": "cited_by"}),
+    )
+    .await;
+    assert_eq!(out.data["papers"][0]["arxiv_id"], "2311.04567");
+    assert_eq!(out.next, [r#"lit_get_paper {"arxiv_id": "2311.04567"}"#]);
+}
+
+#[tokio::test]
 async fn a_garbled_scholar_answer_is_a_backend_failure() {
     let stub = Stub::start(|_| Reply::ok("[1, 2")).await;
     let literature = Literature::new(&config(&stub.base)).unwrap();
@@ -761,6 +918,78 @@ async fn oeis_by_query_pages_and_accepts_the_legacy_array_shape() {
     assert_eq!(legacy.data["sequences"][0]["id"], "A000040");
     assert_eq!(legacy.data["total"], Value::Null);
     assert!(legacy.cursor.is_none());
+}
+
+/// An OEIS stub holding `total` sequences A000001.., serving ten per page
+/// from the `start` it is asked for, as the real search does.
+fn oeis_pages(total: u64) -> impl Fn(&support::Recorded) -> Reply {
+    move |req| {
+        let start: u64 = req.query("start").unwrap().parse().unwrap();
+        let results: Vec<Value> = (start..total.min(start + 10))
+            .map(|i| json!({"number": i + 1, "name": format!("sequence {}", i + 1), "data": "1,2,3"}))
+            .collect();
+        Reply::ok(json!({"count": total, "start": start, "results": results}).to_string())
+    }
+}
+
+#[tokio::test]
+async fn oeis_fetches_further_pages_to_honour_a_limit_above_ten() {
+    let stub = Stub::start(oeis_pages(25)).await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(
+        &literature,
+        "lit_oeis",
+        json!({"query": "many", "limit": 15}),
+    )
+    .await;
+    assert_eq!(out.outcome, Outcome::Ok, "{out:?}");
+    let ids: Vec<&str> = out.data["sequences"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids.len(), 15);
+    assert_eq!(ids[0], "A000001");
+    assert_eq!(ids[14], "A000015");
+    assert_eq!(out.data["total"], 25);
+    assert_eq!(out.cursor.as_deref(), Some("15"));
+    let starts: Vec<String> = stub
+        .requests()
+        .iter()
+        .map(|r| r.query("start").unwrap())
+        .collect();
+    assert_eq!(starts, ["0", "10"]);
+
+    let rest = call(
+        &literature,
+        "lit_oeis",
+        json!({"query": "many", "limit": 50, "cursor": "15"}),
+    )
+    .await;
+    let ids: Vec<&str> = rest.data["sequences"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids.first(), Some(&"A000016"));
+    assert_eq!(ids.last(), Some(&"A000025"));
+    assert_eq!(ids.len(), 10);
+    assert!(rest.cursor.is_none(), "every match was shown");
+    assert_eq!(
+        stub.count(),
+        3,
+        "no page is fetched past the count OEIS reported"
+    );
+}
+
+#[tokio::test]
+async fn oeis_rate_limit_carries_the_servers_retry_after() {
+    let (_stub, literature) = setup().await;
+    let out = call(&literature, "lit_oeis", json!({"query": "ratelimited"})).await;
+    assert_eq!(out.code(), Some(ErrorCode::RateLimited));
+    assert_eq!(out.error.unwrap().retry_after_ms, Some(2_000));
 }
 
 #[tokio::test]

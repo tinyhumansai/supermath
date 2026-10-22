@@ -103,9 +103,25 @@ fn a_found_search_carries_the_witness_text() {
         SearchOutcome::Found {
             witness: json!("1180591620717411303424"),
             witness_json: "1180591620717411303424".into(),
+            witness_tuples: Vec::new(),
             checked: 41,
         }
     );
+}
+
+#[test]
+fn a_found_search_carries_where_the_witness_held_tuples() {
+    let report = answer(json!({
+        "result": "found",
+        "search": {"checked": 2, "witness": [1, [2]], "witness_json": "[1,[2]]",
+                   "witness_tuples": [[], [1]]}
+    }))
+    .into_search()
+    .unwrap();
+    let SearchOutcome::Found { witness_tuples, .. } = report.outcome else {
+        panic!("expected found, got {:?}", report.outcome);
+    };
+    assert_eq!(witness_tuples, [json!([]), json!([1])]);
 }
 
 #[test]

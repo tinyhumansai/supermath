@@ -73,6 +73,27 @@ fn witness_module_name(predicate: &str) -> String {
     }
 }
 
+/// The frame's `domain`: `nat` or `int` as the service decided it, or
+/// `null` when the search stopped before the service determined it.
+fn domain_value(domain: &str) -> Value {
+    if domain.is_empty() {
+        Value::Null
+    } else {
+        Value::String(domain.to_owned())
+    }
+}
+
+/// What ran out when a service search stopped short, or `None` for a status
+/// that is not a budget hit.
+fn limit_hit(status: Status) -> Option<&'static str> {
+    match status {
+        Status::Timeout => Some("ran out of time"),
+        Status::Memory => Some("ran out of memory"),
+        Status::OutputLimit => Some("passed the output size cap"),
+        _ => None,
+    }
+}
+
 /// The text of the generated file proving `∃ n, predicate n` by `decide`.
 fn witness_source(module: &str, predicate: &str, domain: &str, witness: i64) -> String {
     let (ty, term) = if domain == "int" {
@@ -117,7 +138,7 @@ impl LeanSearchCounterexample {
         }
         let frame = |covered: Option<i64>, domain: &str| {
             json!({"predicate": predicate, "from": from, "to": to,
-                   "covered_to": covered, "domain": domain})
+                   "covered_to": covered, "domain": domain_value(domain)})
         };
         let reply = match self
             .shared
@@ -147,12 +168,12 @@ impl LeanSearchCounterexample {
                 reply.message
             )));
         }
-        if reply.status == Status::Timeout {
+        if let Some(ran_out) = limit_hit(reply.status) {
             return Ok(Envelope::unknown(match reply.covered_to {
                 Some(covered) => {
-                    format!("the search ran out of time after covering {from}..={covered}")
+                    format!("the search {ran_out} after covering {from}..={covered}")
                 }
-                None => "the search ran out of time before covering any value".to_owned(),
+                None => format!("the search {ran_out} before covering any value"),
             })
             .with_data(json!({
                 "found": false,
@@ -202,12 +223,72 @@ impl LeanSearchCounterexample {
             domain,
             witness,
         } = *found;
-        let slug = ctx.project.slug();
         let name = witness_module_name(predicate);
         let target = ProjectPath::parse(&format!("lean/Supermath/Witnesses/{name}.lean"))?;
         let content = witness_source(&source.module(), predicate, domain, witness);
-        let existing = if self.shared.workspace.exists(slug, &target)? {
-            Some(self.shared.workspace.sha256(slug, &target)?)
+        let theorem = format!("{predicate}_witness");
+        let mut data = json!({
+            "found": true,
+            "witness": witness,
+            "frame": frame,
+            "witness_file": target.as_str(),
+            "theorem": theorem,
+            "evidence_origin": ctx.evidence_origin,
+            "verdict": Verdict::Unknown,
+            "provenance": null,
+            "errors": [],
+        });
+        if let Err(why) = self.write_witness(ctx, &target, &content) {
+            // The witness stands on the service's search; only the theorem
+            // recording it is missing.
+            data["witness_file"] = Value::Null;
+            return Ok(Envelope::ok(data)
+                .with_coverage(coverage)
+                .with_unknown(format!(
+                    "the witness file {target} could not be written ({why}); the theorem is not \
+                     evidence yet"
+                )));
+        }
+        let checked = self
+            .shared
+            .checker
+            .check(
+                ctx.project.slug(),
+                &target,
+                Some(std::slice::from_ref(&theorem)),
+                self.shared.config.check_timeout_ms,
+            )
+            .await;
+        let report = match checked {
+            Ok(outcome) => outcome.report,
+            Err(why) => {
+                return Ok(Envelope::ok(data)
+                    .with_coverage(coverage)
+                    .with_unknown(format!(
+                        "the witness theorem could not be checked ({why}); it is not evidence yet"
+                    )));
+            }
+        };
+        data["verdict"] = json!(report.verdict);
+        data["provenance"] = json!(report.provenance);
+        data["errors"] = json!(report.errors);
+        let mut envelope = Envelope::ok(data).with_coverage(coverage);
+        if report.verdict != Verdict::Checked {
+            envelope = envelope.with_unknown(format!(
+                "the witness theorem did not check (verdict {}); it is not evidence yet",
+                report.verdict.as_str()
+            ));
+        }
+        Ok(envelope)
+    }
+
+    /// Writes the generated witness file, leaving an identical one alone and
+    /// replacing any other: the theorem's statement does not depend on the
+    /// witness, so a newer witness proves the same thing.
+    fn write_witness(&self, ctx: &CallContext, target: &ProjectPath, content: &str) -> Result<()> {
+        let slug = ctx.project.slug();
+        let existing = if self.shared.workspace.exists(slug, target)? {
+            Some(self.shared.workspace.sha256(slug, target)?)
         } else {
             None
         };
@@ -216,39 +297,9 @@ impl LeanSearchCounterexample {
                 .allowing_generated();
             self.shared
                 .workspace
-                .write(slug, &target, &content, existing.as_deref(), &meta)?;
+                .write(slug, target, content, existing.as_deref(), &meta)?;
         }
-        let theorem = format!("{predicate}_witness");
-        let outcome = self
-            .shared
-            .checker
-            .check(
-                slug,
-                &target,
-                Some(std::slice::from_ref(&theorem)),
-                self.shared.config.check_timeout_ms,
-            )
-            .await?;
-        let report = &outcome.report;
-        let mut envelope = Envelope::ok(json!({
-            "found": true,
-            "witness": witness,
-            "frame": frame,
-            "witness_file": target.as_str(),
-            "theorem": theorem,
-            "evidence_origin": ctx.evidence_origin,
-            "verdict": report.verdict,
-            "provenance": report.provenance,
-            "errors": report.errors,
-        }))
-        .with_coverage(coverage);
-        if report.verdict != Verdict::Checked {
-            envelope = envelope.with_unknown(format!(
-                "the witness theorem did not check (verdict {}); it is not evidence yet",
-                report.verdict.as_str()
-            ));
-        }
-        Ok(envelope)
+        Ok(())
     }
 }
 

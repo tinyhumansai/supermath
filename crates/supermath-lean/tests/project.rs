@@ -375,3 +375,101 @@ async fn lean_blueprint_passes_the_contract_checker() {
         .await
         .unwrap();
 }
+
+// --- unreadable files, default page size, cursors -------------------------------
+
+/// Puts a Lean file whose bytes are not UTF-8 straight onto disk: the
+/// workspace lists it but cannot read it.
+fn put_unreadable(env: &Env, path: &str) {
+    let full = env.dir.path().join("demo").join(path);
+    std::fs::create_dir_all(full.parent().unwrap()).unwrap();
+    std::fs::write(full, [0xff, 0xfe, 0x00]).unwrap();
+}
+
+/// A project of `count` independent one-theorem files over a stub that
+/// answers every check clean.
+async fn many(count: usize) -> (Stub, Env) {
+    let stub = Stub::start(|_| support::Reply::fixture("check_clean.json")).await;
+    let env = Env::over(&stub);
+    for i in 0..count {
+        env.put(
+            &format!("lean/Supermath/F{i:02}.lean"),
+            &format!("import Mathlib\n\ntheorem f{i} : True := trivial\n"),
+        );
+    }
+    (stub, env)
+}
+
+#[tokio::test]
+async fn build_reports_an_unreadable_file_instead_of_skipping_it() {
+    let (_stub, env) = project().await;
+    put_unreadable(&env, "lean/Supermath/Bad.lean");
+    let envelope = env.call("lean_build", json!({})).await;
+    assert_eq!(envelope.outcome, Outcome::Unknown);
+    assert_eq!(envelope.data["total"], 4);
+    assert_eq!(envelope.data["summary"]["unknown"], 1);
+    let bad = files(&envelope)
+        .into_iter()
+        .find(|f| f["path"] == "lean/Supermath/Bad.lean")
+        .unwrap();
+    assert_eq!(bad["verdict"], "unknown");
+    assert!(
+        bad["reason"]
+            .as_str()
+            .unwrap()
+            .contains("could not be read")
+    );
+    assert!(
+        envelope
+            .unknowns
+            .iter()
+            .any(|u| u.contains("1 Lean file(s) could not be read")
+                && u.contains("lean/Supermath/Bad.lean")),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+#[tokio::test]
+async fn build_pages_ten_rows_by_default_and_past_the_end_is_an_empty_page() {
+    let (_stub, env) = many(12).await;
+    let first = env.call("lean_build", json!({})).await;
+    assert_eq!(files(&first).len(), 10);
+    assert_eq!(first.cursor.as_deref(), Some("10"));
+    let past = env.call("lean_build", json!({"cursor": "99"})).await;
+    assert_eq!(past.outcome, Outcome::Ok);
+    assert!(files(&past).is_empty());
+    assert_eq!(past.data["total"], 12);
+    assert!(past.cursor.is_none());
+}
+
+#[tokio::test]
+async fn blueprint_lists_an_unreadable_file_in_unknowns() {
+    let (_stub, env) = project().await;
+    put_unreadable(&env, "lean/Supermath/Bad.lean");
+    let envelope = env.call("lean_blueprint", json!({})).await;
+    assert_eq!(envelope.outcome, Outcome::Ok);
+    assert!(
+        envelope
+            .unknowns
+            .iter()
+            .any(|u| u.contains("lean/Supermath/Bad.lean could not be read")),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+#[tokio::test]
+async fn blueprint_pages_ten_nodes_by_default_and_refuses_a_bad_cursor() {
+    let (_stub, env) = many(12).await;
+    let first = env.call("lean_blueprint", json!({})).await;
+    assert_eq!(first.data["nodes"].as_array().unwrap().len(), 10);
+    assert_eq!(first.cursor.as_deref(), Some("10"));
+    let bad = env.call("lean_blueprint", json!({"cursor": "x"})).await;
+    assert_eq!(bad.code(), Some(ErrorCode::InvalidInput));
+    let past = env.call("lean_blueprint", json!({"cursor": "99"})).await;
+    assert_eq!(past.outcome, Outcome::Ok);
+    assert!(past.data["nodes"].as_array().unwrap().is_empty());
+    assert_eq!(past.data["total"], 12);
+    assert!(past.cursor.is_none());
+}

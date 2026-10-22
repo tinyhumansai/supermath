@@ -41,13 +41,21 @@ with [`lean_search_counterexample`](../../lean/tools/lean_search_counterexample.
 
 ## Returns
 
-- **Found:** `outcome: "ok"` with the first witness, how many values were
-  checked before it, and `next` suggesting the Lean confirmation. The
-  witness is also written to a generated file
+- Every answer carries the run's `stdout`, `stdout_truncated`, `stderr`,
+  `stderr_truncated`, and provenance, as [`py_run`](py_run.md) does.
+- **Found:** `outcome: "ok"` with the first witness and how many values were
+  checked before it. The witness is also written to a generated file
   `python/work/witnesses/witness_<predicate>_<12 hex>.py` (named by its
   content, so a repeat writes nothing new) whose `check()` re-runs the
-  predicate on the witness, so it can be re-run with `py_run`. If the file
-  cannot be written, the witness is still returned, with an `unknowns` note.
+  predicate on the witness, and `next` is that call:
+  `py_run {"path": "<witness file>", "entry": "check"}`. The file rebuilds
+  the witness exactly as the predicate saw it: JSON has no tuples, so every
+  tuple in it (a product frame's value, or a tuple a generator yielded, at
+  any depth) is turned back into one. If the file cannot be written, the
+  witness is still returned, with an `unknowns` note and no `next`. A
+  witness is computation, not proof: confirming it in Lean with
+  [`lean_search_counterexample`](../../lean/tools/lean_search_counterexample.md)
+  needs a Lean predicate this tool cannot name, so no call is suggested.
 - **Exhausted:** the whole stated frame was searched and held no witness:
   `outcome: "ok"` with `data.result: "exhausted"`, `data.checked`, the frame
   in `data.frame` and `data.frame_description`, and `coverage` naming it.
@@ -68,6 +76,8 @@ counterexample.
 ## Errors
 
 As [`py_run`](py_run.md#errors), plus `INVALID_INPUT` for an empty or
-unbounded frame, and `BUDGET_EXCEEDED` for a frame over the admission cap
-(10^8 values by default, `SUPERMATH_PY_MAX_FRAME`; checked up front for
-ranges and products, by the service for generators).
+unbounded frame, and `BUDGET_EXCEEDED` for a range or product frame over
+the admission cap (10^8 values by default, `SUPERMATH_PY_MAX_FRAME`),
+checked up front. A generator's size is not known up front: one that
+reaches the cap is not an error but the `capped` result above
+(`outcome: "unknown"`).

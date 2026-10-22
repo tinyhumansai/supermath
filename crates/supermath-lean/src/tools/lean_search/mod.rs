@@ -95,8 +95,11 @@ impl LeanSearch {
                         index.name(),
                         &["the project's own declarations (use lean_decl)"],
                     ),
+                    // Neither hosted index reports the revision it indexes,
+                    // so the note says what is not known rather than guessing.
                     Some(format!(
-                        "{} indexes its own Mathlib revision, which may differ from the pinned one",
+                        "{} does not report the Mathlib revision it indexes, which may differ \
+                         from the pinned one",
                         index.name()
                     )),
                 )
@@ -127,8 +130,9 @@ impl Tool for LeanSearch {
         "Given a query and a mode, finds Mathlib declarations. Mode name matches a name fragment \
          in the pinned Mathlib (Nat.Prime.two_le); pattern asks Loogle for a type pattern \
          ((?a + ?b) ^ 2); natural asks LeanSearch in words (sum of two squares). Each row is \
-         name, type (trimmed to 300 characters), and module; coverage names the index, and a \
-         hosted index on another Mathlib revision is noted in unknowns."
+         name, type (trimmed to 300 characters), and module; coverage names the index (and, in \
+         name mode, the pinned Mathlib revision); a hosted index does not report its revision, \
+         which is noted in unknowns."
     }
 
     fn schema(&self) -> Value {

@@ -4,16 +4,18 @@
 //! resolution and pins the connection to the addresses it checked, so a
 //! page (or a redirect, or a rebinding DNS answer) cannot point the tool at
 //! the operator's network. It honours `robots.txt`, follows at most five
-//! redirects, and reads at most 5 MB.
+//! redirects, and reads at most 5 MB. arXiv is refused on every hop, not
+//! only the first: its papers are `lit_get_paper`'s to read.
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, LOCATION, RETRY_AFTER};
-use url::{Host, Url};
+use url::{Host, Origin, Url};
 
 use crate::config::WebConfig;
 use crate::error::{Error, Result};
 use crate::robots::Robots;
+use crate::source::arxiv_id;
 
 /// Largest page read, in bytes.
 pub(crate) const MAX_BYTES: u64 = 5 * 1024 * 1024;
@@ -64,9 +66,9 @@ pub(crate) fn is_public(ip: IpAddr) -> bool {
     }
 }
 
-/// Resolves the host of `url` and checks every address is public (unless the
-/// config allows private hosts).
-async fn resolve(config: &WebConfig, url: &Url) -> Result<Vec<SocketAddr>> {
+/// Resolves the host of `url` and checks every address is public (unless
+/// `private_ok`).
+async fn resolve(private_ok: bool, url: &Url) -> Result<Vec<SocketAddr>> {
     let port = url
         .port_or_known_default()
         .ok_or_else(|| Error::InvalidUrl(url.to_string()))?;
@@ -82,7 +84,7 @@ async fn resolve(config: &WebConfig, url: &Url) -> Result<Vec<SocketAddr>> {
     if addrs.is_empty() {
         return Err(Error::Unavailable("the host has no addresses".to_owned()));
     }
-    if !config.allow_private_hosts && addrs.iter().any(|a| !is_public(a.ip())) {
+    if !private_ok && addrs.iter().any(|a| !is_public(a.ip())) {
         return Err(Error::PrivateAddress(
             url.host_str().unwrap_or_default().to_owned(),
         ));
@@ -90,12 +92,23 @@ async fn resolve(config: &WebConfig, url: &Url) -> Result<Vec<SocketAddr>> {
     Ok(addrs)
 }
 
-/// Checks the scheme, upgrading `http` to `https` unless private hosts are
-/// allowed.
-pub(crate) fn normalize(config: &WebConfig, mut url: Url) -> Result<Url> {
+/// [`Error::ArxivPaper`] when `url` is on arxiv.org or one of its
+/// subdomains, naming the paper when the URL does.
+pub(crate) fn refuse_arxiv(url: &Url) -> Result<()> {
+    let host = url.host_str().unwrap_or_default().to_ascii_lowercase();
+    if host == "arxiv.org" || host.ends_with(".arxiv.org") {
+        return Err(Error::ArxivPaper {
+            arxiv_id: arxiv_id(url),
+        });
+    }
+    Ok(())
+}
+
+/// Checks the scheme, upgrading `http` to `https` unless `private_ok`.
+pub(crate) fn normalize(private_ok: bool, mut url: Url) -> Result<Url> {
     match url.scheme() {
         "https" => {}
-        "http" if config.allow_private_hosts => {}
+        "http" if private_ok => {}
         "http" => {
             url.set_scheme("https")
                 .map_err(|()| Error::InvalidUrl(url.to_string()))?;
@@ -175,8 +188,8 @@ enum Hop {
     Page(Page),
 }
 
-async fn hop(config: &WebConfig, url: Url) -> Result<Hop> {
-    let addrs = resolve(config, &url).await?;
+async fn hop(config: &WebConfig, private_ok: bool, url: Url) -> Result<Hop> {
+    let addrs = resolve(private_ok, &url).await?;
     let mut builder = reqwest::Client::builder()
         .user_agent(config.user_agent())
         .redirect(reqwest::redirect::Policy::none());
@@ -262,19 +275,35 @@ async fn hop(config: &WebConfig, url: Url) -> Result<Hop> {
 ///
 /// # Errors
 ///
-/// - [`Error::InvalidUrl`], [`Error::PrivateAddress`],
+/// - [`Error::InvalidUrl`], [`Error::PrivateAddress`], [`Error::ArxivPaper`],
 ///   [`Error::UnsupportedContent`], [`Error::TooLarge`] for input the tool
-///   will not read.
+///   will not read; the address and arXiv checks run on every hop.
 /// - [`Error::NotFound`], [`Error::Forbidden`] (also for `robots.txt`),
 ///   [`Error::RateLimited`] for the site's answer.
 /// - [`Error::Unavailable`] for any other failure, [`Error::TooManyRedirects`]
 ///   after five redirects.
 pub(crate) async fn fetch(config: &WebConfig, url: Url) -> Result<Page> {
-    let mut current = normalize(config, url)?;
+    fetch_from(config, url, None).await
+}
+
+/// [`fetch`], with `vetted` an origin the caller has already checked: a hop
+/// on exactly that origin keeps its scheme and skips the address check, as
+/// if private hosts were allowed. Every other hop is checked as usual, so a
+/// vetted origin cannot redirect anywhere the config would refuse. [`fetch`]
+/// vets nothing; the tests vet their loopback server to prove the checks
+/// run on the hops after it.
+pub(crate) async fn fetch_from(
+    config: &WebConfig,
+    url: Url,
+    vetted: Option<&Origin>,
+) -> Result<Page> {
+    let private_ok = |url: &Url| config.allow_private_hosts || vetted == Some(&url.origin());
+    let mut current = normalize(private_ok(&url), url)?;
     for _ in 0..=MAX_REDIRECTS {
-        match hop(config, current).await? {
+        refuse_arxiv(&current)?;
+        match hop(config, private_ok(&current), current).await? {
             Hop::Page(page) => return Ok(page),
-            Hop::Redirect(next) => current = normalize(config, next)?,
+            Hop::Redirect(next) => current = normalize(private_ok(&next), next)?,
         }
     }
     Err(Error::TooManyRedirects)

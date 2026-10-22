@@ -90,11 +90,30 @@ fn an_unnamed_timeout_is_the_default_shortened_to_the_budget() {
         ..Budget::default()
     };
     assert_eq!(shared.timeout(&tight, None).unwrap(), 2);
-    let none = Budget {
+    let sliver = Budget {
+        wall_time_ms: 300,
+        ..Budget::default()
+    };
+    assert_eq!(shared.timeout(&sliver, None).unwrap(), 1);
+}
+
+#[test]
+fn a_spent_compute_budget_is_refused_with_or_without_a_named_timeout() {
+    let dir = tempfile::tempdir().unwrap();
+    let shared = shared(dir.path());
+    let spent = Budget {
         wall_time_ms: 0,
         ..Budget::default()
     };
-    assert_eq!(shared.timeout(&none, None).unwrap(), 1);
+    for requested in [None, Some(1), Some(60)] {
+        assert!(
+            matches!(
+                shared.timeout(&spent, requested),
+                Err(Error::BudgetExceeded(_))
+            ),
+            "{requested:?}"
+        );
+    }
 }
 
 #[test]

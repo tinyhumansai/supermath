@@ -7,6 +7,7 @@ use serde_json::json;
 use super::Request;
 use super::disagree::within_facet;
 use super::facet::{DEFAULT_FACETS, Facet};
+use super::words::fit_words;
 use crate::engine::Finding;
 
 fn finding(text: &str, source: usize) -> Finding {
@@ -108,4 +109,32 @@ fn short_or_unrelated_sentences_do_not_disagree() {
         finding("Another thing entirely.", 2),
     ];
     assert_eq!(within_facet("approaches", &findings).len(), 0);
+}
+
+fn words(n: usize) -> Finding {
+    finding(&vec!["w"; n].join(" "), 0)
+}
+
+#[test]
+fn a_brief_under_the_cap_is_left_whole() {
+    let mut facets = vec![vec![words(3), words(3)], vec![words(4)]];
+    assert_eq!(fit_words(&mut facets, 10), 0);
+    assert_eq!(facets.iter().map(Vec::len).collect::<Vec<_>>(), [2, 1]);
+}
+
+#[test]
+fn the_cap_cuts_round_by_round_and_stops_at_the_first_finding_that_does_not_fit() {
+    // Rounds: a0 (4) b0 (4) | a1 (4) -> 12 > 10, so a1 and everything after
+    // it go, even b1 (1 word), which would have fitted.
+    let mut facets = vec![vec![words(4), words(4)], vec![words(4), words(1)], vec![]];
+    assert_eq!(fit_words(&mut facets, 10), 2);
+    assert_eq!(facets.iter().map(Vec::len).collect::<Vec<_>>(), [1, 1, 0]);
+}
+
+#[test]
+fn a_first_finding_longer_than_the_cap_empties_the_brief() {
+    let mut facets = vec![vec![words(20)], vec![words(1)]];
+    assert_eq!(fit_words(&mut facets, 10), 2);
+    assert!(facets.iter().all(Vec::is_empty));
+    assert_eq!(fit_words(&mut [], 10), 0);
 }

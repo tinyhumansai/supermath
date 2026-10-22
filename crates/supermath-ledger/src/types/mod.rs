@@ -102,7 +102,8 @@ pub enum Direction {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Source {
-    /// A paper on arXiv, located by label or section.
+    /// A paper on arXiv, located by exactly one of `label` or `section`;
+    /// the ledger refuses one with neither or both.
     Arxiv {
         /// The arXiv identifier, e.g. `2012.04125`.
         id: String,

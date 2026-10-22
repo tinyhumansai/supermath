@@ -43,6 +43,7 @@ struct Args {
 struct Hit {
     value: Value,
     witness_json: String,
+    witness_tuples: Vec<Value>,
     checked: u64,
 }
 
@@ -62,7 +63,9 @@ impl Searched<'_> {
             "frame": self.frame.to_wire(),
             "frame_description": self.frame.describe(),
             "stdout": self.execution.output.stdout,
+            "stdout_truncated": self.execution.output.stdout_truncated,
             "stderr": self.execution.output.stderr,
+            "stderr_truncated": self.execution.output.stderr_truncated,
             "provenance": self.provenance,
         });
         if let (Some(target), Some(extra)) = (data.as_object_mut(), extra.as_object()) {
@@ -157,6 +160,7 @@ impl PySearchCounterexample {
             SearchOutcome::Found {
                 witness,
                 witness_json,
+                witness_tuples,
                 checked,
             } => self.found(
                 ctx,
@@ -164,6 +168,7 @@ impl PySearchCounterexample {
                 &Hit {
                     value: witness,
                     witness_json,
+                    witness_tuples,
                     checked,
                 },
             ),
@@ -198,6 +203,7 @@ impl PySearchCounterexample {
             searched.module,
             searched.predicate,
             &hit.witness_json,
+            &hit.witness_tuples,
             searched.frame,
         );
         let relative = witness::path_for(searched.predicate, &source);
@@ -211,20 +217,15 @@ impl PySearchCounterexample {
         match written {
             Ok(sha256) => {
                 extra["witness_file"] = json!({"path": relative, "sha256": sha256});
-                next.push(format!(
-                    "py_run {{\"path\": \"{relative}\", \"entry\": \"check\"}} re-runs the predicate on the witness"
-                ));
+                // Re-runs the predicate on the witness.
+                let rerun = json!({"path": relative, "entry": "check"});
+                next.push(format!("py_run {rerun}"));
             }
             Err(error) => {
                 extra["witness_file"] = Value::Null;
                 unknowns.push(format!("the witness file could not be written: {error}"));
             }
         }
-        next.push(
-            "confirm the witness in Lean (lean_search_counterexample, or decide on it) \
-             before it refutes anything; Python alone never makes a claim formalised"
-                .to_owned(),
-        );
         let mut envelope = Envelope::ok(searched.data("found", &extra)).with_next(next);
         for unknown in unknowns {
             envelope = envelope.with_unknown(unknown);

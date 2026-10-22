@@ -23,9 +23,11 @@ edit, not a rewrite of the file.
 
 - Each `old` must occur exactly once in the file; otherwise the call is
   refused with `INVALID_INPUT`, naming the edit and how many times it
-  occurred. Edits apply in order, all or none.
-- `if_sha256` is required: an edit against a file that changed since the
-  caller last saw it is refused with `CONFLICT`.
+  occurred. An empty `old` and an `old` that does not occur get different
+  messages. Edits apply in order, all or none.
+- `if_sha256` is required: absent or `null` is `INVALID_INPUT`, and an edit
+  against a file that changed since the caller last saw it is refused with
+  `CONFLICT`.
 - Returns `{path, sha256, changed: [{start_line, end_line}]}` (ranges are
   one-based, inclusive, sorted, and adjacent ranges merge), so the caller
   can re-read only what changed. It does not check or run the file. The
@@ -33,7 +35,8 @@ edit, not a rewrite of the file.
 
 ## Errors
 
-`INVALID_INPUT` for a bad path or an edit that matches zero or several
-times; `NOT_FOUND` for a missing file; `CONFLICT` on a stale digest;
+`INVALID_INPUT` for a bad path, a path in a generated directory
+(`Witnesses/`, `witnesses/`), a missing `if_sha256`, an empty `old`, or an
+edit that matches zero or several times; `NOT_FOUND` for a missing file; `CONFLICT` on a stale digest;
 `BUDGET_EXCEEDED` if the edited file would pass the size cap;
 `BACKEND_UNAVAILABLE` when the workspace disk fails.

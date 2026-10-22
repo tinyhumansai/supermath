@@ -141,6 +141,11 @@ class Tactics(unittest.TestCase):
         answer = {"goals": [], "messages": [msg("info", 1, 0, "Try this: exact Nat.add_comm a b")]}
         self.assertEqual(N.tactic_result("exact?", answer)["term"], "Nat.add_comm a b")
 
+    def test_a_suggestion_that_is_not_an_exact_gives_no_term(self):
+        # The client turns a term into `exact <term>`; `simp?`'s suggestion is a tactic.
+        answer = {"goals": [], "messages": [msg("info", 1, 0, "Try this: simp only [Nat.add_comm]")]}
+        self.assertIsNone(N.tactic_result("simp?", answer)["term"])
+
 
 if __name__ == "__main__":
     unittest.main()

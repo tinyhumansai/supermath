@@ -118,14 +118,26 @@ async fn recall_memory_keeps_the_tool_contract() {
         Fixture::with_ctx(ctx_for("empty"), json!({"query": "anything"})),
         fixture(json!({"query": "   "})),
         down(json!({"query": "q"})),
+        Fixture::with_ctx(ctx().with_budget(tight), json!({"query": "a long query"})),
     ];
     contract::check(&tool, "ledger", &fixtures).await.unwrap();
-    // The budget refusal is outside RecallMemory's declared codes only if it
-    // were returned as an error; it is a BUDGET_EXCEEDED, so check it apart.
-    let refused = tool
-        .call(&ctx().with_budget(tight), json!({"query": "a long query"}))
-        .await;
-    assert_eq!(refused.code(), Some(ErrorCode::BudgetExceeded));
+}
+
+#[tokio::test]
+async fn recall_memory_asks_cortexdb_for_the_granular_view_of_the_hosts_scope() {
+    let (url, seen) = crate::memory::stub::stub(404, r#"{"error_code":"NOT_FOUND"}"#).await;
+    let tool = RecallMemory::new(Memory::new(url, "k", "ws:t"));
+    let answer = call(&tool, json!({"query": "bounds"})).await;
+    assert_eq!(answer.data, json!({"notes": ""}));
+    let request = seen.await.unwrap();
+    assert!(
+        request.head.starts_with("POST /v1/recall"),
+        "{}",
+        request.head
+    );
+    assert_eq!(request.body["view"], "granular");
+    assert_eq!(request.body["scope"], "ws:t/project:sendov/app:brain");
+    assert_eq!(request.body["query"], "bounds");
 }
 
 #[tokio::test]
@@ -318,6 +330,105 @@ async fn asserted_and_supplied_only_pin_a_claim_down() {
     assert_eq!(w.lean.calls().len(), 0, "no check ran for either");
 }
 
+fn arxiv_source() -> Value {
+    json!({"arxiv": {"id": "2012.04125", "version": "v3", "label": "thm:main"}})
+}
+
+#[tokio::test]
+async fn asserted_and_supplied_pin_an_arxiv_claim_below_cited() {
+    let w = world().await;
+    let tool = LedgerRecord::new(w.ledger.clone());
+    let cited = call(
+        &tool,
+        json!({"kind": "fact", "statement": "cited", "source": arxiv_source()}),
+    )
+    .await;
+    assert_eq!(cited.data["status"], "cited");
+    let pinned = call(
+        &tool,
+        json!({"kind": "fact", "statement": "pinned",
+        "source": arxiv_source(), "status": "asserted"}),
+    )
+    .await;
+    assert_eq!(pinned.data["status"], "asserted");
+    let relabelled = call(
+        &tool,
+        json!({"kind": "fact", "statement": "relabelled",
+        "source": arxiv_source(), "evidence_origin": "supplied"}),
+    )
+    .await;
+    assert_eq!(relabelled.data["status"], "asserted");
+    assert_eq!(relabelled.data["evidence_origin"], "supplied");
+}
+
+#[tokio::test]
+async fn an_arxiv_source_without_one_locator_is_invalid_input() {
+    let w = world().await;
+    let tool = LedgerRecord::new(w.ledger.clone());
+    for arxiv in [
+        json!({"id": "2012.04125", "version": "v3"}),
+        json!({"id": "2012.04125", "version": "v3", "label": "thm:main", "section": "2"}),
+    ] {
+        let sent = call(
+            &tool,
+            json!({"kind": "fact", "statement": "x", "source": {"arxiv": arxiv}}),
+        )
+        .await;
+        assert_eq!(sent.code(), Some(ErrorCode::InvalidInput), "{arxiv}");
+    }
+    let schema = tool.schema();
+    let arxiv = &schema["properties"]["source"]["oneOf"][0]["properties"]["arxiv"];
+    assert_eq!(
+        arxiv["oneOf"],
+        json!([{"required": ["label"]}, {"required": ["section"]}]),
+        "the schema asks for exactly one locator"
+    );
+}
+
+#[tokio::test]
+async fn ledger_record_stores_reason_and_refutes_and_ledger_claims_returns_them() {
+    let w = world().await;
+    let target = seed(&w, "every n works").await;
+    let record = LedgerRecord::new(w.ledger.clone());
+    let claims = LedgerClaims::new(w.ledger.clone());
+
+    let refutation = call(
+        &record,
+        json!({"kind": "refutation", "statement": "n = 7 fails",
+        "source": supplied_source(), "refutes": target}),
+    )
+    .await;
+    assert_eq!(refutation.data["kind"], "refutation");
+    let read = call(&claims, json!({"id": id_of(&refutation)})).await;
+    assert_eq!(read.data["claim"]["refutes"], json!(target));
+
+    let dead_end = call(
+        &record,
+        json!({"kind": "dead_end", "statement": "induction on n",
+        "source": supplied_source(), "reason": "the step needs n + 2"}),
+    )
+    .await;
+    assert_eq!(dead_end.data["kind"], "dead_end");
+    let read = call(&claims, json!({"id": id_of(&dead_end)})).await;
+    assert_eq!(read.data["claim"]["reason"], "the step needs n + 2");
+}
+
+#[tokio::test]
+async fn ledger_record_refuses_a_uses_that_repeats_an_id() {
+    let w = world().await;
+    let a = seed(&w, "a").await;
+    let record = LedgerRecord::new(w.ledger.clone());
+    let written = w.cortex.events().len();
+    let twice = call(
+        &record,
+        json!({"kind": "result", "statement": "b", "source": supplied_source(),
+        "uses": [a, a]}),
+    )
+    .await;
+    assert_eq!(twice.code(), Some(ErrorCode::InvalidInput));
+    assert_eq!(w.cortex.events().len(), written);
+}
+
 #[tokio::test]
 async fn a_lean_timeout_is_unknown_not_an_error() {
     let w = world().await;
@@ -416,7 +527,8 @@ async fn ledger_claims_filters_pages_and_trims() {
     let all = call(&claims, json!({"limit": 2})).await;
     let rows = all.data["claims"].as_array().unwrap();
     assert_eq!(rows.len(), 2);
-    assert_eq!(rows[0]["kind"], "result", "newest first");
+    // Rows keep recall order; the stub recalls its newest notes first.
+    assert_eq!(rows[0]["kind"], "result", "recall order");
     assert_eq!(rows[0]["statement"].as_str().unwrap().chars().count(), 301);
     assert_eq!(rows[0]["status"], "formalised");
     assert_eq!(rows[0]["alignment"], "not_reviewed");
@@ -446,6 +558,48 @@ async fn ledger_claims_filters_pages_and_trims() {
 
     let bad = call(&claims, json!({"cursor": "x"})).await;
     assert_eq!(bad.code(), Some(ErrorCode::InvalidInput));
+}
+
+#[tokio::test]
+async fn ledger_claims_refuses_id_with_any_filter_before_the_budget() {
+    let w = world().await;
+    let id = seed(&w, "n^2 is even").await;
+    let claims = LedgerClaims::new(w.ledger.clone());
+    let no_rows = ctx().with_budget(Budget {
+        rows: 0,
+        ..Budget::default()
+    });
+    for (field, value) in [
+        ("kind", json!("result")),
+        ("cursor", json!("0")),
+        ("min_status", json!("asserted")),
+        ("alignment", json!("not_reviewed")),
+        ("query", json!("even")),
+    ] {
+        let mut args = json!({"id": id});
+        args[field] = value;
+        let answer = claims.call(&no_rows, args).await;
+        assert_eq!(answer.code(), Some(ErrorCode::InvalidInput), "{field}");
+    }
+    let bad_cursor = claims.call(&no_rows, json!({"cursor": "x"})).await;
+    assert_eq!(bad_cursor.code(), Some(ErrorCode::InvalidInput));
+}
+
+#[tokio::test]
+async fn ledger_claims_caps_the_limit_at_fifty_and_pages_past_the_end_to_nothing() {
+    let w = world().await;
+    for n in 0..51 {
+        seed(&w, &format!("claim {n}")).await;
+    }
+    let claims = LedgerClaims::new(w.ledger.clone());
+    let capped = call(&claims, json!({"limit": 500})).await;
+    assert_eq!(capped.data["claims"].as_array().unwrap().len(), 50);
+    assert_eq!(capped.cursor.as_deref(), Some("50"));
+
+    let past = call(&claims, json!({"cursor": "100"})).await;
+    assert_eq!(past.outcome, Outcome::Ok);
+    assert_eq!(past.data["claims"], json!([]));
+    assert!(past.cursor.is_none());
 }
 
 #[tokio::test]
@@ -494,6 +648,28 @@ async fn ledger_claims_says_when_the_window_may_hide_entries() {
 }
 
 #[tokio::test]
+async fn a_full_window_warns_even_when_revisions_collapse_to_fewer_claims() {
+    let w = world().await;
+    let narrow = Arc::new(Ledger::clone(&w.ledger).with_window(2));
+    let id = seed(&w, "one").await;
+    w.ledger
+        .set_alignment(&ctx(), &id, crate::types::Alignment::Accepted)
+        .await
+        .unwrap();
+    let listed = call(&LedgerClaims::new(narrow.clone()), json!({})).await;
+    assert_eq!(listed.data["claims"].as_array().unwrap().len(), 1);
+    assert!(
+        listed.unknowns.iter().any(|u| u.contains("window")),
+        "two notes filled a window of two: {:?}",
+        listed.unknowns
+    );
+
+    let roomy = Arc::new(Ledger::clone(&w.ledger).with_window(3));
+    let listed = call(&LedgerClaims::new(roomy), json!({})).await;
+    assert!(listed.unknowns.is_empty(), "{:?}", listed.unknowns);
+}
+
+#[tokio::test]
 async fn ledger_link_keeps_the_tool_contract() {
     let w = world().await;
     let a = seed(&w, "a").await;
@@ -521,6 +697,31 @@ async fn ledger_link_records_the_edge_and_refuses_a_cycle() {
     assert_eq!(again.data["created"], false);
     let cycle = call(&tool, json!({"from": b, "to": a})).await;
     assert_eq!(cycle.code(), Some(ErrorCode::InvalidInput));
+}
+
+#[tokio::test]
+async fn ledger_record_refuses_a_cycle_with_the_same_code_as_ledger_link() {
+    let w = world().await;
+    let a = seed(&w, "a").await;
+    let record = LedgerRecord::new(w.ledger.clone());
+    let b = call(
+        &record,
+        json!({"kind": "result", "statement": "b", "source": supplied_source(), "uses": [a]}),
+    )
+    .await;
+    let cycle = call(
+        &record,
+        json!({"kind": "result", "statement": "a", "source": {"supplied": "s"},
+        "uses": [id_of(&b)]}),
+    )
+    .await;
+    assert_eq!(cycle.code(), Some(ErrorCode::InvalidInput));
+    let linked = call(
+        &LedgerLink::new(w.ledger.clone()),
+        json!({"from": a, "to": id_of(&b)}),
+    )
+    .await;
+    assert_eq!(linked.code(), cycle.code());
 }
 
 #[tokio::test]
@@ -587,6 +788,62 @@ async fn ledger_bound_returns_the_best_bound_either_way() {
     )
     .await;
     assert_eq!(tooled.data["recorded"]["status"], "checked");
+}
+
+fn radius(value: &Value, source: &Value) -> Value {
+    json!({"quantity": "Sendov radius", "direction": "upper", "value": value, "source": source})
+}
+
+#[tokio::test]
+async fn ledger_bound_warns_when_a_full_window_may_hide_an_older_best() {
+    let w = world().await;
+    let narrow = LedgerBound::new(Arc::new(Ledger::clone(&w.ledger).with_window(2)));
+    let first = call(&narrow, radius(&json!(3), &json!({"supplied": "a"}))).await;
+    assert!(first.unknowns.is_empty(), "{:?}", first.unknowns);
+    call(&narrow, radius(&json!(2), &json!({"supplied": "b"}))).await;
+    let third = call(&narrow, radius(&json!(4), &json!({"supplied": "c"}))).await;
+    assert!(
+        third.unknowns.iter().any(|u| u.contains("window")),
+        "{:?}",
+        third.unknowns
+    );
+}
+
+#[tokio::test]
+async fn ledger_bound_reports_the_best_bounds_effective_status() {
+    let w = world().await;
+    teach(&w, "aa");
+    let tool = LedgerBound::new(w.ledger.clone());
+    let formal = call(&tool, radius(&json!(2), &lean_source("aa"))).await;
+    assert_eq!(formal.data["best"]["status"], "formalised");
+
+    teach(&w, "bb");
+    let worse = call(&tool, radius(&json!(3), &supplied_source())).await;
+    assert_eq!(worse.data["improved"], false);
+    assert_eq!(worse.data["best"]["id"], formal.data["best"]["id"]);
+    assert_eq!(
+        worse.data["best"]["status"], "asserted",
+        "the best bound's file changed, so it stands as asserted"
+    );
+    assert!(
+        worse.unknowns.iter().any(|u| u.contains("changed")),
+        "{:?}",
+        worse.unknowns
+    );
+}
+
+#[tokio::test]
+async fn a_lean_timeout_through_ledger_bound_is_unknown() {
+    let w = world().await;
+    w.lean.set(
+        "lean/Main.lean",
+        "Main.thm",
+        Err(crate::Error::EvidenceTimeout),
+    );
+    let tool = LedgerBound::new(w.ledger.clone());
+    let timed_out = call(&tool, radius(&json!(2), &lean_source("aa"))).await;
+    assert_eq!(timed_out.outcome, Outcome::Unknown);
+    assert_eq!(w.cortex.events().len(), 0, "nothing was recorded");
 }
 
 #[tokio::test]

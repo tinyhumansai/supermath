@@ -62,6 +62,10 @@ pub enum Violation {
     /// An agentic tool's description does not begin "Runs a".
     #[error("agentic description must begin \"Runs a\"")]
     AgenticDescription,
+    /// A primitive tool's description does not begin "Given ", so its first
+    /// sentence does not name the question the tool answers.
+    #[error("primitive description must begin \"Given \"")]
+    PrimitiveDescription,
     /// The schema is not an object schema.
     #[error("schema is not an object schema")]
     SchemaNotObject,

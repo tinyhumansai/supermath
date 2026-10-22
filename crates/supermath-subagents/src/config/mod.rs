@@ -8,7 +8,8 @@
 //! | `SUPERMATH_DUEL_MODEL` | `deepseek-v4-pro` | both sides of `agent_settle` |
 //!
 //! The values are Surplus Intelligence model names, so a change of model is a
-//! change to these variables, never to this crate.
+//! change to these variables, never to this crate. The reviewer may not run
+//! on the formalizer's model ([`Models::check`]).
 //!
 //! [`DuelSettings`] reads how `agent_settle` keeps its two sides on task:
 //!
@@ -50,8 +51,7 @@ impl Models {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidConfig`] for a variable that is set but blank or holds
-    /// whitespace.
+    /// As [`Models::from_lookup`].
     pub fn from_env() -> Result<Self> {
         Self::from_lookup(|name| std::env::var(name).ok())
     }
@@ -62,7 +62,8 @@ impl Models {
     /// # Errors
     ///
     /// [`Error::InvalidConfig`] for a variable that is set but blank or holds
-    /// whitespace.
+    /// whitespace; [`Error::ReviewerIsFormalizer`] when the reviewer would
+    /// run on the formalizer's model.
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Result<Self> {
         let defaults = Self::default();
         let read = |name: &'static str, default: String| match lookup(name) {
@@ -70,12 +71,29 @@ impl Models {
             Some(value) if !value.is_empty() && !value.contains(char::is_whitespace) => Ok(value),
             Some(value) => Err(Error::InvalidConfig { name, value }),
         };
-        Ok(Self {
+        let models = Self {
             reader: read("SUPERMATH_READER_MODEL", defaults.reader)?,
             formalizer: read("SUPERMATH_FORMALIZER_MODEL", defaults.formalizer)?,
             reviewer: read("SUPERMATH_REVIEWER_MODEL", defaults.reviewer)?,
             duel: read("SUPERMATH_DUEL_MODEL", defaults.duel)?,
-        })
+        };
+        models.check()?;
+        Ok(models)
+    }
+
+    /// Checks the rule between the models: the reviewer runs on a different
+    /// model from the formalizer, so the model that wrote a statement is not
+    /// the one that judges it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::ReviewerIsFormalizer`] when the two are the same model.
+    pub fn check(&self) -> Result<()> {
+        if self.reviewer == self.formalizer {
+            Err(Error::ReviewerIsFormalizer(self.reviewer.clone()))
+        } else {
+            Ok(())
+        }
     }
 }
 
