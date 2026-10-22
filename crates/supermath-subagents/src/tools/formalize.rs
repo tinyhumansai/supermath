@@ -129,21 +129,24 @@ struct Inspection {
 }
 
 /// The files the child wrote, with the newest digest of each, from the
-/// registry's own answers to its `file_write` and `file_edit` calls.
+/// registry's own answers to its `file_write` and `file_edit` calls, read in
+/// call order so a rewrite after an edit (or an edit after a rewrite) wins.
 fn written_files(belt: &Belt) -> Vec<(String, String)> {
     let mut written: Vec<(String, String)> = Vec::new();
-    for tool in ["file_write", "file_edit"] {
-        for note in belt.succeeded(tool) {
-            let (Some(path), Some(sha)) = (
-                note.envelope.data.get("path").and_then(Value::as_str),
-                note.envelope.data.get("sha256").and_then(Value::as_str),
-            ) else {
-                continue;
-            };
-            match written.iter_mut().find(|(seen, _)| seen == path) {
-                Some(entry) => sha.clone_into(&mut entry.1),
-                None => written.push((path.to_owned(), sha.to_owned())),
-            }
+    let writes = belt.notes().into_iter().filter(|note| {
+        matches!(note.tool.as_str(), "file_write" | "file_edit")
+            && note.envelope.outcome == Outcome::Ok
+    });
+    for note in writes {
+        let (Some(path), Some(sha)) = (
+            note.envelope.data.get("path").and_then(Value::as_str),
+            note.envelope.data.get("sha256").and_then(Value::as_str),
+        ) else {
+            continue;
+        };
+        match written.iter_mut().find(|(seen, _)| seen == path) {
+            Some(entry) => sha.clone_into(&mut entry.1),
+            None => written.push((path.to_owned(), sha.to_owned())),
         }
     }
     written.truncate(MAX_FILES);
