@@ -215,7 +215,7 @@ fn brief(request: &Request, turns: &[Result<Turn>]) -> (Envelope, u32, usize, (u
         entry.insert("findings".to_owned(), json!(findings));
         if findings.is_empty() {
             let note = note
-                .or_else(|| cut_note.and(None))
+                .or_else(|| cut_note.map(str::to_owned))
                 .unwrap_or_else(|| "no source found".to_owned());
             entry.insert("note".to_owned(), json!(note));
         }
