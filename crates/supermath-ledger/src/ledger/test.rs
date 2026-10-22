@@ -1091,8 +1091,15 @@ async fn a_list_reads_every_entry_newest_first_however_recall_ranks_them() {
     let statements: Vec<&str> = listed.iter().map(|e| e.statement.as_str()).collect();
     assert_eq!(statements, ["third", "second", "first"]);
     let steered = h.ledger.entries(SLUG, "second").await.unwrap();
-    assert_eq!(steered[0].statement, "second", "a query puts its matches first");
-    assert_eq!(steered.len(), 3, "a query orders the list; it does not cut it");
+    assert_eq!(
+        steered[0].statement, "second",
+        "a query puts its matches first"
+    );
+    assert_eq!(
+        steered.len(),
+        3,
+        "a query orders the list; it does not cut it"
+    );
 }
 
 #[tokio::test]
@@ -1109,11 +1116,17 @@ async fn a_lean_claim_keeps_its_id_when_reworded_and_revises_when_its_file_chang
         .unwrap();
     let reworded = h
         .ledger
-        .record(&ctx(), lean_claim("Deaconescu's conjecture, as stated in Lean", "aa"))
+        .record(
+            &ctx(),
+            lean_claim("Deaconescu's conjecture, as stated in Lean", "aa"),
+        )
         .await
         .unwrap();
     assert_eq!(reworded.entry.id, first.entry.id);
-    assert!(!reworded.created, "same declaration, same file: nothing new");
+    assert!(
+        !reworded.created,
+        "same declaration, same file: nothing new"
+    );
     assert_eq!(reworded.entry.statement, "Erdős 779 holds");
 
     teach(&h, clean("bb"));
