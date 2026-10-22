@@ -5,10 +5,10 @@
 use std::sync::{Arc, Mutex};
 
 use openhuman_embed::PermissionLevel;
-use serde_json::json;
-use supermath_tool::{CallLog as _, ErrorCode, InMemoryCallLog, Outcome};
+use serde_json::{Value, json};
+use supermath_tool::{CallLog as _, Envelope, ErrorCode, InMemoryCallLog, Outcome};
 
-use super::{Belt, Progress};
+use super::{Belt, Progress, tool_result};
 use crate::fake::{World, ctx};
 
 #[derive(Default)]
@@ -148,7 +148,10 @@ async fn a_host_tool_runs_through_the_belt_and_returns_the_envelope_as_json() {
         .execute(json!({"path": "lean/Nope.lean"}))
         .await
         .unwrap();
-    assert!(!refused.is_error, "a refusal is an answer, not a harness failure");
+    assert!(
+        !refused.is_error,
+        "a refusal is an answer, not a harness failure"
+    );
     assert!(refused.output().contains("NOT_FOUND"));
     assert_eq!(belt.tool_calls(), 2);
 }
@@ -212,7 +215,10 @@ fn result_body(result: &openhuman_embed::ToolResult) -> Value {
 
 #[test]
 fn ok_and_unknown_envelopes_are_results() {
-    for envelope in [Envelope::ok(json!({"n": 1})), Envelope::unknown("no witness below 10^6")] {
+    for envelope in [
+        Envelope::ok(json!({"n": 1})),
+        Envelope::unknown("no witness below 10^6"),
+    ] {
         let body = serde_json::to_value(&envelope).unwrap();
         let result = tool_result(&envelope, body.clone());
         assert!(!result.is_error);
@@ -242,7 +248,10 @@ fn refusals_are_results_the_model_reads_and_never_failures() {
 fn service_failures_are_failures_with_a_status_the_harness_reads() {
     // Without an explicit status, OpenHuman sniffs keywords: a message that
     // says "forbidden" or "timed out" would halt the turn outright.
-    for (code, status) in [(ErrorCode::BackendUnavailable, 503), (ErrorCode::RateLimited, 429)] {
+    for (code, status) in [
+        (ErrorCode::BackendUnavailable, 503),
+        (ErrorCode::RateLimited, 429),
+    ] {
         let envelope = Envelope::error(code, "lean service timed out: forbidden");
         let body = serde_json::to_value(&envelope).unwrap();
         let result = tool_result(&envelope, body);

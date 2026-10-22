@@ -90,7 +90,7 @@ mod limits;
 mod subagents;
 mod tools;
 
-pub use belt::{Belt, CallNote, HostTool, Progress};
+pub use belt::{Belt, CallNote, HostTool, Progress, tool_result};
 pub use child::{
     ChildEnd, ChildKind, ChildRequest, ChildRunner, ChildSpec, ChildTurn, ControlSignal,
     OpenHumanChild, TurnControl,

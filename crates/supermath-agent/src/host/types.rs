@@ -84,9 +84,6 @@ impl openhuman_embed::Tool for HostTool {
         if let Value::Object(object) = &mut body {
             object.insert("call_id".to_owned(), Value::String(done.call_id));
         }
-        Ok(match done.envelope.outcome {
-            Outcome::Error => ToolResult::error(body.to_string()),
-            Outcome::Ok | Outcome::Unknown => ToolResult::json(body),
-        })
+        Ok(supermath_subagents::tool_result(&done.envelope, body))
     }
 }

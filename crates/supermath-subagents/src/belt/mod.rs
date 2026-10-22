@@ -15,6 +15,7 @@
 //! journaled call as it lands.
 
 mod host;
+mod result;
 mod types;
 
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -24,6 +25,7 @@ use serde_json::Value;
 use supermath_tool::{CallContext, CallLog, Envelope, ToolRegistry};
 
 pub use host::HostTool;
+pub use result::tool_result;
 pub(crate) use types::Watcher;
 pub use types::{CallNote, Progress};
 

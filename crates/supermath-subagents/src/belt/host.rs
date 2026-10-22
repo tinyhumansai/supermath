@@ -66,10 +66,7 @@ impl openhuman_embed::Tool for HostTool {
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
         let envelope = self.belt.call(self.tool.name(), args).await;
-        let text = serde_json::to_string(&envelope)?;
-        Ok(match envelope.outcome {
-            Outcome::Error => ToolResult::error(text),
-            Outcome::Ok | Outcome::Unknown => ToolResult::success(text),
-        })
+        let body = serde_json::to_value(&envelope)?;
+        Ok(super::tool_result(&envelope, body))
     }
 }
