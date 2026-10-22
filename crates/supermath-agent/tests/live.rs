@@ -12,7 +12,7 @@
 //! | Variable | Meaning |
 //! | --- | --- |
 //! | `SUPERMATH_LIVE_SUBAGENTS` | `1` to run |
-//! | `SURPLUS_URL`, `SURPLUS_API_KEY` | Surplus Intelligence's OpenAI-compatible API |
+//! | `SURPLUS_API_KEY` | Surplus Intelligence's key; `SURPLUS_URL` optionally overrides its API root |
 //! | `LEAN_URL`, `SUPERMATH_PROJECTS` | the Lean service and the directory it mounts |
 //! | `SUPERMATH_BENCH_RUNGS` | comma-separated Surplus models; default `deepseek-v4-pro` |
 //! | `SUPERMATH_BENCH_LIMIT` | run only the first N cases |
@@ -24,6 +24,7 @@
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
 use openhuman_embed::{Provider, Runtime, RuntimeConfig, Workspace};
+use supermath_agent::DEFAULT_SURPLUS_URL;
 use supermath_mcp::{Config, Toolkit};
 use supermath_subagents::bench::{formalize_cases, run_formalize};
 use supermath_subagents::{Models, Subagents, SubagentsConfig};
@@ -46,7 +47,7 @@ fn live_subagents_formalize_bench() {
 }
 
 async fn bench() {
-    let surplus_url = env("SURPLUS_URL").expect("SURPLUS_URL");
+    let surplus_url = env("SURPLUS_URL").unwrap_or_else(|| DEFAULT_SURPLUS_URL.into());
     let surplus_key = env("SURPLUS_API_KEY").expect("SURPLUS_API_KEY");
     let rungs = env("SUPERMATH_BENCH_RUNGS").unwrap_or_else(|| "deepseek-v4-pro".into());
     let mut cases = formalize_cases().unwrap();

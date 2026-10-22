@@ -75,7 +75,7 @@ services:
     ports:
       - "127.0.0.1:${CORTEX_PORT:-3141}:3141"
     volumes:
-      - cortexdb-data:/data
+      - cortexdb-venice-embed-1:/data
 
   agent:
     build:
@@ -273,7 +273,11 @@ services:
       - no-new-privileges:true
 
 volumes:
-  cortexdb-data:
+  # Named for the embedding model that fills it. CortexDB pins one embedding
+  # space per store, so a new embedding model gets a new volume rather than
+  # mixing spaces in one index; the ladder-era `cortexdb-data` volume (BGE-M3)
+  # is left untouched for `docker volume rm`.
+  cortexdb-venice-embed-1:
   agent-data:
   projects:
 
