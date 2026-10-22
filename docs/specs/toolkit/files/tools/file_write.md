@@ -23,7 +23,9 @@ one, which costs far fewer tokens.
 - `if_sha256`, when given, must match the file's current digest, or the
   write is refused with `CONFLICT`; `null` or absent means the file must not
   exist yet (so replacing a file always needs the digest you last saw). This keeps two turns (or two sub-agents) from overwriting each
-  other.
+  other. The string `"null"` and an empty string count as `null` (models
+  send them for a new file); any other value that is not a 64-hex digest is
+  `INVALID_INPUT`.
 - `content` is at most 1 MB, UTF-8, and may import only what the path
   rules allow for its language.
 - Returns `{path, sha256, lines}`. It does **not** check or run the file;
