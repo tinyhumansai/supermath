@@ -778,6 +778,62 @@ async fn ledger_bound_returns_the_best_bound_either_way() {
     assert_eq!(tooled.data["recorded"]["status"], "checked");
 }
 
+fn radius(value: Value, source: Value) -> Value {
+    json!({"quantity": "Sendov radius", "direction": "upper", "value": value, "source": source})
+}
+
+#[tokio::test]
+async fn ledger_bound_warns_when_a_full_window_may_hide_an_older_best() {
+    let w = world().await;
+    let narrow = LedgerBound::new(Arc::new(Ledger::clone(&w.ledger).with_window(2)));
+    let first = call(&narrow, radius(json!(3), json!({"supplied": "a"}))).await;
+    assert!(first.unknowns.is_empty(), "{:?}", first.unknowns);
+    call(&narrow, radius(json!(2), json!({"supplied": "b"}))).await;
+    let third = call(&narrow, radius(json!(4), json!({"supplied": "c"}))).await;
+    assert!(
+        third.unknowns.iter().any(|u| u.contains("window")),
+        "{:?}",
+        third.unknowns
+    );
+}
+
+#[tokio::test]
+async fn ledger_bound_reports_the_best_bounds_effective_status() {
+    let w = world().await;
+    teach(&w, "aa");
+    let tool = LedgerBound::new(w.ledger.clone());
+    let formal = call(&tool, radius(json!(2), lean_source("aa"))).await;
+    assert_eq!(formal.data["best"]["status"], "formalised");
+
+    teach(&w, "bb");
+    let worse = call(&tool, radius(json!(3), supplied_source())).await;
+    assert_eq!(worse.data["improved"], false);
+    assert_eq!(worse.data["best"]["id"], formal.data["best"]["id"]);
+    assert_eq!(
+        worse.data["best"]["status"], "asserted",
+        "the best bound's file changed, so it stands as asserted"
+    );
+    assert!(
+        worse.unknowns.iter().any(|u| u.contains("changed")),
+        "{:?}",
+        worse.unknowns
+    );
+}
+
+#[tokio::test]
+async fn a_lean_timeout_through_ledger_bound_is_unknown() {
+    let w = world().await;
+    w.lean.set(
+        "lean/Main.lean",
+        "Main.thm",
+        Err(crate::Error::EvidenceTimeout),
+    );
+    let tool = LedgerBound::new(w.ledger.clone());
+    let timed_out = call(&tool, radius(json!(2), lean_source("aa"))).await;
+    assert_eq!(timed_out.outcome, Outcome::Unknown);
+    assert_eq!(w.cortex.events().len(), 0, "nothing was recorded");
+}
+
 #[tokio::test]
 async fn no_tool_can_raise_a_claim_through_its_arguments() {
     let w = world().await;

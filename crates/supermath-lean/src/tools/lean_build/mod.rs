@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use supermath_files::ProjectPath;
 use supermath_tool::{
     CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool, clamp_limit,
 };
@@ -16,7 +17,6 @@ use super::wire::{coverage, guard, parse_args, parse_cursor};
 use crate::declarations::declarations;
 use crate::error::{Error, Result};
 use crate::verdict::{SORRY_AXIOM, Verdict};
-use supermath_files::ProjectPath;
 
 /// Checks the whole package, reusing verdicts of files that did not change.
 #[derive(Debug)]
