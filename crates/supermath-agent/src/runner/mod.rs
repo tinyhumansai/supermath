@@ -1,12 +1,13 @@
-//! The `OpenHuman` runner: the embedded runtime, wired to the ladder, Jev, and
-//! the toolkit.
+//! The `OpenHuman` runner: the embedded runtime, wired to Surplus Intelligence,
+//! Jev, and the toolkit.
 //!
 //! [`Runner::start`] boots the runtime once per process:
 //!
-//! - the **LLM ladder** is the provider, so every turn runs on a ladder such
-//!   as `flash`, at the configured reasoning effort;
+//! - **Surplus Intelligence** is the provider, called directly, so every turn
+//!   runs on a Surplus model such as `deepseek-v4.1-flash`, at the configured
+//!   reasoning effort;
 //! - **Jev**, reached through `OpenRouter`, ranks `tool_search` over deferred
-//!   tools, with the ladder's `vectors` model as its retriever.
+//!   tools, with Surplus's embedding model as its retriever.
 //!
 //! [`Runner::agent`] composes the toolkit for one project, builds the
 //! `agent_*` children on the same runtime, and registers the top-level agent:
@@ -71,9 +72,9 @@ pub struct Runner {
 /// The `OpenHuman` config the runner runs under.
 fn runtime_config(settings: &Config) -> RuntimeConfig {
     let mut config = RuntimeConfig::default();
-    // No local model runtime: every inference goes to the ladder.
+    // No local model runtime: every inference goes to Surplus.
     config.local_ai.runtime_enabled = false;
-    // Every turn asks for this depth; the ladder passes it to the rung.
+    // Every turn asks for this depth; Surplus passes it to the model.
     config.runtime.reasoning_effort = Some(settings.reasoning_effort.clone());
     // Jev decides `tool_search`, through `OpenRouter` and nothing else. The
     // route is an operator decision, so it is named rather than left `auto`.
@@ -82,7 +83,7 @@ fn runtime_config(settings: &Config) -> RuntimeConfig {
     config
 }
 
-/// The Jev ranker: `OpenRouter` for decisions, the ladder for retrieval.
+/// The Jev ranker: `OpenRouter` for decisions, Surplus for retrieval.
 fn jev_ranker(config: &Config, mut runtime_config: RuntimeConfig) -> Arc<TinyHumansJevRanker> {
     // The same paths `Workspace::Dir` gives the runtime. Left at the defaults,
     // the ranker's embedding cache would open the operator's own
