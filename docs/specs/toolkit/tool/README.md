@@ -61,8 +61,11 @@ scratch project). `check` returns `Error::Contract` listing every
 
 - the name matches `^(file|lean|py|lit|web|ledger|calc|agent)_[a-z_]+$` or
   is `recall_memory`, and its prefix matches the crate's domain;
-- the description's first sentence states the question, and an agentic
-  tool's begins "Runs a";
+- the description's first sentence states the question: a primitive's
+  begins "Given " (given X, returns Y), an agentic tool's begins "Runs a"
+  (`Violation::PrimitiveDescription`, `Violation::AgenticDescription`);
+  `contract::description_violation` applies this rule alone, for catalogue
+  tests;
 - the schema is an object schema with `additionalProperties: false` and
   `required` names drawn from `properties` (a structural check, not full
   JSON Schema validation);

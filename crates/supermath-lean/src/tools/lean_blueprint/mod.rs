@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use supermath_tool::{
-    CallContext, Envelope, ErrorCode, Exposure, Kind, MAX_LIMIT, Permission, Tool, clamp_limit,
+    CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool, clamp_limit,
 };
 
 use super::Shared;
@@ -78,11 +78,22 @@ fn reachable(start: &str, nodes: &BTreeMap<String, Node>) -> BTreeSet<String> {
 }
 
 impl LeanBlueprint {
-    async fn collect(&self, ctx: &CallContext) -> Result<(BTreeMap<String, Node>, Vec<String>)> {
+    /// The project's declarations as nodes, the files with no verdict, and
+    /// the files that could not be read with why.
+    async fn collect(
+        &self,
+        ctx: &CallContext,
+    ) -> Result<(BTreeMap<String, Node>, Vec<String>, Vec<(String, String)>)> {
         let slug = ctx.project.slug();
         let mut nodes = BTreeMap::new();
         let mut unchecked = Vec::new();
-        for file in lean_files(&self.shared.workspace, slug)? {
+        let found = lean_files(&self.shared.workspace, slug)?;
+        let unreadable = found
+            .unreadable
+            .into_iter()
+            .map(|f| (f.path.to_string(), f.reason))
+            .collect();
+        for file in found.ordered {
             let outcome = match self
                 .shared
                 .checker
@@ -140,14 +151,13 @@ impl LeanBlueprint {
         }
         unchecked.sort();
         unchecked.dedup();
-        Ok((nodes, unchecked))
+        Ok((nodes, unchecked, unreadable))
     }
 
     async fn run(&self, ctx: &CallContext, args: Value) -> Result<Envelope> {
         let args: Args = parse_args(args)?;
         let offset = parse_cursor(args.cursor.as_deref())?;
-        let limit =
-            clamp_limit(Some(args.limit.unwrap_or(MAX_LIMIT as u64))).min(ctx.budget.rows.max(1));
+        let limit = clamp_limit(args.limit).min(ctx.budget.rows.max(1));
         let root = args.root.as_deref().map(str::trim);
         if let Some(root) = root
             && !valid_name(root)
@@ -156,7 +166,7 @@ impl LeanBlueprint {
                 "{root:?} is not a declaration name"
             )));
         }
-        let (nodes, unchecked) = self.collect(ctx).await?;
+        let (nodes, unchecked, unreadable) = self.collect(ctx).await?;
         let wanted: Option<BTreeSet<String>> = match root {
             Some(root) => {
                 if !nodes.contains_key(root) {
@@ -212,6 +222,11 @@ impl LeanBlueprint {
         for path in &unchecked {
             envelope = envelope.with_unknown(format!(
                 "{path} has no verdict; its nodes may be missing or marked unknown"
+            ));
+        }
+        for (path, why) in &unreadable {
+            envelope = envelope.with_unknown(format!(
+                "{path} could not be read ({why}); its declarations are missing"
             ));
         }
         let next = offset + limit;

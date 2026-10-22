@@ -45,7 +45,9 @@ use guard::WriteGuard;
 /// A turn does not start with less than this left: iterations, tokens,
 /// seconds.
 const MIN_TURN: Limits = Limits::new(2, 10_000, 30);
-/// Most refuter frames recorded as bounds when the duel ends.
+/// Most refuter frames recorded as bounds when the duel ends. The cap bounds
+/// the ledger writes of one call; the frames it drops are named in
+/// `unknowns`.
 const MAX_CLOSING_BOUNDS: usize = 10;
 
 /// How the duel ended.
@@ -427,6 +429,15 @@ impl Duel<'_> {
         let core = self.core(Side::Prover);
         let target = &self.target;
         let frames = settled.board.take_unposted_frames(Side::Refuter);
+        if let Some(dropped) = frames
+            .len()
+            .checked_sub(MAX_CLOSING_BOUNDS)
+            .filter(|n| *n > 0)
+        {
+            unknowns.push(format!(
+                "{dropped} more frame(s) searched to the end were not recorded as bounds (at most {MAX_CLOSING_BOUNDS} per duel)"
+            ));
+        }
         for frame in frames.into_iter().take(MAX_CLOSING_BOUNDS) {
             let recorded = core
                 .record(

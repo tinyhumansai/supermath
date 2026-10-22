@@ -335,6 +335,39 @@ async fn arxiv_urls_are_sent_to_lit_get_paper() {
 }
 
 #[tokio::test]
+async fn a_redirect_to_arxiv_is_refused_like_a_direct_arxiv_url() {
+    // Port 1 on the redirect targets: if the refusal ever regresses, the
+    // fetch fails locally instead of reading arXiv.
+    let stub = site(None, |request| match request.path.as_str() {
+        "/to-paper" => {
+            Response::status(302).with_header("location", "http://arxiv.org:1/abs/1908.08483v2")
+        }
+        "/to-listing" => {
+            Response::status(301).with_header("location", "http://export.arxiv.org:1/list/math/new")
+        }
+        _ => Response::status(404),
+    })
+    .await;
+    let gemini = Stub::start(|_| Response::status(404)).await;
+    let direct = toolkit(config(&gemini))
+        .read()
+        .call(&ctx(), json!({"url": "https://arxiv.org/abs/1908.08483v2"}))
+        .await;
+
+    let paper = read(&stub, "/to-paper").await;
+    assert_eq!(paper.code(), Some(ErrorCode::InvalidInput), "{paper:?}");
+    assert_eq!(paper.next, [r#"lit_get_paper {"arxiv_id": "1908.08483"}"#]);
+    assert_eq!(
+        paper.error.unwrap().message,
+        direct.error.unwrap().message,
+        "the same refusal as a direct arXiv url"
+    );
+    let listing = read(&stub, "/to-listing").await;
+    assert_eq!(listing.code(), Some(ErrorCode::InvalidInput), "{listing:?}");
+    assert_eq!(listing.next, Vec::<String>::new());
+}
+
+#[tokio::test]
 async fn bad_arguments_and_the_daily_cap() {
     let gemini = Stub::start(|_| Response::status(404)).await;
     let mut cfg = config(&gemini);

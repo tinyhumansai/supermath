@@ -6,8 +6,9 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 use serde::Deserialize;
 use serde_json::{Value, json};
+use supermath_files::ProjectPath;
 use supermath_tool::{
-    CallContext, Envelope, ErrorCode, Exposure, Kind, MAX_LIMIT, Permission, Tool, clamp_limit,
+    CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool, clamp_limit,
 };
 
 use super::Shared;
@@ -39,8 +40,8 @@ struct Args {
 }
 
 /// One file's row in the build report.
-fn row(file: &ProjectFile, verdict: &str, detail: &Value) -> Value {
-    let mut row = json!({"path": file.path.as_str(), "verdict": verdict});
+fn row(path: &ProjectPath, verdict: &str, detail: &Value) -> Value {
+    let mut row = json!({"path": path.as_str(), "verdict": verdict});
     if let (Some(map), Some(extra)) = (row.as_object_mut(), detail.as_object()) {
         map.extend(extra.clone());
     }
@@ -76,7 +77,7 @@ impl LeanBuild {
             Err(other) => {
                 return Ok((
                     3,
-                    row(file, "unknown", &json!({"reason": other.to_string()})),
+                    row(&file.path, "unknown", &json!({"reason": other.to_string()})),
                 ));
             }
         };
@@ -106,17 +107,17 @@ impl LeanBuild {
         });
         Ok((
             bucket(report.verdict),
-            row(file, report.verdict.as_str(), &detail),
+            row(&file.path, report.verdict.as_str(), &detail),
         ))
     }
 
     async fn run(&self, ctx: &CallContext, args: Value) -> Result<Envelope> {
         let args: Args = parse_args(args)?;
         let offset = parse_cursor(args.cursor.as_deref())?;
-        let limit =
-            clamp_limit(Some(args.limit.unwrap_or(MAX_LIMIT as u64))).min(ctx.budget.rows.max(1));
+        let limit = clamp_limit(args.limit).min(ctx.budget.rows.max(1));
         let slug = ctx.project.slug();
-        let files = lean_files(&self.shared.workspace, slug)?;
+        let found = lean_files(&self.shared.workspace, slug)?;
+        let files = found.ordered;
         let budget = Duration::from_millis(self.shared.config.build_timeout_ms);
         let started = Instant::now();
 
@@ -129,7 +130,7 @@ impl LeanBuild {
                 skipped += 1;
                 counts[3] += 1;
                 rows.push(row(
-                    file,
+                    &file.path,
                     "unknown",
                     &json!({"reason": "the build ran out of time before this file"}),
                 ));
@@ -143,6 +144,14 @@ impl LeanBuild {
             let (counter, built) = self.check_row(slug, file, timeout_ms).await?;
             counts[counter] += 1;
             rows.push(built);
+        }
+        for file in &found.unreadable {
+            counts[3] += 1;
+            rows.push(row(
+                &file.path,
+                "unknown",
+                &json!({"reason": format!("the file could not be read: {}", file.reason)}),
+            ));
         }
 
         let total = rows.len();
@@ -169,6 +178,14 @@ impl LeanBuild {
             format!("{total} Lean file(s) in dependency order"),
             &[],
         ));
+        if !found.unreadable.is_empty() {
+            let paths: Vec<&str> = found.unreadable.iter().map(|f| f.path.as_str()).collect();
+            envelope = envelope.with_unknown(format!(
+                "{} Lean file(s) could not be read and were not checked: {}",
+                paths.len(),
+                paths.join(", ")
+            ));
+        }
         if skipped > 0 {
             envelope = envelope.with_unknown(
                 "the build budget ran out; call again to continue with cached verdicts",

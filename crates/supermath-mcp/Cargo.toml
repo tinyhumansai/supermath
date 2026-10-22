@@ -40,7 +40,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # The MCP server SDK. No macros: tools are dynamic, so the handler is written
 # by hand. `transport-io` is the stdio transport `serve` speaks.
-rmcp = { version = "3", default-features = false, features = ["server", "transport-io"] }
+rmcp = { workspace = true, features = ["server", "transport-io"] }
 
 [dev-dependencies]
 # A scratch projects directory per test.
@@ -51,7 +51,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-
 supermath-ledger = { path = "../supermath-ledger", features = ["test-support"] }
 # The MCP client the serve tests handshake with, in-process and over a
 # spawned child's stdio.
-rmcp = { version = "3", default-features = false, features = ["server", "client", "transport-io", "transport-child-process"] }
+rmcp = { workspace = true, features = ["server", "client", "transport-io", "transport-child-process"] }
 
 [lints]
 workspace = true

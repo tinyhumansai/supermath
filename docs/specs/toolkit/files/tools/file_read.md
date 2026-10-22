@@ -22,5 +22,6 @@
 ## Errors
 
 `INVALID_INPUT` for a bad path, range, or cursor; `NOT_FOUND` for a missing
-file; `BUDGET_EXCEEDED` if the reply would pass the call's byte budget;
+file; `BUDGET_EXCEEDED` if the reply (lines or outline) would pass the
+call's byte budget, or the file is over the 1 MB cap;
 `BACKEND_UNAVAILABLE` when the workspace disk fails.

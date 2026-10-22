@@ -67,7 +67,9 @@ fn source_schema() -> Value {
         "oneOf": [
             {"type": "object", "additionalProperties": false, "required": ["arxiv"],
              "properties": {"arxiv": {"type": "object", "additionalProperties": false,
+                "description": "A paper and a locator in it: exactly one of label or section.",
                 "required": ["id", "version"],
+                "oneOf": [{"required": ["label"]}, {"required": ["section"]}],
                 "properties": {"id": string, "version": string, "label": string, "section": string}}}},
             {"type": "object", "additionalProperties": false, "required": ["lean"],
              "properties": {"lean": {"type": "object", "additionalProperties": false,

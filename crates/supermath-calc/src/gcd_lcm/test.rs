@@ -58,6 +58,8 @@ async fn refuses_missing_negative_fractional_and_oversized_arguments() {
         json!({ "a": 3, "b": 1.5 }),
         json!({ "a": "x", "b": 3 }),
         json!({ "a": 3, "b": "18446744073709551616" }),
+        serde_json::from_str(r#"{ "a": 99999999999999999999999, "b": 3 }"#).unwrap(),
+        serde_json::from_str(r#"{ "a": 3, "b": 18446744073709551616 }"#).unwrap(),
     ] {
         assert_eq!(
             call(args.clone()).await.code(),

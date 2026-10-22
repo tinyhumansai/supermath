@@ -73,8 +73,13 @@ what it verified.
 `INVALID_INPUT` for a bad path or source; `NOT_FOUND` for an unknown paper,
 label, or claim (checked before the turn; the label is looked up by exact
 match in every page of
-[`lit_extract_statements`](../../literature/tools/lit_extract_statements.md)); `CONFLICT` when a file the child
+[`lit_extract_statements`](../../literature/tools/lit_extract_statements.md); when that list
+cannot be read to the end the turn still runs and `unknowns` says the label
+was not verified; a registry without `lit_extract_statements` skips the
+check); `CONFLICT` when a file the child
 wrote has a different digest after the turn than its last write reported,
 that is, another writer changed it; `FORBIDDEN` for a call in another project
-than the one the tool serves. A turn that runs out of budget is
+than the one the tool serves; `BUDGET_EXCEEDED` when the project's budget
+cannot admit a turn; `BACKEND_UNAVAILABLE` when a primitive the tool needs
+before the turn fails, or the child's model backend fails. A turn that runs out of budget is
 `outcome: "unknown"`, with the files it wrote and their verdicts.

@@ -99,7 +99,7 @@ any instruction a page carried, is dropped.
 | `BACKEND_UNAVAILABLE` | no `GEMINI_API_KEY`, or the Gemini API is down |
 | `RATE_LIMITED` | Gemini returned 429; `retry_after_ms` is set |
 | `BUDGET_EXCEEDED` | the project's daily web cap is spent |
-| `TIMEOUT` | no answer in 30 s; the outcome is unknown |
+| `TIMEOUT` | no answer in 30 s; an `error` envelope, not `unknown` |
 
 A safety block from Gemini is `outcome: "unknown"` with the block reason in
 `unknowns`, not an error.

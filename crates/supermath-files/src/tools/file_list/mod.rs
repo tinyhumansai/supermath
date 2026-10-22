@@ -70,8 +70,9 @@ impl FileList {
             .cursor
             .as_deref()
             .map(|c| {
-                c.parse::<usize>()
-                    .map_err(|_| wire::bad("cursor is not one this tool returned"))
+                c.parse::<usize>().map_err(|_| {
+                    wire::bad("cursor must be a row offset this tool returned, such as \"50\"")
+                })
             })
             .transpose()?
             .unwrap_or(0);
@@ -89,12 +90,17 @@ impl FileList {
         let total = matching.len();
 
         let mut rows = Vec::new();
+        let mut skipped = Vec::new();
         for path in matching.iter().skip(offset).take(limit) {
             let file = match self.workspace.read(slug, path) {
                 Ok(file) => file,
                 Err(e @ Error::Io { .. }) => return Err(wire::failure(&e)),
-                // Gone, oversized, or not text since it was listed.
-                Err(_) => continue,
+                // Gone, oversized, or not text since it was listed: `total`
+                // still counts it, so the reply names it.
+                Err(e) => {
+                    skipped.push(format!("{path} was skipped: {e}"));
+                    continue;
+                }
             };
             let last = self
                 .observers
@@ -111,7 +117,10 @@ impl FileList {
                 "stale": last.as_ref().map(|l| l.sha256 != file.sha256),
             }));
         }
-        let envelope = Envelope::ok(json!({"files": rows, "total": total}));
+        let envelope = skipped.into_iter().fold(
+            Envelope::ok(json!({"files": rows, "total": total})),
+            Envelope::with_unknown,
+        );
         let next = offset + limit;
         Ok(if next < total {
             envelope.with_cursor(next.to_string())

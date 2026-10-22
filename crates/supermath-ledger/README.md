@@ -22,12 +22,14 @@ is [`docs/specs/toolkit/ledger/`](../../docs/specs/toolkit/ledger/README.md).
 | Source | Earns |
 | --- | --- |
 | `supplied`, `web` | `asserted` |
-| `arxiv` | `cited` |
+| `arxiv`, with a `version` and exactly one of `label` or `section` | `cited` |
 | `tool` (`calc_*`, `py_*`, `lean_*`), logged by this process for this project, `ok`, with a `frame` | `checked` |
 | `lean`, and `LeanEvidence` says clean with no `sorry`, no debt, axioms in the allowlist | `formalised` |
 
 No tool argument sets a status; `formalised` and `collected` are `FORBIDDEN`
-from a caller. A `formalised` claim is re-verified on every read, so a changed
+from a caller. Supplied evidence (`"status": "asserted"`,
+`"evidence_origin": "supplied"`, or a supplied `CallContext`) earns
+`asserted` from every source, `arxiv` included. A `formalised` claim is re-verified on every read, so a changed
 file stands as `asserted`, and a claim is no stronger than anything it `uses`.
 
 ## Design constraints
@@ -38,8 +40,10 @@ file stands as `asserted`, and a claim is no stronger than anything it `uses`.
 - **Entries are never edited.** A change writes the next revision; readers
   take the highest.
 - **Reads filter client-side.** `CortexDB` recall is by similarity, so the
-  ledger recalls a window of recent notes (`DEFAULT_WINDOW`) and filters
-  itself. A ledger larger than the window can hide old entries from a list.
+  ledger recalls a window of notes (`DEFAULT_WINDOW`) ranked by similarity
+  and filters itself. A read that fills the window may miss entries, which
+  `ledger_claims` and `ledger_bound` say in `unknowns`. Nothing records when
+  an entry was written, so reads come in recall order, not time order.
 - **The scope comes from the host.** Tools read the project from
   `CallContext`; no argument names a scope.
 

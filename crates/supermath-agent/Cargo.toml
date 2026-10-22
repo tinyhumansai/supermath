@@ -50,6 +50,9 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time", "ne
 [dev-dependencies]
 # Temporary problem files for the loading tests.
 tempfile = { workspace = true }
+# The MCP client the parity test calls `supermath-mcp`'s server with, over an
+# in-memory pipe, to compare its envelopes with the host tool's.
+rmcp = { workspace = true, features = ["client", "transport-io"] }
 
 [lints]
 workspace = true

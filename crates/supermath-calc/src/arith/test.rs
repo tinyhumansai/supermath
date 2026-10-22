@@ -66,3 +66,30 @@ fn integer_flags_digit_strings_too_large_for_u64() {
         Err(Bad::TooLarge)
     );
 }
+
+#[test]
+fn integer_flags_json_numbers_too_large_for_u64() {
+    // Past u64, serde_json reads a bare number as an f64; it is still an
+    // integer, just too large, exactly as the string form is.
+    for text in [
+        r#"{"n": 99999999999999999999999}"#,
+        r#"{"n": 18446744073709551616}"#,
+        r#"{"n": 1e300}"#,
+    ] {
+        let arguments: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(integer(&arguments, "n"), Err(Bad::TooLarge), "{text}");
+    }
+}
+
+#[test]
+fn integer_keeps_fractional_and_negative_floats_not_integers() {
+    for text in [
+        r#"{"n": 2.5}"#,
+        r#"{"n": 4.0}"#,
+        r#"{"n": -99999999999999999999999}"#,
+        r#"{"n": 1e19}"#,
+    ] {
+        let arguments: serde_json::Value = serde_json::from_str(text).unwrap();
+        assert_eq!(integer(&arguments, "n"), Err(Bad::NotInteger), "{text}");
+    }
+}

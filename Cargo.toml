@@ -73,6 +73,10 @@ hex = "0.4"
 tempfile = "3"
 # Parses and validates source URLs in the literature and web crates.
 url = "2"
+# The MCP SDK: `supermath-mcp` serves the toolkit with it, and the runner's
+# parity test talks to that server as a client. No default features; each
+# crate enables the roles and transports it uses.
+rmcp = { version = "3", default-features = false }
 
 # OpenHuman's own patch table, with every path re-rooted at `vendor/openhuman`.
 # Without it the graph holds two `tinytools` (so MCP tools fail the harness's

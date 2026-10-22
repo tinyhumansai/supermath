@@ -71,5 +71,5 @@ takes Python source: the file is written first with
 | --- | --- |
 | `INVALID_INPUT` | a path outside `python/work/`, no such entry point, arguments that are not a JSON object |
 | `NOT_FOUND` | the file does not exist |
-| `BUDGET_EXCEEDED` | a timeout over the cap, or the project's compute budget is spent |
+| `BUDGET_EXCEEDED` | a timeout over the cap or over the call's wall-time budget, or that budget is already spent (no wall time left), with or without `timeout_s`; refused before the service is called |
 | `BACKEND_UNAVAILABLE` | `PYTHON_URL` is unset, the Python service is down, answered something unexpected, or ran a different version of the file than the workspace holds |

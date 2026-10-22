@@ -17,6 +17,11 @@ pub enum Error {
         value: String,
     },
 
+    /// The reviewer was set to run on the formalizer's model, so the model
+    /// that wrote a statement would judge it.
+    #[error("the reviewer must not run on the formalizer's model `{0}`")]
+    ReviewerIsFormalizer(String),
+
     /// `OpenHuman` refused to build a child agent.
     #[error("openhuman refused child `{id}`: {detail}")]
     Agent {

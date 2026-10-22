@@ -27,7 +27,10 @@
   its own timeout (10 s by default).
 - **It does not change the file.** A tactic that closes the goal comes with
   a ready [`file_edit`](../../files/tools/file_edit.md) call in `next`, replacing the `sorry`
-  with it.
+  with a tactic: `exact <term>` when `exact?` found a term, otherwise the
+  tactic as tried. (The `sorry` sits in a `by` block, so a bare term would
+  not elaborate.) Only an `exact` suggestion yields a `term`; another
+  tactic's `Try this:` suggestion, such as `simp?`'s, is not reported.
 
 ## Errors
 
@@ -40,5 +43,6 @@ the service) or the tactic list is empty, over 12, or has a blank or
 `BACKEND_UNAVAILABLE` as for `lean_check`.
 
 When a closing tactic is found, `next` holds the `file_edit` call. It is
-omitted, with a note in `unknowns`, when the line holding the `sorry` is not
-unique in the file (an edit's `old` must occur exactly once).
+omitted, with a note in `unknowns` naming the reason, when the `sorry`'s line
+is past the end of the file, when that line holds no `sorry`, or when the
+line is not unique in the file (an edit's `old` must occur exactly once).

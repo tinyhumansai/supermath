@@ -13,24 +13,46 @@ pub(super) struct ProjectFile {
     pub(super) text: String,
 }
 
-/// Every readable Lean file of project `slug`, each after the project modules
-/// it imports. Files that cannot be read (too large, not UTF-8) are skipped:
-/// they cannot be checked either. An import cycle is broken at the point it is
-/// found; Lean itself will report it.
-pub(super) fn lean_files(workspace: &Workspace, slug: &str) -> Result<Vec<ProjectFile>> {
+/// A Lean file the workspace lists but cannot read, and why.
+#[derive(Debug, Clone)]
+pub(super) struct Unreadable {
+    pub(super) path: ProjectPath,
+    pub(super) reason: String,
+}
+
+/// The project's Lean files: the readable ones in dependency order, and the
+/// ones that could not be read (too large, not UTF-8), which cannot be
+/// checked either and are reported rather than dropped.
+#[derive(Debug, Clone, Default)]
+pub(super) struct LeanFiles {
+    pub(super) ordered: Vec<ProjectFile>,
+    pub(super) unreadable: Vec<Unreadable>,
+}
+
+/// Every Lean file of project `slug`, each readable one after the project
+/// modules it imports. An import cycle is broken at the point it is found;
+/// Lean itself will report it.
+pub(super) fn lean_files(workspace: &Workspace, slug: &str) -> Result<LeanFiles> {
     let mut files: BTreeMap<String, ProjectFile> = BTreeMap::new();
+    let mut unreadable = Vec::new();
     for path in workspace.list(slug)? {
         if path.language() != Language::Lean {
             continue;
         }
-        if let Ok(file) = workspace.read(slug, &path) {
-            files.insert(
-                path.module(),
-                ProjectFile {
-                    path,
-                    text: file.text,
-                },
-            );
+        match workspace.read(slug, &path) {
+            Ok(file) => {
+                files.insert(
+                    path.module(),
+                    ProjectFile {
+                        path,
+                        text: file.text,
+                    },
+                );
+            }
+            Err(why) => unreadable.push(Unreadable {
+                path,
+                reason: why.to_string(),
+            }),
         }
     }
     let mut ordered = Vec::with_capacity(files.len());
@@ -38,7 +60,10 @@ pub(super) fn lean_files(workspace: &Workspace, slug: &str) -> Result<Vec<Projec
     for module in files.keys() {
         visit(module, &files, &mut seen, &mut ordered);
     }
-    Ok(ordered)
+    Ok(LeanFiles {
+        ordered,
+        unreadable,
+    })
 }
 
 fn visit(

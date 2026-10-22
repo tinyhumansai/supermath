@@ -5,6 +5,7 @@
 //! and cited by path and digest. The name is derived from the content, so
 //! finding the same witness twice writes the same file once.
 
+use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 use crate::frame::Frame;
@@ -12,15 +13,34 @@ use crate::frame::Frame;
 /// The source of a witness file for `predicate` in `module`.
 ///
 /// `witness_json` is the witness as lossless JSON text from the service (a
-/// big integer stays a number). A product frame's witness is rebuilt as a
-/// tuple, because the predicate takes one.
+/// big integer stays a number). JSON has no tuples, so every place the
+/// service reports in `witness_tuples` (a path of indices and keys; `[]` is
+/// the witness itself) is rebuilt as a tuple, and so is a product frame's
+/// witness: `check()` must call the predicate on what the search saw.
 #[must_use]
-pub(crate) fn render(module: &str, predicate: &str, witness_json: &str, frame: &Frame) -> String {
-    let literal = witness_json.replace('\\', "\\\\").replace('"', "\\\"");
-    let load = if frame.yields_tuples() {
-        format!("tuple(json.loads(\"{literal}\"))")
-    } else {
-        format!("json.loads(\"{literal}\")")
+pub(crate) fn render(
+    module: &str,
+    predicate: &str,
+    witness_json: &str,
+    witness_tuples: &[Value],
+    frame: &Frame,
+) -> String {
+    let root = Value::Array(Vec::new());
+    let mut paths = witness_tuples.to_vec();
+    if frame.yields_tuples() && !paths.contains(&root) {
+        paths.push(root.clone());
+    }
+    let loaded = format!("json.loads(\"{}\")", python_string(witness_json));
+    let (helper, load) = match paths.as_slice() {
+        [] => ("", loaded),
+        [only] if *only == root => ("", format!("tuple({loaded})")),
+        _ => {
+            let paths = python_string(&Value::Array(paths).to_string());
+            (
+                WITH_TUPLES,
+                format!("_with_tuples({loaded}, json.loads(\"{paths}\"))"),
+            )
+        }
     };
     format!(
         "\"\"\"A counterexample found by py_search_counterexample (generated; do not edit).\n\
@@ -31,6 +51,7 @@ pub(crate) fn render(module: &str, predicate: &str, witness_json: &str, frame: &
          import json\n\
          \n\
          from {module} import {predicate}\n\
+         {helper}\
          \n\
          WITNESS = {load}\n\
          \n\
@@ -40,6 +61,27 @@ pub(crate) fn render(module: &str, predicate: &str, witness_json: &str, frame: &
              return {{\"witness\": WITNESS, \"predicate_holds\": {predicate}(WITNESS)}}\n",
         frame = frame.describe(),
     )
+}
+
+/// The helper a witness file defines when tuples sit below its root.
+/// Deeper paths go first, so each parent is still a list when its child is
+/// replaced, and the root, if listed, goes last.
+const WITH_TUPLES: &str = "\n\n\
+def _with_tuples(value, paths):\n    \
+\"\"\"Rebuilds the tuples the search saw at `paths`; JSON has only lists.\"\"\"\n    \
+for path in sorted(paths, key=len, reverse=True):\n        \
+if not path:\n            \
+value = tuple(value)\n            \
+continue\n        \
+parent = value\n        \
+for key in path[:-1]:\n            \
+parent = parent[key]\n        \
+parent[path[-1]] = tuple(parent[path[-1]])\n    \
+return value\n\n";
+
+/// `text` escaped for a double-quoted Python string literal.
+fn python_string(text: &str) -> String {
+    text.replace('\\', "\\\\").replace('"', "\\\"")
 }
 
 /// The project-relative path of the witness file for `content`:

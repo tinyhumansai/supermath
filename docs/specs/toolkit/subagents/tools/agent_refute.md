@@ -48,6 +48,10 @@ tries to prove the statement.
   the ledger earns `checked` on that frame only (never `formalised`). A
   search cut short (a limit, a timeout, a crash in the predicate) ends
   `unknown`, states no finished frame, and is not recorded.
+- **Caps:** one call records at most 5 Python leads and at most 5 frames,
+  which bounds its ledger writes. The caps count only searches that gave a
+  witness or a finished frame; a search that gave neither uses none of
+  them. Leads and frames beyond a cap are counted in `unknowns`.
 - **Passed through, as a `lead`:** when a counterexample is confirmed, the
   child's proposed nearest repaired statement (its `REPAIRED:` line, at most
   80 words, recorded as a `lead` and returned as untrusted prose)
@@ -56,5 +60,9 @@ tries to prove the statement.
 
 ## Errors
 
-`NOT_FOUND` for an unknown claim; `BUDGET_EXCEEDED` when the project's
-budget cannot admit a turn.
+`INVALID_INPUT` for bad arguments or a `budget` out of range; `NOT_FOUND`
+for an unknown claim; `BUDGET_EXCEEDED` when the project's budget cannot
+admit a turn; `FORBIDDEN` for a call from another project than the one the
+tool serves; `BACKEND_UNAVAILABLE` when the ledger cannot be read or the
+child's model backend fails. A turn that runs out of budget is
+`outcome: "unknown"` with the frames and leads it recorded.

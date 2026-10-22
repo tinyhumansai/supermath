@@ -16,13 +16,16 @@ papers from Semantic Scholar, each with its arXiv id when it has one.
 
 - Rows: `{source, paper_id, arxiv_id, doi, title, year, venue, authors (three),
   author_count, citation_count}`; `arxiv_id` has no version and is `null` when
-  Semantic Scholar has none. `limit` defaults to 10 (maximum 50); `cursor` is
-  Semantic Scholar's offset.
+  Semantic Scholar has none (a version Semantic Scholar records, such as
+  `2310.01234v3`, is stripped). `limit` defaults to 10 (maximum 50; a larger
+  value is clamped to 50, not rejected); `cursor` is Semantic Scholar's
+  offset.
 - `SEMANTIC_SCHOLAR_API_KEY` is sent as `x-api-key` when set; without it the
   shared public rate limit applies.
 - `coverage.searched` is `["semantic_scholar"]`. Its graph is incomplete, so
   `unknowns` always says an absent paper may still cite or be cited.
-- `next` suggests `lit_get_paper` on the first row that has an arXiv id.
+- `next` suggests `lit_get_paper` on the first row that has an arXiv id,
+  and is empty when no row has one.
 
 Errors: `INVALID_INPUT`, `NOT_FOUND` (Semantic Scholar does not know the
 paper), `RATE_LIMITED`, `TIMEOUT`, `BACKEND_UNAVAILABLE`.

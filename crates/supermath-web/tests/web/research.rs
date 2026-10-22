@@ -1,9 +1,12 @@
 //! `web_research` against a Gemini stub that answers per facet.
 
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use serde_json::json;
 use supermath_tool::{Budget, ErrorCode, Outcome, Tool};
+use supermath_web::{Clock, WebToolkit};
 
 use crate::support::{Response, assert_no_key, config, ctx, fixture, gemini_stub, toolkit};
 
@@ -254,6 +257,244 @@ async fn the_per_facet_and_total_caps_hold() {
             .len(),
         8
     );
+    assert!(
+        envelope
+            .unknowns
+            .iter()
+            .any(|u| u == "facet status: 4 findings omitted by the limit of 8 per facet"),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+/// A grounded Gemini answer of `sentences`, sentence `i` supported by the
+/// chunks `cites(i)`, over `uris`. The URIs are not redirect hosts, so they
+/// are reported as given and never requested.
+fn grounded_answer(
+    sentences: &[String],
+    uris: &[String],
+    cites: impl Fn(usize) -> Vec<usize>,
+) -> Response {
+    let text = sentences.join(" ");
+    let mut at = 0;
+    let supports: Vec<_> = sentences
+        .iter()
+        .enumerate()
+        .map(|(i, sentence)| {
+            let start = text[at..].find(sentence.as_str()).unwrap() + at;
+            at = start + sentence.len();
+            json!({"segment": {"startIndex": start, "endIndex": at, "text": sentence},
+                   "groundingChunkIndices": cites(i)})
+        })
+        .collect();
+    let chunks: Vec<_> = uris
+        .iter()
+        .map(|uri| json!({"web": {"uri": uri, "title": "t"}}))
+        .collect();
+    Response::json(
+        &json!({"candidates": [{"content": {"parts": [{"text": text}]},
+            "groundingMetadata": {"webSearchQueries": ["q"],
+                "groundingChunks": chunks, "groundingSupports": supports}}]})
+        .to_string(),
+    )
+}
+
+const WORDS: [&str; 8] = [
+    "one", "two", "three", "four", "five", "six", "seven", "eight",
+];
+
+#[tokio::test]
+async fn findings_left_without_a_source_by_the_source_limit_are_counted() {
+    // Eight findings, each citing five distinct pages: forty sources, of
+    // which thirty are kept, so the last two findings lose every source.
+    let sentences: Vec<String> = WORDS
+        .iter()
+        .map(|w| format!("Claim {w} is true."))
+        .collect();
+    let uris: Vec<String> = (0..40)
+        .map(|i| format!("https://example.org/page-{i}"))
+        .collect();
+    let stub =
+        gemini_stub(move |_| grounded_answer(&sentences, &uris, |i| (i * 5..i * 5 + 5).collect()))
+            .await;
+    let envelope = toolkit(config(&stub))
+        .research()
+        .call(&ctx(), json!({"question": "Q", "facets": ["status"]}))
+        .await;
+    assert_eq!(envelope.outcome, Outcome::Ok, "{envelope:?}");
+    assert_eq!(envelope.data["sources"].as_array().unwrap().len(), 30);
+    assert_eq!(
+        envelope.data["facets"]["status"]["findings"]
+            .as_array()
+            .unwrap()
+            .len(),
+        6
+    );
+    assert!(
+        envelope
+            .unknowns
+            .iter()
+            .any(|u| u == "2 findings omitted by the source limit"),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+#[tokio::test]
+async fn a_facet_whose_findings_all_lost_their_sources_says_so() {
+    // `status` cites 32 preprints, `approaches` one blog post; preferring
+    // preprints ranks the blog post past the thirty-source limit.
+    let stub = gemini_stub(|request| {
+        if facet_of(&request.body) == "status" {
+            let sentences: Vec<String> = WORDS
+                .iter()
+                .map(|w| format!("Claim {w} is true."))
+                .collect();
+            let uris: Vec<String> = (0..32)
+                .map(|i| format!("https://arxiv.org/abs/2401.{:05}", i + 1))
+                .collect();
+            grounded_answer(&sentences, &uris, |i| (i * 4..i * 4 + 4).collect())
+        } else {
+            let sentences = vec!["A blog sketches an approach.".to_owned()];
+            let uris = vec!["https://someone.wordpress.com/post".to_owned()];
+            grounded_answer(&sentences, &uris, |_| vec![0])
+        }
+    })
+    .await;
+    let envelope = toolkit(config(&stub))
+        .research()
+        .call(
+            &ctx(),
+            json!({"question": "Q", "facets": ["status", "approaches"], "prefer": ["preprint"]}),
+        )
+        .await;
+    assert_eq!(envelope.outcome, Outcome::Ok, "{envelope:?}");
+    let sources = envelope.data["sources"].as_array().unwrap();
+    assert_eq!(sources.len(), 30);
+    assert!(sources.iter().all(|s| s["class"] == "preprint"));
+    let approaches = &envelope.data["facets"]["approaches"];
+    assert_eq!(approaches["findings"], json!([]));
+    assert_eq!(approaches["note"], "findings omitted by the source limit");
+    assert!(
+        envelope
+            .unknowns
+            .iter()
+            .any(|u| u == "1 finding omitted by the source limit"),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+#[tokio::test]
+async fn the_brief_is_cut_by_whole_findings_to_stay_under_1500_words() {
+    // Five facets of eight sixty-word findings: 2,400 words.
+    let filler = "alpha ".repeat(57);
+    let sentences: Vec<String> = WORDS
+        .iter()
+        .map(|w| format!("Claim {w} {filler}holds."))
+        .collect();
+    assert_eq!(sentences[0].split_whitespace().count(), 60);
+    let uris = vec!["https://example.org/survey".to_owned()];
+    let stub = gemini_stub(move |_| grounded_answer(&sentences, &uris, |_| vec![0])).await;
+    let envelope = toolkit(config(&stub))
+        .research()
+        .call(&ctx(), json!({"question": "Q"}))
+        .await;
+    assert_eq!(envelope.outcome, Outcome::Ok, "{envelope:?}");
+    let facets = envelope.data["facets"].as_object().unwrap();
+    let mut words = 0;
+    for (name, facet) in facets {
+        let findings = facet["findings"].as_array().unwrap();
+        // Cut round by round, so every facet keeps its leading findings.
+        assert_eq!(findings.len(), 5, "{name}");
+        assert!(
+            findings[0]["text"]
+                .as_str()
+                .unwrap()
+                .starts_with("Claim one")
+        );
+        words += findings
+            .iter()
+            .map(|f| f["text"].as_str().unwrap().split_whitespace().count())
+            .sum::<usize>();
+    }
+    assert_eq!(words, 1_500);
+    assert!(
+        envelope
+            .unknowns
+            .iter()
+            .any(|u| u == "15 findings omitted to keep the brief under 1,500 words"),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+#[tokio::test]
+async fn a_facet_cut_whole_by_the_word_limit_says_so() {
+    let stub = gemini_stub(|request| {
+        let words = if facet_of(&request.body) == "status" {
+            1_400
+        } else {
+            200
+        };
+        let sentences = vec![format!("{}end.", "word ".repeat(words - 1))];
+        grounded_answer(&sentences, &["https://example.org/a".to_owned()], |_| {
+            vec![0]
+        })
+    })
+    .await;
+    let envelope = toolkit(config(&stub))
+        .research()
+        .call(
+            &ctx(),
+            json!({"question": "Q", "facets": ["status", "approaches"]}),
+        )
+        .await;
+    let facets = &envelope.data["facets"];
+    assert_eq!(facets["status"]["findings"].as_array().unwrap().len(), 1);
+    assert_eq!(facets["approaches"]["findings"], json!([]));
+    assert_eq!(
+        facets["approaches"]["note"],
+        "findings omitted by the word limit"
+    );
+    assert!(
+        envelope
+            .unknowns
+            .iter()
+            .any(|u| u == "1 finding omitted to keep the brief under 1,500 words"),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+/// A clock tests move by hand.
+#[derive(Debug)]
+struct StepClock(AtomicU64);
+
+impl Clock for StepClock {
+    fn now_secs(&self) -> u64 {
+        self.0.load(Ordering::SeqCst)
+    }
+}
+
+#[tokio::test]
+async fn a_repeated_research_question_is_served_from_the_cache_and_says_how_old_it_is() {
+    let stub = gemini_stub(|r| answer(r, "grounded.json")).await;
+    let dir = tempfile::tempdir().unwrap();
+    let clock = Arc::new(StepClock(AtomicU64::new(1_792_677_780)));
+    let toolkit =
+        WebToolkit::with_clock(config(&stub).with_cache_dir(dir.path()), clock.clone()).unwrap();
+    let tool = toolkit.research();
+    let args = json!({"question": "cached research", "facets": ["status", "approaches"]});
+    let first = tool.call(&ctx(), args.clone()).await;
+    clock.0.fetch_add(90, Ordering::SeqCst);
+    let second = tool.call(&ctx(), args).await;
+    assert!(first.is_ok() && second.is_ok(), "{second:?}");
+    assert_eq!(stub.count("/v1beta"), 2, "the second call sent no request");
+    assert_eq!(first.coverage.as_ref().unwrap().cached_age, None);
+    assert_eq!(second.coverage.as_ref().unwrap().cached_age, Some(90));
+    assert_eq!(first.data, second.data);
+    assert_eq!(second.usage.unwrap().turns, 0);
 }
 
 #[tokio::test]

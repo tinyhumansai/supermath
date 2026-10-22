@@ -2,8 +2,8 @@
 //! and one way to run a turn with accounting.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU32, Ordering};
-use std::time::Instant;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use serde::de::DeserializeOwned;
 use serde_json::Value;
@@ -12,6 +12,21 @@ use supermath_tool::{CallContext, CallLog, Envelope, ErrorCode, Project, ToolReg
 use crate::belt::{Belt, Progress};
 use crate::child::{ChildEnd, ChildRequest, ChildRunner, ChildSpec, TurnControl};
 use crate::limits::{BudgetArg, Limits};
+
+/// Sessions minted by this process so far; with the start time it keeps
+/// every minted session id fresh, even across restarts.
+static SESSIONS: AtomicU64 = AtomicU64::new(0);
+
+/// A new session id for a turn of the child `agent_id`:
+/// `<agent id>-<nanoseconds since the epoch, hex>-<n>`. A fresh id starts a
+/// fresh `OpenHuman` conversation.
+fn mint_session(agent_id: &str) -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_nanos());
+    let n = SESSIONS.fetch_add(1, Ordering::Relaxed) + 1;
+    format!("{agent_id}-{nanos:x}-{n}")
+}
 
 /// An error envelope on the way out of a helper; boxed so `Result` stays small.
 pub(crate) type Refusal = Box<Envelope>;
@@ -180,8 +195,10 @@ impl Agentic {
         belt: Arc<Belt>,
         control: Option<TurnControl>,
     ) -> Result<Turn, Refusal> {
+        let session_id = mint_session(&self.spec.agent_id(&self.shared.project));
         let request = ChildRequest {
             prompt,
+            session_id: session_id.clone(),
             limits,
             belt: Arc::clone(&belt),
             control,
@@ -190,12 +207,13 @@ impl Agentic {
         let outcome = tokio::select! {
             result = tokio::time::timeout(limits.wall(), self.runner.run(request)) => result.ok(),
             () = ctx.cancel.cancelled() => {
-                return Ok(self.turn_from(None, &belt, started, ChildEnd::OutOfBudget("cancelled".into())));
+                return Ok(self.turn_from(None, session_id, &belt, started, ChildEnd::OutOfBudget("cancelled".into())));
             }
         };
         match outcome {
             None => Ok(self.turn_from(
                 None,
+                session_id,
                 &belt,
                 started,
                 ChildEnd::OutOfBudget("wall time".into()),
@@ -212,21 +230,29 @@ impl Agentic {
             }
             Some(Ok(turn)) => {
                 let end = turn.end.clone();
-                Ok(self.turn_from(Some(turn), &belt, started, end))
+                Ok(self.turn_from(Some(turn), session_id, &belt, started, end))
             }
         }
     }
 
+    /// The turn's account: `minted` names its session unless the runner
+    /// reported one of its own.
     fn turn_from(
         &self,
         turn: Option<crate::child::ChildTurn>,
+        minted: String,
         belt: &Arc<Belt>,
         started: Instant,
         end: ChildEnd,
     ) -> Turn {
         let usage = self.usage_of(turn.as_ref(), belt, started);
-        let (reply, session_id, unapplied) =
+        let (reply, reported, unapplied) =
             turn.map_or_else(Default::default, |t| (t.reply, t.session_id, t.unapplied));
+        let session_id = if reported.is_empty() {
+            minted
+        } else {
+            reported
+        };
         Turn {
             reply,
             session_id,

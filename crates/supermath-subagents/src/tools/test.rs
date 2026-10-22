@@ -211,6 +211,8 @@ async fn a_child_that_outlives_its_wall_time_is_unknown_never_failed() {
     .await;
     assert_eq!(answer.outcome, Outcome::Unknown);
     assert!(unknowns(&answer).contains("wall time"), "{answer:?}");
+    let session = answer.data["session_id"].as_str().unwrap();
+    assert!(session.starts_with("supermath-demo-reader-"), "{session}");
     assert_eq!(answer.usage.unwrap().tool_calls, 1);
 }
 
@@ -229,6 +231,8 @@ async fn a_cancelled_call_stops_the_child_and_is_unknown() {
         .await;
     assert_eq!(answer.outcome, Outcome::Unknown);
     assert!(unknowns(&answer).contains("cancelled"), "{answer:?}");
+    let session = answer.data["session_id"].as_str().unwrap();
+    assert!(session.starts_with("supermath-demo-reader-"), "{session}");
 }
 
 // ------------------------------------------------------- agent_digest_paper
@@ -365,6 +369,53 @@ async fn an_id_the_ledger_lacks_is_dropped_and_counted_in_unknowns() {
     assert_eq!(answer.outcome, Outcome::Ok);
     assert_eq!(answer.data["count"], 1);
     assert!(unknowns(&answer).contains("1 id(s)"), "{answer:?}");
+}
+
+/// A reader that records `n` facts and then sees the ledger stop answering.
+fn reader_then_outage(world: &World, n: usize) -> Arc<ScriptRunner> {
+    let world = world.clone();
+    ScriptRunner::new(script(move |_, belt| {
+        let world = world.clone();
+        async move {
+            for statement in ["a", "b", "c"].into_iter().take(n) {
+                belt.call(
+                    "ledger_record",
+                    json!({"kind": "fact", "statement": statement, "source": arxiv_source()}),
+                )
+                .await;
+            }
+            world.override_tool(
+                "ledger_claims",
+                Envelope::error(ErrorCode::BackendUnavailable, "cortex is down"),
+            );
+            Ok(turn("ok"))
+        }
+    }))
+}
+
+#[tokio::test]
+async fn a_ledger_that_cannot_be_read_back_is_unknown_never_missing() {
+    let world = World::new();
+    world.add_paper("2012.04125", &[]);
+    let runner = reader_then_outage(&world, 2);
+    let built = subagents(&world.registry(), &runner);
+    let answer = call(
+        &built,
+        "agent_digest_paper",
+        json!({"arxiv_id": "2012.04125"}),
+    )
+    .await;
+    assert_eq!(answer.outcome, Outcome::Unknown, "{answer:?}");
+    assert_eq!(answer.data["count"], 0);
+    assert_eq!(answer.data["unverified"], json!(["clm_1", "clm_2"]));
+    let said = unknowns(&answer);
+    assert!(!said.contains("not in the ledger"), "{said}");
+    assert!(
+        said.contains("2 id(s) could not be read back from the ledger")
+            && said.contains("cortex is down"),
+        "{said}"
+    );
+    assert_eq!(answer.next, Vec::<String>::new());
 }
 
 #[tokio::test]
@@ -742,6 +793,33 @@ async fn the_label_is_not_checked_when_the_registry_cannot_list_statements() {
     )
     .await;
     assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
+}
+
+#[tokio::test]
+async fn a_label_the_statement_list_cannot_confirm_is_named_as_unverified() {
+    for broken in [
+        Envelope::error(ErrorCode::BackendUnavailable, "arXiv is down"),
+        Envelope::ok(json!({"total": 3})),
+    ] {
+        let world = World::new();
+        world.add_paper("2012.04125", &["thm:main"]);
+        world.override_tool("lit_extract_statements", broken);
+        let runner = formalizer(&world, SORRY_FILE, None);
+        let built = subagents(&world.registry(), &runner);
+        let answer = call(
+            &built,
+            "agent_formalize",
+            json!({"source": {"arxiv_id": "2012.04125", "label": "thm:main"}, "path": PATH}),
+        )
+        .await;
+        assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
+        assert!(
+            unknowns(&answer).contains(
+                "the label thm:main was not verified: the statement list of arXiv:2012.04125 could not be read"
+            ),
+            "{answer:?}"
+        );
+    }
 }
 
 #[tokio::test]
@@ -1405,6 +1483,56 @@ async fn nothing_found_records_every_frame_searched_as_a_bound() {
 }
 
 #[tokio::test]
+async fn the_record_cap_counts_only_witnesses_and_frames_and_reports_what_it_dropped() {
+    let world = World::new();
+    let claim = world.add_claim(json!({"kind": "result", "statement": "P holds for every n"}));
+    let script_world = world.clone();
+    let runner = ScriptRunner::new(script(move |_, belt| {
+        let world = script_world.clone();
+        async move {
+            let py = || {
+                json!({"path": "python/work/search.py", "predicate": "p",
+                       "frame": {"kind": "range", "from": 0, "to": 100}})
+            };
+            let lean = || {
+                json!({"path": "lean/Supermath/Search.lean", "predicate": "P",
+                       "range": {"from": 0, "to": 100}})
+            };
+            // Three searches that found nothing and stated no frame come
+            // first; they must not use up the cap.
+            for _ in 0..3 {
+                belt.call("py_search_counterexample", py()).await;
+            }
+            world.override_tool("py_search_counterexample", python_found(7));
+            for _ in 0..6 {
+                belt.call("py_search_counterexample", py()).await;
+            }
+            world.override_tool("lean_search_counterexample", lean_exhausted(100));
+            for _ in 0..7 {
+                belt.call("lean_search_counterexample", lean()).await;
+            }
+            Ok(turn("nothing confirmed"))
+        }
+    }));
+    let built = subagents(&world.registry(), &runner);
+    let answer = call(&built, "agent_refute", json!({"claim_id": claim})).await;
+    assert_eq!(answer.outcome, Outcome::Unknown, "{answer:?}");
+    assert_eq!(answer.data["leads"].as_array().unwrap().len(), 5);
+    assert_eq!(answer.data["frames"].as_array().unwrap().len(), 5);
+    let said = unknowns(&answer);
+    assert!(
+        said.contains("1 more Python witness(es) were not recorded as leads (at most 5 per call)"),
+        "{said}"
+    );
+    assert!(
+        said.contains(
+            "2 more frame(s) searched to the end were not recorded as bounds (at most 5 per call)"
+        ),
+        "{said}"
+    );
+}
+
+#[tokio::test]
 async fn a_search_that_stopped_early_records_no_frame() {
     let world = World::new();
     let claim = world.add_claim(json!({"kind": "result", "statement": "s"}));
@@ -1668,4 +1796,31 @@ async fn agent_refute_keeps_the_tool_contract() {
     contract::check(tool(&built, "agent_refute").as_ref(), "agent", &fixtures)
         .await
         .unwrap();
+}
+
+#[tokio::test]
+async fn the_fake_ledger_applies_the_real_arxiv_rules() {
+    let world = World::new();
+    let ledger = world.registry();
+    let record = |source: Value, extra: Value| {
+        let ledger = ledger.clone();
+        async move {
+            let mut args = json!({"kind": "fact", "statement": "Thm 2", "source": source});
+            if let (Some(args), Some(extra)) = (args.as_object_mut(), extra.as_object()) {
+                args.extend(extra.clone());
+            }
+            ledger
+                .get("ledger_record")
+                .unwrap()
+                .call(&ctx(), args)
+                .await
+        }
+    };
+    let no_locator = json!({"arxiv": {"id": "2012.04125", "version": "v2"}});
+    let refused = record(no_locator, json!({})).await;
+    assert_eq!(refused.error.map(|e| e.code), Some(ErrorCode::InvalidInput));
+    let cited = record(arxiv_source(), json!({})).await;
+    assert_eq!(cited.data["status"], "cited", "{cited:?}");
+    let pinned = record(arxiv_source(), json!({"status": "asserted"})).await;
+    assert_eq!(pinned.data["status"], "asserted", "{pinned:?}");
 }

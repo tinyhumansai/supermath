@@ -28,3 +28,6 @@ worktrees/*
 # OpenHuman state: the local RPC token and the default harness workspace
 core.token
 .supermath/
+
+# Python bytecode from running the service tests locally.
+__pycache__/

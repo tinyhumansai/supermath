@@ -55,8 +55,8 @@ impl Tool for LedgerClaims {
 
     fn description(&self) -> &'static str {
         "Given filters (kind, minimum status, alignment, or a text query), returns this \
-         project's ledger entries newest first; given an id, returns that claim in full \
-         with its effective status."
+         project's ledger entries in recall order, closest to the query first; given an \
+         id, returns that claim in full with its effective status."
     }
 
     fn schema(&self) -> Value {
@@ -105,6 +105,12 @@ impl Tool for LedgerClaims {
             Ok(args) => args,
             Err(error) => return failure(&error),
         };
+        // Arguments are checked before the budget, so a malformed call is
+        // `INVALID_INPUT` whatever budget it arrives with.
+        let start = match start_of(&args) {
+            Ok(start) => start,
+            Err(error) => return failure(&error),
+        };
         let limit = clamp_limit(args.limit);
         let demand = Demand {
             rows: limit,
@@ -113,23 +119,33 @@ impl Tool for LedgerClaims {
         if let Err(refusal) = ctx.budget.admit(&demand) {
             return refusal.into();
         }
-        let result = if let Some(id) = &args.id {
-            if args.kind.is_some()
-                || args.min_status.is_some()
-                || args.alignment.is_some()
-                || args.query.is_some()
-                || args.cursor.is_some()
-            {
-                Err(Error::InvalidArguments(
-                    "`id` cannot be combined with filters".into(),
-                ))
-            } else {
-                self.one(ctx, id).await
-            }
-        } else {
-            self.list(ctx, &args, limit).await
+        let result = match &args.id {
+            Some(id) => self.one(ctx, id).await,
+            None => self.list(ctx, &args, start, limit).await,
         };
         result.unwrap_or_else(|error| failure(&error))
+    }
+}
+
+/// Where a list starts, after checking that `id` comes alone and that
+/// `cursor` is one this tool issued.
+fn start_of(args: &Args) -> Result<usize, Error> {
+    if args.id.is_some()
+        && (args.kind.is_some()
+            || args.min_status.is_some()
+            || args.alignment.is_some()
+            || args.query.is_some()
+            || args.cursor.is_some())
+    {
+        return Err(Error::InvalidArguments(
+            "`id` cannot be combined with filters".into(),
+        ));
+    }
+    match args.cursor.as_deref() {
+        None => Ok(0),
+        Some(cursor) => cursor
+            .parse::<usize>()
+            .map_err(|_| Error::InvalidArguments("`cursor` is not one this tool issued".into())),
     }
 }
 
@@ -141,11 +157,7 @@ impl LedgerClaims {
             .get(slug, id)
             .await?
             .ok_or_else(|| Error::ClaimNotFound(id.to_string()))?;
-        let effective = self
-            .ledger
-            .effective(slug, std::slice::from_ref(&entry))
-            .await?
-            .remove(0);
+        let effective = self.ledger.effective_of(slug, &entry).await?;
         let mut envelope = Envelope::ok(json!({
             "claim": entry_json(&entry),
             "effective_status": effective.status,
@@ -157,22 +169,23 @@ impl LedgerClaims {
         Ok(envelope)
     }
 
-    async fn list(&self, ctx: &CallContext, args: &Args, limit: usize) -> Result<Envelope, Error> {
+    async fn list(
+        &self,
+        ctx: &CallContext,
+        args: &Args,
+        start: usize,
+        limit: usize,
+    ) -> Result<Envelope, Error> {
         let slug = ctx.project.slug();
-        let start = match args.cursor.as_deref() {
-            None => 0,
-            Some(cursor) => cursor.parse::<usize>().map_err(|_| {
-                Error::InvalidArguments("`cursor` is not one this tool issued".into())
-            })?,
-        };
         let query = args.query.as_deref().map_or(DEFAULT_QUERY, str::trim);
         let query = if query.is_empty() {
             DEFAULT_QUERY
         } else {
             query
         };
-        let loaded = self.ledger.entries(slug, query).await?;
-        let filtered: Vec<Entry> = loaded
+        let recalled = self.ledger.recall(slug, query).await?;
+        let filtered: Vec<Entry> = recalled
+            .entries
             .iter()
             .filter(|e| args.kind.is_none_or(|k| e.kind == k))
             .filter(|e| args.alignment.is_none_or(|a| e.alignment == a))
@@ -205,11 +218,8 @@ impl LedgerClaims {
         if end < rows.len() {
             envelope = envelope.with_cursor(end.to_string());
         }
-        if loaded.len() as u64 >= self.ledger.window() {
-            envelope = envelope.with_unknown(format!(
-                "the ledger was read through a window of {} recent notes; older entries may be missing",
-                self.ledger.window()
-            ));
+        if recalled.window_full {
+            envelope = envelope.with_unknown(self.ledger.window_note());
         }
         Ok(envelope)
     }

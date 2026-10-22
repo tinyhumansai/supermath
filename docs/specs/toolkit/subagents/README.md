@@ -77,8 +77,10 @@ The formalizer's model is a candidate, to be benchmarked against other
 Surplus models on the [acceptance set](#acceptance-criteria). A child sets
 its model with `AgentSpec::model`, keeping the runtime's Surplus route.
 
-The reviewer runs on a different model from the formalizer by default, so
-the model that wrote a statement is not the one that judges it.
+The reviewer runs on a different model from the formalizer, so the model
+that wrote a statement is not the one that judges it. `Models::from_lookup`
+and `Subagents::new` refuse a configuration that puts both on one model with
+`Error::ReviewerIsFormalizer`.
 
 ### Budgets
 
@@ -105,7 +107,9 @@ The tool reports each child tool call to a `Progress` sink the runner passes
 in (`SubagentsConfig::progress`), so an operator sees `agent_formalize →
 lean_check` without the child's context reaching the parent model. The
 child's transcript stays in its OpenHuman session, and the tool's result
-carries its `session_id`.
+carries its `session_id`. The tool mints that id before the turn starts and
+opens the turn in it, so a turn cut short by wall time or cancellation still
+names its session.
 
 ## Crate
 
@@ -113,8 +117,8 @@ carries its `session_id`.
 | --- | --- |
 | Name | `supermath-subagents` |
 | Depends on | `supermath-tool`, `openhuman-embed` |
-| Public API | `Subagents::new(&Runtime, &ToolRegistry, Arc<dyn CallLog>, &Project, &SubagentsConfig)`, `Subagents::{tools, unavailable, register_into}`, `SubagentsConfig`, `Models`, `ChildSpec`, `Limits`, the `ChildRunner` port, and the four `agent_*` tools |
-| Configuration | `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL` (`Models::from_env`) |
+| Public API | `Subagents::new(&Runtime, &ToolRegistry, Arc<dyn CallLog>, &Project, &SubagentsConfig)`, `Subagents::{tools, unavailable, register_into}`, `SubagentsConfig`, `Models`, `DuelSettings`, `ChildSpec`, `Limits`, the `ChildRunner` port, and the five `agent_*` tools |
+| Configuration | `SUPERMATH_READER_MODEL`, `SUPERMATH_FORMALIZER_MODEL`, `SUPERMATH_REVIEWER_MODEL`, `SUPERMATH_DUEL_MODEL` (`Models::from_env`); `SUPERMATH_DUEL_DRIFT_CALLS`, `SUPERMATH_DUEL_MAX_ROUNDS`, `SUPERMATH_DUEL_DIGEST_EVERY` (`DuelSettings::from_env`) |
 | Tests | a scripted OpenHuman provider (`Provider::custom`) playing fixed tool-call sequences, against fake primitive tools |
 
 The crate does not depend on any domain crate. It receives a `ToolRegistry`
