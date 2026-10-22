@@ -18,12 +18,12 @@ use super::post::{DuelPost, MAX_POSTS};
 use super::target::{Target, module_of};
 use super::types::{Item, PostKind, Side};
 use super::side_scope;
-use crate::belt::{Belt, CallNote};
-use crate::child::{ChildKind, ControlSignal, TurnControl};
+use crate::belt::{Belt, CallNote, Watcher as _};
+use crate::child::{ChildKind, TurnControl};
 use crate::config::DuelSettings;
 use crate::fake::{
-    ControlRunner, ScriptRunner, World, controlled, ctx, project, script, turn, until_cancelled,
-    world::digest,
+    ControlRunner, ScriptRunner, World, cancelled, controlled, ctx, project, script, turn,
+    until_cancelled, world::digest,
 };
 use crate::limits::Limits;
 use crate::tools::{Agentic, Shared};
@@ -858,9 +858,6 @@ async fn preconditions_are_checked_before_any_side_runs() {
         assert_eq!(answer.code(), Some(code), "{answer:?}");
         assert!(prover.prompts().is_empty());
     }
-    let world = world_with("accepted");
-    world.forget_claim("clm_1");
-    std::mem::drop(world);
 }
 
 #[tokio::test]
@@ -922,16 +919,14 @@ async fn a_drifting_side_is_restarted_in_a_fresh_turn() {
         for _ in 0..36 {
             belt.call("file_list", json!({})).await;
         }
-        let mut nudges = 0;
-        loop {
-            match control.next().await {
-                ControlSignal::Steer(text) if text.starts_with("[Duel monitor]") => nudges += 1,
-                ControlSignal::Steer(_) => {}
-                ControlSignal::Cancel => break,
-            }
-        }
+        assert!(control.is_cancelled());
+        let nudges = control
+            .take_steers()
+            .iter()
+            .filter(|text| text.starts_with("[Duel monitor]"))
+            .count();
         assert_eq!(nudges, 2);
-        Ok(crate::fake::runner_cancelled())
+        Ok(cancelled())
     }));
     let tool = settle_tool(&world, &prover, &quitter());
     let answer = call(&tool, json!({"claim_id": "clm_1"})).await;

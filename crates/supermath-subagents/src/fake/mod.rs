@@ -7,7 +7,7 @@ mod runner;
 pub(crate) mod world;
 
 pub(crate) use runner::{
-    ControlRunner, ScriptRunner, controlled, script, turn, until_cancelled,
+    ControlRunner, ScriptRunner, cancelled, controlled, script, turn, until_cancelled,
 };
 pub(crate) use world::World;
 
