@@ -123,8 +123,10 @@ the server stored without indexing is an error.
 | `SURPLUS_API_KEY` | required | bearer token Surplus requires |
 | `SUPERMATH_MODEL` | `deepseek-v4.1-flash` | the Surplus model turns run on |
 | `SUPERMATH_REASONING_EFFORT` | `medium` | `none` … `xhigh`, sent on every turn |
-| `SUPERMATH_EMBEDDING_MODEL` | `venice-embed-1` | the Surplus embedding model |
+| `SUPERMATH_EMBEDDING_MODEL` | `venice-embed-1` | the embedding model, on Surplus unless `SUPERMATH_EMBEDDING_URL` names another root |
 | `SUPERMATH_EMBEDDING_DIMS` | `1024` | its width; CortexDB pins it on first ingest |
+| `SUPERMATH_EMBEDDING_URL` | unset (Surplus) | another OpenAI-compatible root for the agent's embeddings (Jev's retriever) |
+| `SUPERMATH_EMBEDDING_API_KEY` | unset (`SURPLUS_API_KEY`) | the bearer token for that root |
 | `OPENROUTER_API_KEY` | required | Jev's credential, and nothing else |
 | `SUPERMATH_WORKSPACE` | `./.supermath` | OpenHuman workspace and logs |
 | `SUPERMATH_BACKEND_URL` | OpenHuman's | OpenHuman backend URL; no TinyHumans account is needed |
