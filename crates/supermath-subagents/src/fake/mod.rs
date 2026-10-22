@@ -6,7 +6,9 @@
 mod runner;
 pub(crate) mod world;
 
-pub(crate) use runner::{ScriptRunner, script, turn};
+pub(crate) use runner::{
+    ControlRunner, ScriptRunner, controlled, script, turn, until_cancelled,
+};
 pub(crate) use world::World;
 
 use std::sync::Arc;
@@ -35,7 +37,9 @@ pub(crate) fn subagents(registry: &ToolRegistry, runner: &Arc<ScriptRunner>) -> 
         reader: Arc::clone(&as_dyn),
         formalizer: Arc::clone(&as_dyn),
         reviewer: Arc::clone(&as_dyn),
-        refuter: as_dyn,
+        refuter: Arc::clone(&as_dyn),
+        duel_prover: Arc::clone(&as_dyn),
+        duel_refuter: as_dyn,
     };
     Subagents::with_runners(
         registry,
