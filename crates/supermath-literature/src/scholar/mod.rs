@@ -77,7 +77,7 @@ impl From<Raw> for CitedPaper {
         CitedPaper {
             source: SOURCE,
             paper_id: raw.paper_id,
-            arxiv_id: ids.as_ref().and_then(|i| i.arxiv.clone()),
+            arxiv_id: ids.as_ref().and_then(|i| i.arxiv.as_deref()).map(unversioned),
             doi: ids.and_then(|i| i.doi),
             title: raw.title,
             year: raw.year,
@@ -92,6 +92,13 @@ impl From<Raw> for CitedPaper {
             citation_count: raw.citation_count,
         }
     }
+}
+
+/// An arXiv id as rows carry it: without a version. Semantic Scholar
+/// sometimes records `2310.01234v3`; an id that does not parse is kept as
+/// given rather than dropped.
+fn unversioned(raw: &str) -> String {
+    ArxivId::parse(raw).map_or_else(|_| raw.to_owned(), |id| id.base().to_owned())
 }
 
 impl SemanticScholarClient {
