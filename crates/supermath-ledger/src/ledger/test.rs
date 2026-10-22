@@ -494,6 +494,28 @@ async fn re_recording_keeps_alignment_and_merges_new_uses() {
 }
 
 #[tokio::test]
+async fn re_recording_refuses_uses_that_would_close_a_cycle() {
+    let h = harness().await;
+    let a = h.ledger.record(&ctx(), supplied("a")).await.unwrap().entry;
+    let mut b = supplied("b");
+    b.uses = vec![a.id.clone()];
+    let b = h.ledger.record(&ctx(), b).await.unwrap().entry;
+    let written = h.cortex.events().len();
+
+    for uses in [vec![a.id.clone()], vec![b.id.clone()]] {
+        let mut again = supplied("a");
+        again.uses = uses;
+        let error = h.ledger.record(&ctx(), again).await.unwrap_err();
+        assert!(
+            matches!(&error, Error::LinkCycle { from, .. } if *from == a.id),
+            "{error}"
+        );
+        assert_eq!(error.code(), ErrorCode::InvalidInput);
+    }
+    assert_eq!(h.cortex.events().len(), written, "a refused cycle writes nothing");
+}
+
+#[tokio::test]
 async fn effective_status_is_the_minimum_over_everything_a_claim_reaches() {
     let h = harness().await;
     let weak = h

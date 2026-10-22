@@ -555,6 +555,31 @@ async fn ledger_link_records_the_edge_and_refuses_a_cycle() {
 }
 
 #[tokio::test]
+async fn ledger_record_refuses_a_cycle_with_the_same_code_as_ledger_link() {
+    let w = world().await;
+    let a = seed(&w, "a").await;
+    let record = LedgerRecord::new(w.ledger.clone());
+    let b = call(
+        &record,
+        json!({"kind": "result", "statement": "b", "source": supplied_source(), "uses": [a]}),
+    )
+    .await;
+    let cycle = call(
+        &record,
+        json!({"kind": "result", "statement": "a", "source": {"supplied": "s"},
+        "uses": [id_of(&b)]}),
+    )
+    .await;
+    assert_eq!(cycle.code(), Some(ErrorCode::InvalidInput));
+    let linked = call(
+        &LedgerLink::new(w.ledger.clone()),
+        json!({"from": a, "to": id_of(&b)}),
+    )
+    .await;
+    assert_eq!(linked.code(), cycle.code());
+}
+
+#[tokio::test]
 async fn ledger_bound_keeps_the_tool_contract() {
     let w = world().await;
     teach(&w, "bb");
