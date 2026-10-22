@@ -65,7 +65,7 @@ async fn refuses_above_the_limit_without_a_partial_answer() {
     ] {
         let envelope = call(args.clone()).await;
         assert_eq!(envelope.code(), Some(ErrorCode::BudgetExceeded), "{args}");
-        assert_eq!(envelope.next.len(), 2);
+        assert!(!envelope.next.is_empty());
         assert!(envelope.data.is_null());
     }
     assert!(call(json!({ "n": FACTOR_LIMIT })).await.is_ok());

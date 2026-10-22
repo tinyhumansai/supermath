@@ -129,6 +129,48 @@ async fn agentic_descriptions_must_begin_runs_a() {
 }
 
 #[tokio::test]
+async fn primitive_descriptions_must_begin_given() {
+    for description in [
+        "Returns twice an integer.",
+        "given an integer, returns twice it.",
+        "Givenness of an integer.",
+        "Runs a turn that doubles.",
+    ] {
+        let tool = FakeTool {
+            description,
+            ..FakeTool::passing()
+        };
+        assert_eq!(
+            found(&tool, "calc").await,
+            [Violation::PrimitiveDescription],
+            "{description}"
+        );
+    }
+    let padded = FakeTool {
+        description: "  Given an integer, returns twice it.",
+        ..FakeTool::passing()
+    };
+    assert_eq!(found(&padded, "calc").await, no_violations());
+}
+
+#[test]
+fn description_violation_checks_the_description_alone() {
+    assert_eq!(super::description_violation(&FakeTool::passing()), None);
+    let empty = FakeTool {
+        description: " ",
+        ..FakeTool::passing()
+    };
+    assert_eq!(
+        super::description_violation(&empty),
+        Some(Violation::EmptyDescription)
+    );
+    assert_eq!(
+        Violation::PrimitiveDescription.to_string(),
+        "primitive description must begin \"Given \""
+    );
+}
+
+#[tokio::test]
 async fn agentic_envelopes_must_carry_usage() {
     let tool = FakeTool {
         name: "web_echo",

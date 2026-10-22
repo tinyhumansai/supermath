@@ -374,6 +374,50 @@ async fn an_arxiv_source_without_one_locator_is_invalid_input() {
 }
 
 #[tokio::test]
+async fn ledger_record_stores_reason_and_refutes_and_ledger_claims_returns_them() {
+    let w = world().await;
+    let target = seed(&w, "every n works").await;
+    let record = LedgerRecord::new(w.ledger.clone());
+    let claims = LedgerClaims::new(w.ledger.clone());
+
+    let refutation = call(
+        &record,
+        json!({"kind": "refutation", "statement": "n = 7 fails",
+        "source": supplied_source(), "refutes": target}),
+    )
+    .await;
+    assert_eq!(refutation.data["kind"], "refutation");
+    let read = call(&claims, json!({"id": id_of(&refutation)})).await;
+    assert_eq!(read.data["claim"]["refutes"], json!(target));
+
+    let dead_end = call(
+        &record,
+        json!({"kind": "dead_end", "statement": "induction on n",
+        "source": supplied_source(), "reason": "the step needs n + 2"}),
+    )
+    .await;
+    assert_eq!(dead_end.data["kind"], "dead_end");
+    let read = call(&claims, json!({"id": id_of(&dead_end)})).await;
+    assert_eq!(read.data["claim"]["reason"], "the step needs n + 2");
+}
+
+#[tokio::test]
+async fn ledger_record_refuses_a_uses_that_repeats_an_id() {
+    let w = world().await;
+    let a = seed(&w, "a").await;
+    let record = LedgerRecord::new(w.ledger.clone());
+    let written = w.cortex.events().len();
+    let twice = call(
+        &record,
+        json!({"kind": "result", "statement": "b", "source": supplied_source(),
+        "uses": [a, a]}),
+    )
+    .await;
+    assert_eq!(twice.code(), Some(ErrorCode::InvalidInput));
+    assert_eq!(w.cortex.events().len(), written);
+}
+
+#[tokio::test]
 async fn a_lean_timeout_is_unknown_not_an_error() {
     let w = world().await;
     w.lean.set(

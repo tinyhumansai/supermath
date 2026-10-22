@@ -13,12 +13,37 @@ use crate::arith::{Bad, FACTOR_LIMIT, factorize, integer};
 #[derive(Debug, Clone, Copy, Default)]
 pub struct CalcFactor;
 
-fn too_large() -> Envelope {
-    Envelope::error(
-        ErrorCode::BudgetExceeded,
-        format!("`n` must be at most {FACTOR_LIMIT}"),
-    )
-    .with_next(["math.find when connected", "py_run with sympy.factorint(n)"])
+/// Where a refusal suggests writing the Python fallback.
+const FALLBACK_PATH: &str = "python/work/calc_factor.py";
+
+/// The Python fallback: sympy's exact factorization, for `n` as a string.
+const FALLBACK_SOURCE: &str = "from sympy import factorint\n\n\n\
+def factor(n):\n    \
+\"\"\"The exact prime factorization of n, given as a decimal string.\"\"\"\n    \
+factors = sorted(factorint(int(n)).items())\n    \
+return {\"n\": n, \"factors\": [[p, e] for p, e in factors], \"exact\": True}\n";
+
+/// The refusal above [`FACTOR_LIMIT`], with `next` naming the calls that
+/// factor `n` in Python instead.
+///
+/// `digits` is `n` exactly when the caller sent it as a decimal string (or a
+/// `u64`); a JSON number past `u64` arrived as an `f64` that lost its digits,
+/// so then only the file is suggested and the message asks for a string.
+fn too_large(digits: Option<String>) -> Envelope {
+    let write = json!({"path": FALLBACK_PATH, "content": FALLBACK_SOURCE});
+    let mut next = vec![format!("file_write {write}")];
+    let message = match digits {
+        Some(digits) => {
+            let run = json!({"path": FALLBACK_PATH, "entry": "factor", "args": {"n": digits}});
+            next.push(format!("py_run {run}"));
+            format!("`n` must be at most {FACTOR_LIMIT}")
+        }
+        None => format!(
+            "`n` must be at most {FACTOR_LIMIT}; send larger values as a decimal string \
+             so no digit is lost"
+        ),
+    };
+    Envelope::error(ErrorCode::BudgetExceeded, message).with_next(next)
 }
 
 #[async_trait]
@@ -61,7 +86,9 @@ impl Tool for CalcFactor {
     async fn call(&self, _ctx: &CallContext, args: Value) -> Envelope {
         let n = match integer(&args, "n") {
             Ok(n) => n,
-            Err(Bad::TooLarge) => return too_large(),
+            Err(Bad::TooLarge) => {
+                return too_large(args.get("n").and_then(Value::as_str).map(str::to_owned));
+            }
             Err(Bad::NotInteger) => {
                 return Envelope::error(
                     ErrorCode::InvalidInput,
@@ -76,7 +103,7 @@ impl Tool for CalcFactor {
             );
         }
         if n > FACTOR_LIMIT {
-            return too_large();
+            return too_large(Some(n.to_string()));
         }
         let factors = factorize(n);
         let divisors: u64 = factors.iter().map(|(_, e)| u64::from(*e) + 1).product();
