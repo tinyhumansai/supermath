@@ -1809,7 +1809,11 @@ async fn the_fake_ledger_applies_the_real_arxiv_rules() {
             if let (Some(args), Some(extra)) = (args.as_object_mut(), extra.as_object()) {
                 args.extend(extra.clone());
             }
-            ledger.dispatch(&ctx(), "ledger_record", args).await
+            ledger
+                .get("ledger_record")
+                .unwrap()
+                .call(&ctx(), args)
+                .await
         }
     };
     let no_locator = json!({"arxiv": {"id": "2012.04125", "version": "v2"}});
