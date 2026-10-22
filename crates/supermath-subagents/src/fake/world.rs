@@ -378,8 +378,17 @@ impl World {
             return Envelope::error(ErrorCode::InvalidInput, "kind and statement are required");
         }
         let mut earned = "asserted";
-        if args["source"].get("arxiv").is_some() {
-            earned = "cited";
+        if let Some(arxiv) = args["source"].get("arxiv") {
+            let given = |field: &str| arxiv[field].as_str().is_some_and(|f| !f.trim().is_empty());
+            if !given("id") || !given("version") || given("label") == given("section") {
+                return Envelope::error(
+                    ErrorCode::InvalidInput,
+                    "an arxiv source needs `id`, `version`, and exactly one of `label` or `section`",
+                );
+            }
+            if args["status"] != "asserted" && args["evidence_origin"] != "supplied" {
+                earned = "cited";
+            }
         }
         if let Some(source) = args["source"].get("tool") {
             let call_id = source["call_id"].as_str().unwrap_or_default();
