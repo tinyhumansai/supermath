@@ -48,7 +48,7 @@ impl LitExtractStatements {
             return Ok(Envelope::unknown(
                 "the e-print has no LaTeX source (PDF only), so no statements were extracted",
             )
-            .with_data(json!({ "locator": locator, "statements": [] }))
+            .with_data(json!({ "locator": locator, "total": null, "statements": [] }))
             .with_coverage(coverage));
         };
         let flat = flatten_latex(tree);
