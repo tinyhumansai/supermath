@@ -15,7 +15,7 @@ use super::guard::WriteGuard;
 use super::guard::within;
 use super::post::{DuelBoard, DuelPost, MAX_POSTS};
 use super::side_scope;
-use super::target::{Target, module_of};
+use super::target::{Target, module_of, review_accepts};
 use super::types::{Item, PostKind, Side};
 use crate::belt::{Belt, CallNote};
 use crate::child::{ChildKind, TurnControl};
@@ -239,6 +239,56 @@ fn a_claim_without_an_accepted_lean_statement_is_refused_with_the_next_step() {
     outside["lean"]["path"] = json!("python/work/a.py");
     assert!(Target::from_claim("clm_1", &outside).is_err());
     assert!(Target::from_claim("clm_--", &claim("accepted")).is_err());
+}
+
+/// The fact `agent_review_alignment` records for an accepted `clm_1`.
+fn review(alignment: &str) -> Value {
+    json!({
+        "kind": "fact",
+        "statement": format!("Alignment review of clm_1 (conj): {alignment}."),
+        "source": {"supplied": "reviewer model glm-5.3, session s1"},
+        "uses": ["clm_1"],
+    })
+}
+
+#[test]
+fn only_an_accepting_review_of_the_same_claim_and_declaration_stands_in_for_alignment() {
+    let lean = claim("not_reviewed")["lean"].clone();
+    assert_eq!(review_accepts("clm_1", &lean, &review("accepted")), Ok(()));
+
+    let mut cases = vec![
+        (
+            "disputed",
+            review("disputed. Mismatch (reviewer's words): n = 0"),
+        ),
+        ("lead", {
+            let mut r = review("accepted");
+            r["kind"] = json!("lead");
+            r
+        }),
+        ("another claim", {
+            let mut r = review("accepted");
+            r["uses"] = json!(["clm_2"]);
+            r
+        }),
+        ("another declaration", {
+            let mut r = review("accepted");
+            r["statement"] = json!("Alignment review of clm_1 (other): accepted.");
+            r
+        }),
+        ("not a reviewer", {
+            let mut r = review("accepted");
+            r["source"] = json!({"supplied": "the top-level agent"});
+            r
+        }),
+    ];
+    for (why, entry) in cases.drain(..) {
+        let error = review_accepts("clm_1", &lean, &entry).unwrap_err();
+        assert!(
+            error.contains("not an accepting alignment review"),
+            "{why}: {error}"
+        );
+    }
 }
 
 #[test]
@@ -932,6 +982,37 @@ async fn preconditions_are_checked_before_any_side_runs() {
         assert_eq!(answer.code(), Some(code), "{answer:?}");
         assert_eq!(prover.prompts().len(), 0);
     }
+}
+
+#[tokio::test]
+async fn an_accepting_review_lets_an_unreviewed_claim_be_settled() {
+    let world = world_with("not_reviewed");
+    let review_id = world.add_claim(review("accepted"));
+    let prover = quitter();
+    let tool = settle_tool(&world, &prover, &quitter());
+
+    let refused = call(&tool, json!({"claim_id": "clm_1"})).await;
+    assert_eq!(refused.code(), Some(ErrorCode::InvalidInput));
+    assert!(refused.error.unwrap().message.contains("review_id"));
+    assert_eq!(prover.prompts().len(), 0);
+
+    let answer = call(&tool, json!({"claim_id": "clm_1", "review_id": review_id})).await;
+    assert_eq!(answer.code(), None, "{answer:?}");
+    assert_ne!(prover.prompts().len(), 0);
+}
+
+#[tokio::test]
+async fn a_review_that_does_not_accept_the_claim_is_refused() {
+    let world = world_with("not_reviewed");
+    let review_id = world.add_claim(review("disputed"));
+    let prover = quitter();
+    let tool = settle_tool(&world, &prover, &quitter());
+    let answer = call(&tool, json!({"claim_id": "clm_1", "review_id": review_id})).await;
+    assert_eq!(answer.code(), Some(ErrorCode::InvalidInput));
+    assert_eq!(prover.prompts().len(), 0);
+
+    let missing = call(&tool, json!({"claim_id": "clm_1", "review_id": "clm_404"})).await;
+    assert_eq!(missing.code(), Some(ErrorCode::NotFound));
 }
 
 #[tokio::test]

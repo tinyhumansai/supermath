@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use openhuman_embed::{PermissionLevel, ToolExposure, ToolPolicy, ToolResult};
 use serde_json::Value;
-use supermath_tool::{Exposure, Kind, Outcome, Permission};
+use supermath_tool::{Exposure, Kind, Permission};
 
 use super::Host;
 
@@ -51,14 +51,21 @@ impl openhuman_embed::Tool for HostTool {
     }
 
     fn policy(&self) -> ToolPolicy {
-        match self.tool.permission() {
+        let mut policy = match self.tool.permission() {
             Permission::Read => ToolPolicy::read_only(),
             Permission::Write => {
                 let mut policy = ToolPolicy::classified();
                 policy.side_effects.writes_files = true;
                 policy
             }
+        };
+        // An `agent_*` tool runs under the agentic budget's wall time and
+        // enforces it itself; OpenHuman's 120 s default would cut it short.
+        // Toolkit tools run under a smaller budget and keep the default.
+        if self.host.agents.get(self.tool.name()).is_some() {
+            policy.runtime.timeout_ms = Some(super::AGENT_WALL_TIME_MS);
         }
+        policy
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -84,9 +91,6 @@ impl openhuman_embed::Tool for HostTool {
         if let Value::Object(object) = &mut body {
             object.insert("call_id".to_owned(), Value::String(done.call_id));
         }
-        Ok(match done.envelope.outcome {
-            Outcome::Error => ToolResult::error(body.to_string()),
-            Outcome::Ok | Outcome::Unknown => ToolResult::json(body),
-        })
+        Ok(supermath_subagents::tool_result(&done.envelope, body))
     }
 }

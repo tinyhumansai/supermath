@@ -60,6 +60,22 @@ supermath-agent check [project]     # default project: scratch
 
 Exit status `0` means the stack is ready.
 
+```sh
+supermath-agent solve <project> <prompt-file> [turns]   # default turns: 1
+```
+
+`solve` boots and registers the agent the same way (steps 1–3), then runs
+it on the problem in `prompt-file`:
+
+1. The prompt is the first turn of one session; each later turn, up to
+   `turns`, sends `CONTINUE_PROMPT` in the same session. A reply with the
+   line `STATUS: DONE` ends the run early.
+2. Each turn's tool calls are reported on stderr as they start and finish
+   (`AgentProgress`), and a watcher tails the toolkit's call log, so calls
+   the `agent_*` children make (the duel's sides among them) appear too.
+3. Each reply goes to stdout. A turn OpenHuman fails is `Error::Turn`; an
+   unreadable prompt file is `Error::Prompt`.
+
 ### Toolkit
 
 The tools are the domain crates' (`docs/specs/toolkit/README.md` has the
@@ -86,6 +102,20 @@ call log under a `call_id`, which the adapted result carries so a ledger
 `tool` source can quote it. The `agent_*` tools get `agent-N` ids and an
 agentic budget (64 iterations, 1,000,000 tokens, one hour).
 
+An envelope reaches OpenHuman through `supermath_subagents::tool_result`,
+for the top-level agent and every child alike. A refusal (`INVALID_INPUT`,
+`NOT_FOUND`, `FORBIDDEN`, `CONFLICT`, `BUDGET_EXCEEDED`, `TIMEOUT`) is the
+tool's answer and goes back as a result, `outcome: "error"` intact: as a
+failure, OpenHuman's classifier read `FORBIDDEN` as rejected credentials and
+ended the turn. Only `BACKEND_UNAVAILABLE` and `RATE_LIMITED` are failures,
+carrying `status_code` 503 or 429 so the harness retries them as transient.
+
+OpenHuman cuts a tool call at 120 s unless the tool asks for more. The
+`agent_*` tools ask for their agentic wall time (one hour), and a child's
+primitives ask for the wall time of the call running the child, so a duel
+side's long `py_run` or Lean build is bounded by its own budget, not by the
+harness default. Toolkit tools called by the top-level agent keep the default.
+
 ### Memory scopes
 
 ```text
@@ -107,8 +137,10 @@ the server stored without indexing is an error.
 | `SURPLUS_API_KEY` | required | bearer token Surplus requires |
 | `SUPERMATH_MODEL` | `deepseek-v4.1-flash` | the Surplus model turns run on |
 | `SUPERMATH_REASONING_EFFORT` | `medium` | `none` … `xhigh`, sent on every turn |
-| `SUPERMATH_EMBEDDING_MODEL` | `venice-embed-1` | the Surplus embedding model |
+| `SUPERMATH_EMBEDDING_MODEL` | `venice-embed-1` | the embedding model, on Surplus unless `SUPERMATH_EMBEDDING_URL` names another root |
 | `SUPERMATH_EMBEDDING_DIMS` | `1024` | its width; CortexDB pins it on first ingest |
+| `SUPERMATH_EMBEDDING_URL` | unset (Surplus) | another OpenAI-compatible root for the agent's embeddings (Jev's retriever) |
+| `SUPERMATH_EMBEDDING_API_KEY` | unset (`SURPLUS_API_KEY`) | the bearer token for that root |
 | `OPENROUTER_API_KEY` | required | Jev's credential, and nothing else |
 | `SUPERMATH_WORKSPACE` | `./.supermath` | OpenHuman workspace and logs |
 | `SUPERMATH_BACKEND_URL` | OpenHuman's | OpenHuman backend URL; no TinyHumans account is needed |
@@ -135,7 +167,9 @@ the server stored without indexing is an error.
   kind), the agent's pinned tool list, and the MCP command parsing.
 - `tests/check.rs` runs the binary against loopback stubs of Surplus,
   CortexDB, and the backend, asserts the tool listing, and asserts no
-  completion was requested.
+  completion was requested. It also runs `solve` against a scripted
+  completion: the run stops at the first reply that declares itself done,
+  and otherwise continues the session to the turn limit.
 - `tests/live.rs` holds `live_subagents_formalize_bench`, skipped unless
   `SUPERMATH_LIVE_SUBAGENTS=1`.
 - `docker compose config --quiet` passes.

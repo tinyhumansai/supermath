@@ -102,12 +102,11 @@ fn every_adapted_tool_matches_its_toolkit_tool() {
         match tool.permission() {
             Permission::Read => {
                 assert_eq!(host_tool.permission_level(), PermissionLevel::ReadOnly);
-                assert_eq!(
-                    host_tool.policy(),
-                    ToolPolicy::read_only(),
-                    "{}",
-                    tool.name()
-                );
+                let mut expected = ToolPolicy::read_only();
+                if tool.name().starts_with("agent_") {
+                    expected.runtime.timeout_ms = Some(3_600_000);
+                }
+                assert_eq!(host_tool.policy(), expected, "{}", tool.name());
             }
             Permission::Write => {
                 assert_eq!(host_tool.permission_level(), PermissionLevel::Write);
@@ -176,7 +175,11 @@ async fn a_primitive_call_returns_the_envelope_with_its_call_id_and_is_logged() 
 }
 
 #[tokio::test]
-async fn an_error_envelope_is_a_reported_failure() {
+async fn a_refusal_envelope_is_an_answer_the_turn_continues_past() {
+    // OpenHuman halts a turn on a failed call it classifies as a credential
+    // or uncertain-effect failure, and it classifies a refusal's text by
+    // keyword: `FORBIDDEN` read as "credentials rejected". A refusal is the
+    // tool's answer, so it reaches the model as a result, still `error`.
     let host = host();
     let tool = host
         .adapt()
@@ -184,8 +187,9 @@ async fn an_error_envelope_is_a_reported_failure() {
         .find(|t| t.name() == "calc_factor")
         .unwrap();
     let result = tool.execute(json!({"n": "ten"})).await.unwrap();
-    assert!(result.is_error);
+    assert!(!result.is_error);
     assert_eq!(body(&result)["outcome"], "error");
+    assert_eq!(body(&result)["error"]["code"], "INVALID_INPUT");
 }
 
 #[tokio::test]
@@ -240,6 +244,21 @@ fn the_belt_boxes_every_adapted_tool_and_debug_names_a_tool() {
     assert_eq!(host.belt().len(), host.tool_names().len());
     let first = host.adapt().remove(0);
     assert_eq!(format!("{first:?}"), "HostTool(\"calc_factor\")");
+}
+
+#[test]
+fn agent_tools_ask_for_their_own_wall_time_and_primitives_inherit_the_default() {
+    // OpenHuman otherwise cuts every call at its 120 s default: a duel with
+    // a 30-minute budget was killed after two minutes.
+    let host = host();
+    for tool in host.adapt() {
+        let asked = tool.policy().runtime.timeout_ms;
+        if tool.name().starts_with("agent_") {
+            assert_eq!(asked, Some(3_600_000), "{}", tool.name());
+        } else {
+            assert_eq!(asked, None, "{}", tool.name());
+        }
+    }
 }
 
 #[test]

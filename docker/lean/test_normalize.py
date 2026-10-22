@@ -149,3 +149,21 @@ class Tactics(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Crash(unittest.TestCase):
+    def test_a_crashed_check_is_a_failed_file_naming_the_signal(self):
+        # Lean aborts on a stack overflow (deep `decide` or kernel reduction).
+        # Reported as `timeout`, it told the prover its proof was slow.
+        reply = N.crash_reply(-6)
+        self.assertEqual(reply["status"], "ok")
+        self.assertEqual(len(reply["messages"]), 1)
+        error = reply["messages"][0]
+        self.assertEqual((error["severity"], error["line"]), ("error", 1))
+        self.assertIn("SIGABRT", error["text"])
+        self.assertIn("stack overflow", error["text"])
+        self.assertEqual((reply["sorries"], reply["axioms"], reply["uses"]), ([], {}, {}))
+
+    def test_another_exit_names_its_code(self):
+        self.assertIn("exit code 3", N.crash_reply(3)["messages"][0]["text"])
+        self.assertIn("SIGSEGV", N.crash_reply(-11)["messages"][0]["text"])

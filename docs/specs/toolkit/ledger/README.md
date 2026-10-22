@@ -238,8 +238,12 @@ the shape [`../tools.md`](../tools.md) sets out.
    events (`DEFAULT_WINDOW`, 200) ranked by similarity to a query, parses
    each one's text as an entry, skips what is not an entry, groups by `id`,
    keeps the highest `revision`, and filters by kind, status, and alignment
-   itself. A single claim is found by recalling its id, which its own JSON
-   contains. The limit is the window: when a recall returns as many notes as
+   itself. A single claim is found exactly, by its `claim:<id>` label
+   through `GET /v1/events?labels=` (which does filter by label), never by
+   recalling its id: recall returns only the closest few events, and the
+   reviews and leads that cite a claim mention its id more often than the
+   claim does, so a reviewed claim fell out of its own lookup. The limit
+   on lists is the window: when a recall returns as many notes as
    the window holds (counted before non-entries are skipped and revisions
    merged), entries may be missing, and `ledger_claims` and `ledger_bound`
    say so in `unknowns`. Nothing records when an entry was written (an

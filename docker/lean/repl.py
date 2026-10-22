@@ -1,6 +1,10 @@
 """Processes: warm REPLs with `import Mathlib` already elaborated, and
 one-shot REPLs for files that import project modules.
 
+Every REPL runs with an explicit LEAN_PATH. Without one the REPL answers
+`import Mathlib` with an empty environment and no error, so a warm REPL also
+proves Mathlib loaded before it is used.
+
 The container is the sandbox (no network, unprivileged user, read-only root,
 a memory limit). This module adds the per-request wall-time and output caps.
 """
@@ -12,10 +16,13 @@ import subprocess
 import threading
 import time
 
+import build
+
 MAX_OUTPUT = 4 << 20  # bytes of REPL output per answer
 RECYCLE_AFTER = 40  # commands before a warm REPL is replaced (envs accumulate)
 LEAN_ENV = os.environ.get("LEAN_ENV", "/opt/lean-env")
 REPL_BIN = os.environ.get("REPL_BIN", "/opt/repl/.lake/build/bin/repl")
+PACKAGES = build.package_paths(LEAN_ENV)
 
 
 class ReplTimeout(Exception):
@@ -26,23 +33,28 @@ class ReplOutputLimit(Exception):
     """The REPL's answer passed MAX_OUTPUT bytes."""
 
 
+class MathlibMissing(Exception):
+    """A fresh REPL's `import Mathlib` produced an environment without Mathlib."""
+
+
 class ReplDied(Exception):
     """The REPL exited; `memory` is true when it was killed by SIGKILL, which
-    is how the container's memory limit shows up."""
+    is how the container's memory limit shows up. `code` is its exit status
+    (negative for a signal), or None when it could not be read."""
 
-    def __init__(self, memory):
+    def __init__(self, code):
         super().__init__("the REPL died")
-        self.memory = memory
+        self.code = code
+        self.memory = code == -9
 
 
 class Repl:
-    def __init__(self, cwd=None, lake_env=False):
-        argv = [REPL_BIN]
-        if lake_env:
-            argv = ["lake", "env", REPL_BIN]
+    def __init__(self, cwd=None, lean_path=None):
+        env = dict(os.environ, LEAN_PATH=lean_path or build.lean_path(PACKAGES))
         self.proc = subprocess.Popen(
-            argv,
+            [REPL_BIN],
             cwd=cwd or LEAN_ENV,
+            env=env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -58,7 +70,7 @@ class Repl:
             self.proc.stdin.write(json.dumps(obj).encode() + b"\n\n")
             self.proc.stdin.flush()
         except (BrokenPipeError, OSError):
-            raise ReplDied(self._memory_death())
+            raise ReplDied(self._exit_code())
         buf = b""
         fd = self.proc.stdout.fileno()
         while not buf.endswith(b"\n\n"):
@@ -71,18 +83,18 @@ class Repl:
                 continue
             chunk = os.read(fd, 65536)
             if not chunk:
-                raise ReplDied(self._memory_death())
+                raise ReplDied(self._exit_code())
             buf += chunk
             if len(buf) > MAX_OUTPUT:
                 self.kill()
                 raise ReplOutputLimit()
         return json.loads(buf.decode("utf-8", "replace"))
 
-    def _memory_death(self):
+    def _exit_code(self):
         try:
-            return self.proc.wait(timeout=1) == -9
+            return self.proc.wait(timeout=1)
         except subprocess.TimeoutExpired:
-            return False
+            return None
 
     def alive(self):
         return self.proc.poll() is None
@@ -107,6 +119,10 @@ class Pool:
         repl = Repl()
         answer = repl.request({"cmd": "import Mathlib"}, timeout=600)
         repl.base_env = answer["env"]
+        probe = repl.request({"cmd": "#check Nat.Prime", "env": repl.base_env}, timeout=60)
+        if any(m.get("severity") == "error" for m in probe.get("messages", [])):
+            repl.kill()
+            raise MathlibMissing(f"import Mathlib loaded nothing; LEAN_PATH={build.lean_path(PACKAGES)}")
         return repl
 
     def lease(self):

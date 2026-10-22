@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use openhuman_embed::{PermissionLevel, ToolExposure, ToolPolicy, ToolResult};
 use serde_json::Value;
-use supermath_tool::{Outcome, Permission};
+use supermath_tool::Permission;
 
 use super::Belt;
 
@@ -43,14 +43,19 @@ impl openhuman_embed::Tool for HostTool {
     }
 
     fn policy(&self) -> ToolPolicy {
-        match self.tool.permission() {
+        let mut policy = match self.tool.permission() {
             Permission::Read => ToolPolicy::read_only(),
             Permission::Write => {
                 let mut policy = ToolPolicy::classified();
                 policy.side_effects.writes_files = true;
                 policy
             }
-        }
+        };
+        // A child's call runs under the budget of the call that started the
+        // child, which the primitive enforces itself; OpenHuman's 120 s
+        // default would cut a long `py_run` or Lean build short.
+        policy.runtime.timeout_ms = Some(self.belt.wall_time_ms());
+        policy
     }
 
     fn permission_level(&self) -> PermissionLevel {
@@ -66,10 +71,7 @@ impl openhuman_embed::Tool for HostTool {
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
         let envelope = self.belt.call(self.tool.name(), args).await;
-        let text = serde_json::to_string(&envelope)?;
-        Ok(match envelope.outcome {
-            Outcome::Error => ToolResult::error(text),
-            Outcome::Ok | Outcome::Unknown => ToolResult::success(text),
-        })
+        let body = serde_json::to_value(&envelope)?;
+        Ok(super::tool_result(&envelope, body))
     }
 }

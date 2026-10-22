@@ -5,10 +5,10 @@
 use std::sync::{Arc, Mutex};
 
 use openhuman_embed::PermissionLevel;
-use serde_json::json;
-use supermath_tool::{CallLog as _, ErrorCode, InMemoryCallLog, Outcome};
+use serde_json::{Value, json};
+use supermath_tool::{CallLog as _, Envelope, ErrorCode, InMemoryCallLog, Outcome};
 
-use super::{Belt, Progress};
+use super::{Belt, Progress, tool_result};
 use crate::fake::{World, ctx};
 
 #[derive(Default)]
@@ -142,13 +142,16 @@ async fn a_host_tool_runs_through_the_belt_and_returns_the_envelope_as_json() {
         .await
         .unwrap();
     assert!(!ok.is_error);
-    assert!(ok.output().contains("\"outcome\":\"ok\""));
+    assert_eq!(result_body(&ok)["outcome"], "ok");
     let read = tools.iter().find(|t| t.name() == "file_read").unwrap();
     let refused = read
         .execute(json!({"path": "lean/Nope.lean"}))
         .await
         .unwrap();
-    assert!(refused.is_error);
+    assert!(
+        !refused.is_error,
+        "a refusal is an answer, not a harness failure"
+    );
     assert!(refused.output().contains("NOT_FOUND"));
     assert_eq!(belt.tool_calls(), 2);
 }
@@ -198,4 +201,79 @@ async fn a_watcher_sees_every_call_once_in_order_with_its_call_id() {
             ("lean_check".to_owned(), "call-1.lean_check.3".to_owned()),
         ]
     );
+}
+
+// ------------------------------------------------- envelopes as tool results
+
+fn result_body(result: &openhuman_embed::ToolResult) -> Value {
+    let first = serde_json::to_value(result).unwrap()["content"][0].clone();
+    match first.get("data") {
+        Some(data) => data.clone(),
+        None => serde_json::from_str(first["text"].as_str().unwrap()).unwrap(),
+    }
+}
+
+#[test]
+fn ok_and_unknown_envelopes_are_results() {
+    for envelope in [
+        Envelope::ok(json!({"n": 1})),
+        Envelope::unknown("no witness below 10^6"),
+    ] {
+        let body = serde_json::to_value(&envelope).unwrap();
+        let result = tool_result(&envelope, body.clone());
+        assert!(!result.is_error);
+        assert_eq!(result_body(&result), body);
+    }
+}
+
+#[test]
+fn refusals_are_results_the_model_reads_and_never_failures() {
+    for code in [
+        ErrorCode::InvalidInput,
+        ErrorCode::NotFound,
+        ErrorCode::Forbidden,
+        ErrorCode::Conflict,
+        ErrorCode::BudgetExceeded,
+        ErrorCode::Timeout,
+    ] {
+        let envelope = Envelope::error(code, "refused");
+        let body = serde_json::to_value(&envelope).unwrap();
+        let result = tool_result(&envelope, body.clone());
+        assert!(!result.is_error, "{code:?}");
+        assert_eq!(result_body(&result), body, "{code:?}");
+    }
+}
+
+#[test]
+fn service_failures_are_failures_with_a_status_the_harness_reads() {
+    // Without an explicit status, OpenHuman sniffs keywords: a message that
+    // says "forbidden" or "timed out" would halt the turn outright.
+    for (code, status) in [
+        (ErrorCode::BackendUnavailable, 503),
+        (ErrorCode::RateLimited, 429),
+    ] {
+        let envelope = Envelope::error(code, "lean service timed out: forbidden");
+        let body = serde_json::to_value(&envelope).unwrap();
+        let result = tool_result(&envelope, body);
+        assert!(result.is_error, "{code:?}");
+        let sent = result_body(&result);
+        assert_eq!(sent["status_code"], status, "{code:?}");
+        assert_eq!(sent["outcome"], "error");
+    }
+}
+
+#[test]
+fn a_childs_primitives_ask_for_the_wall_time_of_the_call_that_runs_the_child() {
+    // A duel side's `py_run` may take minutes; OpenHuman's 120 s default
+    // would cut it off below the budget the side was given.
+    let world = World::new();
+    let (belt, _) = belt(&world, None);
+    for tool in belt.host_tools() {
+        assert_eq!(
+            tool.policy().runtime.timeout_ms,
+            Some(3_600_000),
+            "{}",
+            tool.name()
+        );
+    }
 }

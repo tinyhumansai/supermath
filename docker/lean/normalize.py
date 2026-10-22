@@ -289,3 +289,30 @@ def tactic_result(tactic, response):
                 out["term"] = suggestion.removeprefix("exact ").strip()
                 break
     return out
+
+
+def crash_reply(code):
+    """A `/check` reply for a REPL that died on its own (not the memory
+    limit's SIGKILL): the file fails, with one error naming how Lean ended.
+    A Lean stack overflow aborts the process with SIGABRT, usually from deep
+    recursion in `decide` or kernel reduction on a large term."""
+    if code is not None and code < 0:
+        import signal
+        try:
+            how = signal.Signals(-code).name
+        except ValueError:
+            how = f"signal {-code}"
+    else:
+        how = f"exit code {code}"
+    text = f"Lean crashed while checking this file ({how})."
+    if how == "SIGABRT":
+        text += (" This is most often a stack overflow: deep recursion in `decide`,"
+                 " `rfl`, or kernel reduction on a large term. Split the computation"
+                 " or prove it another way.")
+    return {
+        "status": "ok",
+        "messages": [{"severity": "error", "line": 1, "column": 0, "text": text}],
+        "sorries": [],
+        "axioms": {},
+        "uses": {},
+    }

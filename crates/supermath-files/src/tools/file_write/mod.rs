@@ -33,6 +33,26 @@ struct Args {
     if_sha256: Option<String>,
 }
 
+/// The digest `if_sha256` names, or `None` for a new file.
+///
+/// Models often send the string `"null"` (or an empty string) where the
+/// schema means JSON `null`; read as a digest, it was a `CONFLICT` that named
+/// no real mismatch. Anything else that is not a sha256 is `INVALID_INPUT`.
+fn expected_digest(raw: Option<&str>) -> Result<Option<&str>, wire::Failure> {
+    let Some(raw) = raw.map(str::trim) else {
+        return Ok(None);
+    };
+    if raw.is_empty() || raw.eq_ignore_ascii_case("null") {
+        return Ok(None);
+    }
+    if raw.len() == 64 && raw.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Ok(Some(raw));
+    }
+    Err(wire::bad(format!(
+        "if_sha256 must be the file's 64-hex sha256 or null for a new file, not {raw:?}"
+    )))
+}
+
 impl FileWrite {
     fn run(&self, ctx: &CallContext, args: Value) -> Result<Envelope, wire::Failure> {
         let args: Args = wire::parse_args(args)?;
@@ -45,7 +65,7 @@ impl FileWrite {
                 ctx.project.slug(),
                 &path,
                 &args.content,
-                args.if_sha256.as_deref(),
+                expected_digest(args.if_sha256.as_deref())?,
                 &meta,
             )
             .map_err(|e| wire::failure(&e))?;

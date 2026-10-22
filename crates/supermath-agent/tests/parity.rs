@@ -1,6 +1,8 @@
 //! One tool, two hosts: the same arguments through `supermath-mcp`'s server
 //! (the code `supermath-mcp serve` runs, over an in-memory pipe instead of
-//! stdio) and through the runner's host tool give the same envelope.
+//! stdio) and through the runner's host tool give the same envelope. Only
+//! the error flag differs, by design: the runner flags service failures, not
+//! refusals.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -69,8 +71,15 @@ async fn mcp_serve_and_the_host_tool_answer_the_same_envelope() {
     ] {
         let mcp = over_mcp(projects.path(), name, &args).await;
         let host = over_host(projects.path(), name, &args).await;
-        assert_eq!(mcp, host, "{name} {args}");
+        assert_eq!(mcp.0, host.0, "{name} {args}");
         assert_eq!(mcp.1, failed, "{name} {args}: {}", mcp.0);
+        // The flags differ on purpose. To an MCP client `isError` is a hint;
+        // to OpenHuman a failed call feeds the classifier that halts a turn,
+        // and it read a refusal such as `FORBIDDEN` as rejected credentials.
+        // So the runner sends a refusal as a result, `outcome: "error"`
+        // intact, and flags only a service failure
+        // (`supermath_subagents::tool_result`).
+        assert!(!host.1, "{name} {args}: a refusal is not a host failure");
         assert_eq!(mcp.0["call_id"], "call-1");
     }
 }

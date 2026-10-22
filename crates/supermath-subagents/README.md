@@ -117,6 +117,8 @@ builds the same tools over `ChildRunner`s the host supplies.
 - `Ledger::set_alignment` exists but no tool exposes it (and this crate may not
   depend on the ledger crate), so a review is recorded as a `fact` that `uses`
   the reviewed claim; the claim's own `alignment` stays `not_reviewed`.
+  `agent_settle` takes that fact's id as `review_id` and checks it in place of
+  the claim's `alignment`.
 - The shapes this crate sends to and reads from the primitives are pinned by
   the fakes in `src/fake/world.rs`, which refuse the same unknown or missing
   fields the real schemas do. Read from `lean_check`: `data.verdict`,

@@ -156,3 +156,29 @@ fn debug_output_never_shows_credentials() {
     }
     assert!(rendered.contains(DEFAULT_MODEL));
 }
+
+#[test]
+fn embeddings_go_to_surplus_unless_another_endpoint_is_named() {
+    let config = Config::from_lookup(lookup(&REQUIRED)).unwrap();
+    assert_eq!(config.embedding_url(), DEFAULT_SURPLUS_URL);
+    assert_eq!(config.embedding_api_key(), "surplus-key");
+
+    let config = Config::from_lookup(lookup(&with(&[
+        ("SUPERMATH_EMBEDDING_URL", "https://openrouter.ai/api/v1/"),
+        ("SUPERMATH_EMBEDDING_API_KEY", "sk-or-embed"),
+        ("SUPERMATH_EMBEDDING_MODEL", "openai/text-embedding-3-small"),
+    ])))
+    .unwrap();
+    assert_eq!(config.embedding_url(), "https://openrouter.ai/api/v1");
+    assert_eq!(config.embedding_api_key(), "sk-or-embed");
+    assert_eq!(config.embedding_model, "openai/text-embedding-3-small");
+    assert!(!format!("{config:?}").contains("sk-or-embed"));
+
+    // An endpoint without its own key reuses the Surplus key.
+    let config = Config::from_lookup(lookup(&with(&[(
+        "SUPERMATH_EMBEDDING_URL",
+        "https://embed.example/v1",
+    )])))
+    .unwrap();
+    assert_eq!(config.embedding_api_key(), "surplus-key");
+}

@@ -104,6 +104,7 @@ struct State {
     refuse_scope: Option<String>,
     skip_index: bool,
     recalls: usize,
+    rank_recall: Option<usize>,
 }
 
 /// A stateful loopback `CortexDB`: `POST /v1/experience` stores, `POST
@@ -174,6 +175,13 @@ impl FakeCortex {
         self.lock().refuse_scope = fragment.map(str::to_string);
     }
 
+    /// Makes recall behave like `CortexDB`'s: only events sharing a word
+    /// with the query, most matches first, at most `cap` of them. `None`
+    /// restores the default of every event in the scope, newest first.
+    pub fn rank_recall(&self, cap: Option<usize>) {
+        self.lock().rank_recall = cap;
+    }
+
     /// Makes following writes report only the `stored` stage.
     pub fn skip_index(&self, skip: bool) {
         self.lock().skip_index = skip;
@@ -192,7 +200,11 @@ fn handle(state: &Mutex<State>, seen: &Seen) -> (u16, String) {
             json!({"error_code": "STUB_REFUSED", "message": "refused"}).to_string(),
         );
     }
-    let scope = seen.body["scope"].as_str().unwrap_or_default().to_string();
+    let scope = seen.body["scope"]
+        .as_str()
+        .map(str::to_string)
+        .or_else(|| query_param(&seen.head, "scope"))
+        .unwrap_or_default();
     if state
         .refuse_scope
         .as_deref()
@@ -245,20 +257,86 @@ fn handle(state: &Mutex<State>, seen: &Seen) -> (u16, String) {
         let limit = seen.body["budgets"]["per_layer_limits"]["event"]
             .as_u64()
             .map_or(usize::MAX, |n| usize::try_from(n).unwrap_or(usize::MAX));
-        let events: Vec<Value> = state
+        let mut ranked: Vec<(usize, &StoredEvent)> = state
             .events
             .iter()
             .rev()
             .filter(|e| e.scope == scope)
+            .map(|e| {
+                (
+                    matches(seen.body["query"].as_str().unwrap_or_default(), &e.text),
+                    e,
+                )
+            })
+            .collect();
+        let limit = match state.rank_recall {
+            Some(cap) => {
+                ranked.retain(|(score, _)| *score > 0);
+                ranked.sort_by_key(|(score, _)| std::cmp::Reverse(*score));
+                limit.min(cap)
+            }
+            None => limit,
+        };
+        let events: Vec<Value> = ranked
+            .into_iter()
             .take(limit)
-            .map(|e| json!({"content": {"text": e.text}}))
+            .map(|(_, e)| json!({"content": {"text": e.text}}))
             .collect();
         if events.is_empty() {
             (404, json!({"error_code": "NOT_FOUND"}).to_string())
         } else {
             (200, json!({"layers": {"events": events}}).to_string())
         }
+    } else if seen.head.starts_with("GET /v1/events") {
+        list_events(&state, &seen.head)
     } else {
         (404, json!({"error_code": "NOT_FOUND"}).to_string())
     }
+}
+
+/// How many times the words of `query` occur in `text`.
+fn matches(query: &str, text: &str) -> usize {
+    query
+        .split_whitespace()
+        .map(|word| text.matches(word).count())
+        .sum()
+}
+
+/// `GET /v1/events?scope=…&labels=a,b&limit=…&cursor=…`: the scope's events
+/// carrying every listed label, oldest first, a page at a time.
+fn list_events(state: &State, head: &str) -> (u16, String) {
+    let query = |name: &str| query_param(head, name);
+    let scope = query("scope").unwrap_or_default();
+    let labels: Vec<String> = query("labels")
+        .map(|raw| raw.split(',').map(str::to_string).collect())
+        .unwrap_or_default();
+    let limit: usize = query("limit").and_then(|n| n.parse().ok()).unwrap_or(50);
+    let start: usize = query("cursor").and_then(|n| n.parse().ok()).unwrap_or(0);
+    let matching: Vec<&StoredEvent> = state
+        .events
+        .iter()
+        .filter(|e| e.scope == scope && labels.iter().all(|l| e.labels.contains(l)))
+        .collect();
+    let items: Vec<Value> = matching
+        .iter()
+        .skip(start)
+        .take(limit)
+        .map(|e| json!({"id": e.event_id, "content": {"text": e.text}, "context": {"labels": e.labels}}))
+        .collect();
+    let next = start + items.len();
+    let has_more = next < matching.len();
+    let mut body = json!({"items": items, "has_more": has_more});
+    if has_more {
+        body["next_cursor"] = json!(next.to_string());
+    }
+    (200, body.to_string())
+}
+
+/// The value of query parameter `name` in the request line of `head`.
+fn query_param(head: &str, name: &str) -> Option<String> {
+    let target = head.split_whitespace().nth(1)?;
+    let url = reqwest::Url::parse(&format!("http://stub{target}")).ok()?;
+    url.query_pairs()
+        .find(|(key, _)| key == name)
+        .map(|(_, value)| value.into_owned())
 }

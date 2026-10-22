@@ -51,6 +51,13 @@ const RECALL_LAYERS: [&str; 3] = ["events", "facts", "beliefs"];
 /// How long a recall may take before the run goes on without it.
 const RECALL_TIMEOUT: Duration = Duration::from_secs(30);
 
+/// Events asked for per page of a labelled listing.
+const LIST_PAGE: u64 = 100;
+
+/// Pages read before a labelled listing gives up, so a runaway cursor cannot
+/// loop forever.
+const LIST_PAGES: usize = 20;
+
 /// How long a write may take. Indexing calls an extraction model, so a
 /// write is much slower than a recall.
 const WRITE_TIMEOUT: Duration = Duration::from_secs(120);
@@ -128,6 +135,60 @@ impl Memory {
     ) -> Result<Vec<String>> {
         let pack = self.recall_pack(project, query, &["events"], limit).await?;
         Ok(pack.as_ref().map(pack::event_texts).unwrap_or_default())
+    }
+
+    /// The text of every note in `project`'s scope that carries `label`,
+    /// oldest first.
+    ///
+    /// Unlike [`Memory::recall_notes`] this is exact: `GET /v1/events`
+    /// filters by label, so a note is found however many others resemble the
+    /// query. A scope nothing has been written to yields no notes.
+    ///
+    /// # Errors
+    ///
+    /// The same as [`Memory::recall`].
+    pub async fn notes_labelled(&self, project: &Project, label: &str) -> Result<Vec<String>> {
+        let scope = self.scope(project);
+        let mut notes = Vec::new();
+        let mut cursor: Option<String> = None;
+        for _ in 0..LIST_PAGES {
+            let mut query = vec![
+                ("scope", scope.clone()),
+                ("labels", label.to_owned()),
+                ("limit", LIST_PAGE.to_string()),
+            ];
+            if let Some(cursor) = &cursor {
+                query.push(("cursor", cursor.clone()));
+            }
+            let request = self
+                .client
+                .get(format!("{}/v1/events", self.base_url))
+                .bearer_auth(&self.api_key)
+                .query(&query)
+                .send();
+            let response = Self::answered("list", request, RECALL_TIMEOUT).await?;
+            if response.status() == reqwest::StatusCode::NOT_FOUND {
+                break;
+            }
+            let page = Self::read_json("list", response).await?;
+            notes.extend(
+                page.get("items")
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|item| item.pointer("/content/text").and_then(Value::as_str))
+                    .map(str::to_owned),
+            );
+            cursor = page
+                .get("next_cursor")
+                .and_then(Value::as_str)
+                .filter(|_| page.get("has_more").and_then(Value::as_bool) == Some(true))
+                .map(str::to_owned);
+            if cursor.is_none() {
+                break;
+            }
+        }
+        Ok(notes)
     }
 
     async fn recall_pack(
@@ -236,6 +297,16 @@ impl Memory {
             .bearer_auth(&self.api_key)
             .json(body)
             .send();
+        Self::answered(operation, request, timeout).await
+    }
+
+    /// Awaits `request` for at most `timeout`, mapping both ways it can fail
+    /// to [`Error::MemoryTransport`].
+    async fn answered(
+        operation: &'static str,
+        request: impl std::future::Future<Output = reqwest::Result<reqwest::Response>>,
+        timeout: Duration,
+    ) -> Result<reqwest::Response> {
         tokio::time::timeout(timeout, request)
             .await
             .map_err(|_| Error::MemoryTransport {

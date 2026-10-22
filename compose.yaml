@@ -93,10 +93,23 @@ services:
       SUPERMATH_REASONING_EFFORT: ${SUPERMATH_REASONING_EFFORT:-medium}
       SUPERMATH_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-venice-embed-1}
       SUPERMATH_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-1024}
+      # Another embedding endpoint for Jev's retriever; empty means Surplus.
+      SUPERMATH_EMBEDDING_URL: ${SUPERMATH_EMBEDDING_URL:-}
+      SUPERMATH_EMBEDDING_API_KEY: ${SUPERMATH_EMBEDDING_API_KEY:-}
       # The Surplus model each `agent_*` child runs on.
       SUPERMATH_READER_MODEL: ${SUPERMATH_READER_MODEL:-deepseek-v4.1-flash}
       SUPERMATH_FORMALIZER_MODEL: ${SUPERMATH_FORMALIZER_MODEL:-deepseek-v4-pro}
       SUPERMATH_REVIEWER_MODEL: ${SUPERMATH_REVIEWER_MODEL:-glm-5.3}
+      # agent_settle: the one model both duel sides run on, and its pacing.
+      # Unset, the crate's defaults apply (see .env.example).
+      SUPERMATH_DUEL_MODEL: ${SUPERMATH_DUEL_MODEL:-deepseek-v4-pro}
+      SUPERMATH_DUEL_DRIFT_CALLS: ${SUPERMATH_DUEL_DRIFT_CALLS:-12}
+      SUPERMATH_DUEL_MAX_ROUNDS: ${SUPERMATH_DUEL_MAX_ROUNDS:-4}
+      SUPERMATH_DUEL_DIGEST_EVERY: ${SUPERMATH_DUEL_DIGEST_EVERY:-8}
+      # The lit_* and web_* tools, as the `mcp` service passes them.
+      SUPERMATH_CONTACT: ${SUPERMATH_CONTACT:-}
+      SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       # Jev's decision calls, and nothing else.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       CORTEX_API_URL: http://cortexdb:3141

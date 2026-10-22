@@ -15,6 +15,7 @@
 //! journaled call as it lands.
 
 mod host;
+mod result;
 mod types;
 
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -24,6 +25,7 @@ use serde_json::Value;
 use supermath_tool::{CallContext, CallLog, Envelope, ToolRegistry};
 
 pub use host::HostTool;
+pub use result::tool_result;
 pub(crate) use types::Watcher;
 pub use types::{CallNote, Progress};
 
@@ -53,6 +55,11 @@ impl std::fmt::Debug for Belt {
 }
 
 impl Belt {
+    /// The wall time, in milliseconds, of the call this belt serves.
+    pub(crate) fn wall_time_ms(&self) -> u64 {
+        self.base.budget.wall_time_ms
+    }
+
     /// A belt for the turn that `parent` (an `agent_*` tool) runs under
     /// `base`, reaching only the tools in `registry`.
     #[must_use]

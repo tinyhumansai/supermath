@@ -14,8 +14,9 @@
 //! that can hide entries from a read, which `ledger_claims` and
 //! `ledger_bound` report in `unknowns`. Nothing records when an entry was
 //! written, so reads come in recall order, not time order.
-//! A single claim is looked up by recalling its id, which its own JSON
-//! contains.
+//! A single claim is looked up exactly, by its `claim:` label
+//! (`GET /v1/events`), never by recall: entries that cite a claim mention its
+//! id more often than the claim itself and outrank it.
 //!
 //! # Trust
 //!
@@ -146,8 +147,18 @@ impl Ledger {
     ///
     /// The same as [`Ledger::entries`].
     pub async fn get(&self, slug: &str, id: &str) -> Result<Option<Entry>> {
-        let found = self.entries(slug, &format!("claim:{id} {id}")).await?;
-        Ok(found.into_iter().find(|entry| entry.id == id))
+        let project = MemoryProject::new(slug)?;
+        let notes = self
+            .memory
+            .notes_labelled(&project, &format!("claim:{id}"))
+            .await?;
+        Ok(latest_revisions(
+            notes
+                .iter()
+                .filter_map(|note| serde_json::from_str::<Entry>(note).ok()),
+        )
+        .into_iter()
+        .find(|entry| entry.id == id))
     }
 
     /// Records a claim and returns the entry that stands for it.

@@ -41,6 +41,42 @@ fn text<'a>(value: &'a Value, pointer: &str) -> Option<&'a str> {
         .filter(|s| !s.trim().is_empty())
 }
 
+/// Whether ledger entry `review` is the fact `agent_review_alignment`
+/// records when it accepts `claim_id`'s declaration (`lean`, the claim's
+/// `lean` object).
+///
+/// The reviewer cannot set a claim's own `alignment` (no tool exposes the
+/// ledger's setter), so its acceptance lives in that fact: kind `fact`,
+/// `uses` the claim, the statement `Alignment review of <claim> (<decl>):
+/// accepted.`, and a `supplied` source naming the reviewer's model.
+///
+/// # Errors
+///
+/// A message saying why `review` does not stand in for an accepted
+/// alignment.
+pub(crate) fn review_accepts(claim_id: &str, lean: &Value, review: &Value) -> Result<(), String> {
+    let declaration = text(lean, "/declaration").unwrap_or_default();
+    let expected = format!("Alignment review of {claim_id} ({declaration}): accepted.");
+    let uses_claim = review
+        .get("uses")
+        .and_then(Value::as_array)
+        .is_some_and(|uses| uses.iter().any(|id| id.as_str() == Some(claim_id)));
+    let by_reviewer =
+        text(review, "/source/supplied").is_some_and(|who| who.starts_with("reviewer model "));
+    if text(review, "/kind") == Some("fact")
+        && text(review, "/statement") == Some(expected.as_str())
+        && uses_claim
+        && by_reviewer
+    {
+        Ok(())
+    } else {
+        Err(format!(
+            "the review entry is not an accepting alignment review of {claim_id} ({declaration}) \
+             by agent_review_alignment"
+        ))
+    }
+}
+
 impl Target {
     /// The target for ledger claim `claim_id`, whose entry is `claim`.
     ///
@@ -62,7 +98,8 @@ impl Target {
         let alignment = text(claim, "/alignment").unwrap_or("not_reviewed");
         if alignment != "accepted" {
             return Err(format!(
-                "claim {claim_id} has alignment {alignment}; agent_settle needs a statement agent_review_alignment accepted"
+                "claim {claim_id} has alignment {alignment}; agent_settle needs a statement \
+                 agent_review_alignment accepted: pass that review's review_id"
             ));
         }
         if module_of(lean_path).is_none() {

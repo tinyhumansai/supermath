@@ -26,6 +26,17 @@ fn messages_are_lowercase_and_name_the_failing_piece() {
             Error::Runtime("no provider".into()),
             "openhuman runtime failed: no provider",
         ),
+        (
+            Error::Prompt {
+                path: "problem.md".into(),
+                reason: "not found".into(),
+            },
+            "cannot read the prompt `problem.md`: not found",
+        ),
+        (
+            Error::Turn("deadline exceeded".into()),
+            "agent turn failed: deadline exceeded",
+        ),
     ];
     for (error, message) in cases {
         assert_eq!(error.to_string(), message);

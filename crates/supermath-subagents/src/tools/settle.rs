@@ -10,9 +10,9 @@ use supermath_tool::{
     Backend, CallContext, Envelope, ErrorCode, Exposure, Kind, Permission, Tool, Usage,
 };
 
-use super::shared::{Agentic, parse_args};
+use super::shared::{Agentic, Refusal, parse_args};
 use crate::config::DuelSettings;
-use crate::duel::{Duel, Settled, Side, Target, Verdict, Win};
+use crate::duel::{Duel, Settled, Side, Target, Verdict, Win, review_accepts};
 use crate::limits::{BudgetArg, Limits, budget_schema};
 
 /// Runs the duel for a ledger claim and reports `proved`, `refuted`,
@@ -35,6 +35,7 @@ impl std::fmt::Debug for AgentSettle {
 #[serde(deny_unknown_fields)]
 struct Args {
     claim_id: String,
+    review_id: Option<String>,
     budget: Option<BudgetArg>,
 }
 
@@ -80,6 +81,30 @@ impl AgentSettle {
         usage
     }
 
+    /// Ledger claim `claim_id`, marked `accepted` when `review_id` names
+    /// the review that accepted it.
+    ///
+    /// The reviewer's acceptance lives in its review fact, not in the
+    /// claim's own `alignment`, so a review that checks out stands in for it.
+    async fn claim(
+        &self,
+        ctx: &CallContext,
+        claim_id: &str,
+        review_id: Option<&str>,
+    ) -> Result<Value, Refusal> {
+        let mut claim = self.prover.claim(ctx, claim_id).await?;
+        if let Some(review_id) = review_id
+            && claim.get("alignment").and_then(Value::as_str) != Some("accepted")
+        {
+            let review = self.prover.claim(ctx, review_id).await?;
+            let lean = claim.get("lean").cloned().unwrap_or(Value::Null);
+            review_accepts(claim_id, &lean, &review)
+                .map_err(|message| Box::new(Envelope::error(ErrorCode::InvalidInput, message)))?;
+            claim["alignment"] = json!("accepted");
+        }
+        Ok(claim)
+    }
+
     async fn run(&self, ctx: &CallContext, args: Value) -> Envelope {
         let args: Args = match parse_args(args) {
             Ok(args) => args,
@@ -92,7 +117,10 @@ impl AgentSettle {
             Ok(limits) => limits,
             Err(envelope) => return *envelope,
         };
-        let claim = match self.prover.claim(ctx, &args.claim_id).await {
+        let claim = match self
+            .claim(ctx, &args.claim_id, args.review_id.as_deref())
+            .await
+        {
             Ok(claim) => claim,
             Err(envelope) => return *envelope,
         };
@@ -186,7 +214,8 @@ impl Tool for AgentSettle {
 
     fn description(&self) -> &'static str {
         "Runs a prover agent and a refuter agent in parallel, with equal budgets, on a ledger \
-         claim whose Lean statement is alignment-accepted. They share the project workspace and \
+         claim whose Lean statement is alignment-accepted (pass the review_id \
+         agent_review_alignment returned). They share the project workspace and \
          exchange checked lemmas, searched bounds, and leads; the first theorem the tool checks \
          against the pinned statement settles the claim as proved or refuted and stops the \
          other side. Otherwise the outcome is unknown, with every bound searched."
@@ -197,6 +226,7 @@ impl Tool for AgentSettle {
             "type": "object",
             "properties": {
                 "claim_id": {"type": "string", "description": "The ledger claim to settle; its Lean statement must be alignment-accepted."},
+                "review_id": {"type": "string", "description": "The review_id agent_review_alignment returned when it accepted this claim's statement."},
                 "budget": budget_schema()
             },
             "required": ["claim_id"],
