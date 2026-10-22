@@ -1,6 +1,10 @@
 """Processes: warm REPLs with `import Mathlib` already elaborated, and
 one-shot REPLs for files that import project modules.
 
+Every REPL runs with an explicit LEAN_PATH. Without one the REPL answers
+`import Mathlib` with an empty environment and no error, so a warm REPL also
+proves Mathlib loaded before it is used.
+
 The container is the sandbox (no network, unprivileged user, read-only root,
 a memory limit). This module adds the per-request wall-time and output caps.
 """
@@ -12,10 +16,13 @@ import subprocess
 import threading
 import time
 
+import build
+
 MAX_OUTPUT = 4 << 20  # bytes of REPL output per answer
 RECYCLE_AFTER = 40  # commands before a warm REPL is replaced (envs accumulate)
 LEAN_ENV = os.environ.get("LEAN_ENV", "/opt/lean-env")
 REPL_BIN = os.environ.get("REPL_BIN", "/opt/repl/.lake/build/bin/repl")
+PACKAGES = build.package_paths(LEAN_ENV)
 
 
 class ReplTimeout(Exception):
@@ -24,6 +31,10 @@ class ReplTimeout(Exception):
 
 class ReplOutputLimit(Exception):
     """The REPL's answer passed MAX_OUTPUT bytes."""
+
+
+class MathlibMissing(Exception):
+    """A fresh REPL's `import Mathlib` produced an environment without Mathlib."""
 
 
 class ReplDied(Exception):
@@ -36,13 +47,12 @@ class ReplDied(Exception):
 
 
 class Repl:
-    def __init__(self, cwd=None, lake_env=False):
-        argv = [REPL_BIN]
-        if lake_env:
-            argv = ["lake", "env", REPL_BIN]
+    def __init__(self, cwd=None, lean_path=None):
+        env = dict(os.environ, LEAN_PATH=lean_path or build.lean_path(PACKAGES))
         self.proc = subprocess.Popen(
-            argv,
+            [REPL_BIN],
             cwd=cwd or LEAN_ENV,
+            env=env,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
@@ -107,6 +117,10 @@ class Pool:
         repl = Repl()
         answer = repl.request({"cmd": "import Mathlib"}, timeout=600)
         repl.base_env = answer["env"]
+        probe = repl.request({"cmd": "#check Nat.Prime", "env": repl.base_env}, timeout=60)
+        if any(m.get("severity") == "error" for m in probe.get("messages", [])):
+            repl.kill()
+            raise MathlibMissing(f"import Mathlib loaded nothing; LEAN_PATH={build.lean_path(PACKAGES)}")
         return repl
 
     def lease(self):

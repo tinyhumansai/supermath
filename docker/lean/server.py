@@ -22,8 +22,9 @@ import subprocess
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
+import build
 import normalize as N
-from repl import Pool, Repl, ReplDied, ReplOutputLimit, ReplTimeout
+from repl import PACKAGES, Pool, Repl, ReplDied, ReplOutputLimit, ReplTimeout
 
 PROJECTS = os.environ.get("PROJECTS_DIR", "/projects")
 POOL = Pool(int(os.environ.get("LEAN_POOL_SIZE", "2")))
@@ -122,14 +123,13 @@ def elaborate(slug, source, timeout, with_tactics=False):
             raise
         return repl, answer, release
     lean_dir = ensure_package(slug)
-    build = subprocess.run(
-        ["lake", "build", *mods], cwd=lean_dir, capture_output=True, text=True, timeout=timeout
-    )
-    if build.returncode != 0:
+    try:
+        path = build.build_modules(lean_dir, mods, PACKAGES, timeout)
+    except build.BuildError as failed:
         fail = {"messages": [{"severity": "error", "pos": {"line": 1, "column": 0},
-                              "data": "an imported project module failed to build:\n" + build.stdout[-1500:]}]}
+                              "data": "an imported project module failed to build:\n" + failed.text}]}
         return None, fail, lambda: None
-    repl = Repl(cwd=lean_dir, lake_env=True)
+    repl = Repl(cwd=lean_dir, lean_path=path)
     try:
         answer = repl.request({"cmd": source, **options}, timeout)
     except BaseException:
