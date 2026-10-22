@@ -110,6 +110,12 @@ failure, OpenHuman's classifier read `FORBIDDEN` as rejected credentials and
 ended the turn. Only `BACKEND_UNAVAILABLE` and `RATE_LIMITED` are failures,
 carrying `status_code` 503 or 429 so the harness retries them as transient.
 
+OpenHuman cuts a tool call at 120 s unless the tool asks for more. The
+`agent_*` tools ask for their agentic wall time (one hour), and a child's
+primitives ask for the wall time of the call running the child, so a duel
+side's long `py_run` or Lean build is bounded by its own budget, not by the
+harness default. Toolkit tools called by the top-level agent keep the default.
+
 ### Memory scopes
 
 ```text
