@@ -1,105 +1,64 @@
-# supermath: the agent runner, its model router, and its memory.
+# supermath: the agent runner, its models, and its memory.
 #
-#   cp .env.example .env            # ladder key, OpenRouter, Surplus, Venice
+#   cp .env.example .env            # Surplus Intelligence and OpenRouter keys
 #   git submodule update --init --recursive
-#   docker compose up --build       # ladder + CortexDB, then `supermath-agent check`
+#   docker compose up --build       # CortexDB, then `supermath-agent check`
 #
-# Three services:
+# Two services by default:
 #
-#   ladder     the LLM ladder router: every chat completion and embedding
 #   cortexdb   the memory server, one per deployment, data in a named volume
 #   agent      `crates/supermath-agent`, embedding OpenHuman; `check` boots it
 #              and reports whether the stack is ready
 #
-# The ladder holds the marketplace credentials. Everything else reaches it with
-# one shared key, `LADDER_API_KEY`. The agent also calls OpenRouter directly,
-# for Jev only: the decision model `tool_search` ranks deferred tools with.
+# Every chat completion and embedding, the agent's and CortexDB's, goes
+# straight to Surplus Intelligence (`SURPLUS_API_KEY`) with a concrete model
+# name; there is no router in between. The agent also calls OpenRouter
+# directly, for Jev only: the decision model `tool_search` ranks deferred
+# tools with, which OpenHuman reaches no other way.
 
-x-ladder-url: &ladder-url http://ladder:6969/v1
-x-ladder-key: &ladder-key ${LADDER_API_KEY:-supermath-ladder}
+x-surplus-url: &surplus-url ${SURPLUS_URL:-https://api.surplusintelligence.ai/v1}
+x-surplus-key: &surplus-key ${SURPLUS_API_KEY:?set SURPLUS_API_KEY in .env}
 
 services:
-  ladder:
-    # Rebuilt and republished on every push to the router's main, so `latest`
-    # plus `pull_policy: always` is how a router fix reaches this stack.
-    # Published for amd64 only; Apple silicon runs it emulated, which is fine
-    # for an I/O-bound proxy.
-    image: ghcr.io/senamakel/llm-ladder-router:latest
-    platform: linux/amd64
-    pull_policy: always
-    restart: unless-stopped
-    environment:
-      # The key every caller must present. With it unset the router accepts
-      # anyone, so it is always set here.
-      LADDER_API_KEY: *ladder-key
-      # Marketplace credentials. Rungs whose marketplace has no key fail and
-      # the ladder moves on to the next rung.
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      SURPLUS_API_KEY: ${SURPLUS_API_KEY:-}
-      VENICE_INFERENCE_KEY: ${VENICE_INFERENCE_KEY:-}
-      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
-      RUST_LOG: ${LADDER_LOG:-info}
-    # The ladders themselves (`flash`, `reasoning`, `vectors`, ...). Defaults to
-    # the operator's router config; the image's bundled example has no working
-    # `vectors` rung, so it is not a usable fallback.
-    volumes:
-      - type: bind
-        source: ${LADDER_CONFIG_PATH:-${HOME}/.config/ladder/config.toml}
-        target: /etc/ladder/config.toml
-        read_only: true
-    # Published on 6970 so it does not collide with a shared ladder already on
-    # 6969. Containers reach it by name.
-    ports:
-      - "127.0.0.1:${LADDER_PORT:-6970}:6969"
-    mem_limit: 512m
-    read_only: true
-    tmpfs:
-      - /tmp:rw,nosuid,nodev,noexec,size=16m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-
   cortexdb:
     # Pinned by digest, the release cortexdb-saas runs. The engine is a closed
     # vendor binary published for amd64 only.
     image: cortexdb/cortexdb:v0.10.4@sha256:636e0ed0b8cd4ae2f307e3a90f99050f7879f73c556b1ccbbabf2d3a383398fc
     platform: linux/amd64
     restart: unless-stopped
-    depends_on:
-      - ladder
     environment:
       # The operator key every request carries as a bearer token. The agent
       # reads the same variable, so the two cannot drift.
       CORTEX_API_KEY: ${CORTEX_API_KEY:-supermath-local}
       CORTEX_V1_API_ADDR: 0.0.0.0:3141
-      # Everything that thinks goes through the ladder. The server decides
-      # whether it has a real provider at all from `OPENAI_API_KEY` /
-      # `LLM_API_KEY`, so the ladder's key is given under that name too.
-      OPENAI_API_KEY: *ladder-key
-      LLM_API_KEY: *ladder-key
-      # Embeddings on the `vectors` ladder (BGE-M3, 1024 wide). The server pins
-      # the width on first ingest, so changing it needs a fresh volume.
-      CORTEX_EMBEDDING_URL: *ladder-url
-      CORTEX_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-vectors}
+      # Everything that thinks goes to Surplus Intelligence. The server
+      # decides whether it has a real provider at all from `OPENAI_API_KEY` /
+      # `LLM_API_KEY`, so the Surplus key is given under that name too.
+      OPENAI_API_KEY: *surplus-key
+      LLM_API_KEY: *surplus-key
+      # Embeddings on Surplus's `venice-embed-1`, asked for 1024 wide. The
+      # server pins the width on first ingest, so changing the model or the
+      # width needs a fresh volume.
+      CORTEX_EMBEDDING_URL: *surplus-url
+      CORTEX_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-venice-embed-1}
       CORTEX_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-1024}
-      CORTEX_EMBEDDING_API_KEY: *ladder-key
-      # Extraction, enrichment, answers and verification on the cheap `flash`
-      # ladder. Enrichment builds facts from notes; unset turns it off.
-      CORTEX_LLM_URL: *ladder-url
-      CORTEX_LLM_MODEL: ${CORTEX_CHAT_MODEL:-flash}
-      CORTEX_ENTITY_API_KEY: *ladder-key
+      CORTEX_EMBEDDING_API_KEY: *surplus-key
+      # Extraction, enrichment, answers and verification on a cheap, fast
+      # Surplus model. Enrichment builds facts from notes; unset turns it off.
+      CORTEX_LLM_URL: *surplus-url
+      CORTEX_LLM_MODEL: ${CORTEX_CHAT_MODEL:-deepseek-v4.1-flash}
+      CORTEX_ENTITY_API_KEY: *surplus-key
       CORTEX_ENRICHMENT_DELAY_SECONDS: "0"
-      CORTEX_ENRICHMENT_URL: *ladder-url
-      CORTEX_ENRICHMENT_MODEL: ${CORTEX_CHAT_MODEL:-flash}
-      CORTEX_ENRICHMENT_API_KEY: *ladder-key
+      CORTEX_ENRICHMENT_URL: *surplus-url
+      CORTEX_ENRICHMENT_MODEL: ${CORTEX_CHAT_MODEL:-deepseek-v4.1-flash}
+      CORTEX_ENRICHMENT_API_KEY: *surplus-key
       CORTEX_ANSWER_PROVIDER: openai
-      CORTEX_ANSWER_URL: *ladder-url
-      CORTEX_ANSWER_MODEL: ${CORTEX_CHAT_MODEL:-flash}
-      CORTEX_ANSWER_API_KEY: *ladder-key
-      CORTEX_VERIFIER_URL: *ladder-url
-      CORTEX_VERIFIER_MODEL: ${CORTEX_CHAT_MODEL:-flash}
-      CORTEX_VERIFIER_API_KEY: *ladder-key
+      CORTEX_ANSWER_URL: *surplus-url
+      CORTEX_ANSWER_MODEL: ${CORTEX_CHAT_MODEL:-deepseek-v4.1-flash}
+      CORTEX_ANSWER_API_KEY: *surplus-key
+      CORTEX_VERIFIER_URL: *surplus-url
+      CORTEX_VERIFIER_MODEL: ${CORTEX_CHAT_MODEL:-deepseek-v4.1-flash}
+      CORTEX_VERIFIER_API_KEY: *surplus-key
       # Episodes, beliefs and concepts are built by a background scheduler
       # that is off unless this is set.
       CORTEX_V1_LAYERS_AUTO: "1"
@@ -124,18 +83,20 @@ services:
       dockerfile: Dockerfile
     image: supermath-agent:local
     depends_on:
-      ladder:
-        condition: service_started
       cortexdb:
         condition: service_healthy
     environment:
-      LADDER_URL: *ladder-url
-      LADDER_API_KEY: *ladder-key
-      # The ladder's `flash` rungs, thinking at medium depth.
-      SUPERMATH_MODEL: ${SUPERMATH_MODEL:-flash}
+      SURPLUS_URL: *surplus-url
+      SURPLUS_API_KEY: *surplus-key
+      # A fast Surplus model, thinking at medium depth.
+      SUPERMATH_MODEL: ${SUPERMATH_MODEL:-deepseek-v4.1-flash}
       SUPERMATH_REASONING_EFFORT: ${SUPERMATH_REASONING_EFFORT:-medium}
-      SUPERMATH_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-vectors}
+      SUPERMATH_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-venice-embed-1}
       SUPERMATH_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-1024}
+      # The Surplus model each `agent_*` child runs on.
+      SUPERMATH_READER_MODEL: ${SUPERMATH_READER_MODEL:-deepseek-v4.1-flash}
+      SUPERMATH_FORMALIZER_MODEL: ${SUPERMATH_FORMALIZER_MODEL:-deepseek-v4-pro}
+      SUPERMATH_REVIEWER_MODEL: ${SUPERMATH_REVIEWER_MODEL:-deepseek-v4-pro}
       # Jev's decision calls, and nothing else.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       CORTEX_API_URL: http://cortexdb:3141
@@ -145,7 +106,7 @@ services:
       # The toolkit's project workspaces, and the Lean and Python services
       # that run what the agent writes there. Those two sit on `internal`
       # only, so the agent joins `internal` as well as `default` (which it
-      # needs to reach the ladder, CortexDB and the internet).
+      # needs to reach Surplus, CortexDB and the internet).
       SUPERMATH_PROJECTS: /projects
       LEAN_URL: http://lean:3150
       PYTHON_URL: http://python:3160
