@@ -18,7 +18,7 @@ use super::post::{DuelPost, MAX_POSTS};
 use super::target::{Target, module_of};
 use super::types::{Item, PostKind, Side};
 use super::side_scope;
-use crate::belt::{Belt, CallNote, Watcher as _};
+use crate::belt::{Belt, CallNote};
 use crate::child::{ChildKind, TurnControl};
 use crate::config::DuelSettings;
 use crate::fake::{
