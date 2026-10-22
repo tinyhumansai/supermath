@@ -55,6 +55,6 @@ pub use error::{Error, Result};
 pub use evidence::FakeLeanEvidence;
 pub use evidence::{AXIOM_ALLOWLIST, LeanEvidence, LeanVerdict, LeanVerdictKind};
 pub use ledger::{BoundOutcome, BoundRequest, Claim, DEFAULT_WINDOW, Effective, Ledger, Recorded};
-pub use memory::{Memory, Project as MemoryProject, slugify};
+pub use memory::{Listed, Memory, Project as MemoryProject, slugify};
 pub use tools::{LedgerBound, LedgerClaims, LedgerLink, LedgerRecord, RecallMemory, tools};
 pub use types::{Alignment, BoundSpec, Direction, Entry, Kind, LeanClaim, Source, Status};
