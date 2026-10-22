@@ -46,7 +46,9 @@ fn refuses_zero_two_and_empty_matches_naming_the_edit() {
             occurrences: 2
         }
     );
-    let empty = apply("abc", &[edit("b", "x"), edit("", "b")]).err().unwrap();
+    let empty = apply("abc", &[edit("b", "x"), edit("", "b")])
+        .err()
+        .unwrap();
     assert_eq!(empty, Fault::EmptyOld { index: 1 });
 }
 

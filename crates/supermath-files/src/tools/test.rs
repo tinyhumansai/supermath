@@ -626,7 +626,10 @@ async fn read_refuses_a_file_over_the_size_cap() {
     )
     .unwrap();
     let tool = FileRead::new(fx.ws.clone());
-    for args in [json!({"path": huge}), json!({"path": huge, "start_line": 1})] {
+    for args in [
+        json!({"path": huge}),
+        json!({"path": huge, "start_line": 1}),
+    ] {
         assert_eq!(
             code(&call(&tool, args.clone()).await),
             ErrorCode::BudgetExceeded,
@@ -677,7 +680,10 @@ async fn edit_refuses_a_result_over_the_size_cap() {
     )
     .await;
     assert_eq!(code(&refused), ErrorCode::BudgetExceeded);
-    let current = fx.ws.sha256("demo", &ProjectPath::parse(path).unwrap()).unwrap();
+    let current = fx
+        .ws
+        .sha256("demo", &ProjectPath::parse(path).unwrap())
+        .unwrap();
     assert_eq!(current, sha);
 }
 

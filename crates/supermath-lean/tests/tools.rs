@@ -472,7 +472,9 @@ fn failure(envelope: &supermath_tool::Envelope) -> (ErrorCode, String) {
 async fn decl_is_not_found_when_neither_mathlib_nor_the_project_has_the_name() {
     let stub = service().await;
     let env = Env::over(&stub);
-    let envelope = env.call("lean_decl", json!({"name": "Missing.thing"})).await;
+    let envelope = env
+        .call("lean_decl", json!({"name": "Missing.thing"}))
+        .await;
     let (code, message) = failure(&envelope);
     assert_eq!(code, ErrorCode::NotFound);
     assert!(message.contains("Missing.thing is in neither Mathlib nor the project"));
@@ -509,10 +511,7 @@ async fn goals_is_over_budget_for_a_file_over_the_byte_budget() {
     let stub = service().await;
     let env = Env::over(&stub);
     env.put("lean/Supermath/Main.lean", SORRIED);
-    let envelope = env
-        .tool("lean_goals")
-        .call(&tiny(), goals_at("Main"))
-        .await;
+    let envelope = env.tool("lean_goals").call(&tiny(), goals_at("Main")).await;
     assert_eq!(failure(&envelope).0, ErrorCode::BudgetExceeded);
     assert_eq!(stub.count("/goals"), 0);
 }

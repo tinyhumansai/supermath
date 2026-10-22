@@ -273,6 +273,22 @@ class SearchTests(ServiceCase):
         _, answer = self.search("prod.py", source, "below", frame)
         self.assertEqual(answer["search"]["witness"], [1, 2])
         self.assertEqual(answer["search"]["checked"], 6)
+        self.assertEqual(answer["search"]["witness_tuples"], [[]])
+
+    def test_a_witness_names_every_tuple_json_turned_into_a_list(self):
+        source = (
+            "TARGET = (3, (4, [5, (6,)]), {'k': (7,)})\n"
+            "def ok(t):\n    return t != TARGET\n"
+            "def values():\n    yield (1,)\n    yield TARGET\n"
+        )
+        _, answer = self.search("tup.py", source, "ok", {"kind": "generator", "entry": "values"})
+        self.assertEqual(answer["result"], "found")
+        self.assertEqual(answer["search"]["witness_json"], '[3,[4,[5,[6]]],{"k":[7]}]')
+        self.assertEqual(answer["search"]["witness_tuples"], [[], [1], [1, 1, 1], [2, "k"]])
+
+    def test_a_witness_without_tuples_names_none(self):
+        _, answer = self.search("odd2.py", self.ODD, "is_odd", {"kind": "range", "from": 1, "to": 9})
+        self.assertEqual(answer["search"]["witness_tuples"], [])
 
     def test_a_generator_frame_is_counted(self):
         source = "def ok(n):\n    return n != 9\ndef values():\n    yield from range(5)\n"
