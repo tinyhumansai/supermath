@@ -792,6 +792,33 @@ async fn the_label_is_not_checked_when_the_registry_cannot_list_statements() {
 }
 
 #[tokio::test]
+async fn a_label_the_statement_list_cannot_confirm_is_named_as_unverified() {
+    for broken in [
+        Envelope::error(ErrorCode::BackendUnavailable, "arXiv is down"),
+        Envelope::ok(json!({"total": 3})),
+    ] {
+        let world = World::new();
+        world.add_paper("2012.04125", &["thm:main"]);
+        world.override_tool("lit_extract_statements", broken);
+        let runner = formalizer(&world, SORRY_FILE, None);
+        let built = subagents(&world.registry(), &runner);
+        let answer = call(
+            &built,
+            "agent_formalize",
+            json!({"source": {"arxiv_id": "2012.04125", "label": "thm:main"}, "path": PATH}),
+        )
+        .await;
+        assert_eq!(answer.outcome, Outcome::Ok, "{answer:?}");
+        assert!(
+            unknowns(&answer).contains(
+                "the label thm:main was not verified: the statement list of arXiv:2012.04125 could not be read"
+            ),
+            "{answer:?}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn a_path_changed_under_another_writer_is_a_conflict() {
     let world = World::new();
     let runner = formalizer(&world, SORRY_FILE, None);
@@ -1494,7 +1521,9 @@ async fn the_record_cap_counts_only_witnesses_and_frames_and_reports_what_it_dro
         "{said}"
     );
     assert!(
-        said.contains("2 more frame(s) searched to the end were not recorded as bounds (at most 5 per call)"),
+        said.contains(
+            "2 more frame(s) searched to the end were not recorded as bounds (at most 5 per call)"
+        ),
         "{said}"
     );
 }

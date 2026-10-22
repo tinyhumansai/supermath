@@ -69,8 +69,7 @@ pub(super) fn check_source(source: &Source) -> Result<()> {
     let locators = usize::from(given(label.as_ref())) + usize::from(given(section.as_ref()));
     if !given(Some(id)) || !given(Some(version)) || locators != 1 {
         return Err(Error::InvalidArguments(
-            "an arxiv source needs `id`, `version`, and exactly one of `label` or `section`"
-                .into(),
+            "an arxiv source needs `id`, `version`, and exactly one of `label` or `section`".into(),
         ));
     }
     Ok(())

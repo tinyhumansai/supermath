@@ -124,7 +124,10 @@ async fn a_limit_above_fifty_is_clamped_to_fifty_not_rejected() {
     )
     .await;
     assert!(search.is_ok(), "{search:?}");
-    assert_eq!(stub.requests()[0].query("max_results").as_deref(), Some("50"));
+    assert_eq!(
+        stub.requests()[0].query("max_results").as_deref(),
+        Some("50")
+    );
     let citations = call(
         &literature,
         "lit_citations",
@@ -143,7 +146,12 @@ async fn a_limit_above_fifty_is_clamped_to_fifty_not_rejected() {
 
     let oeis = Stub::start(oeis_pages(80)).await;
     let literature = Literature::new(&config(&oeis.base)).unwrap();
-    let out = call(&literature, "lit_oeis", json!({"query": "many", "limit": 500})).await;
+    let out = call(
+        &literature,
+        "lit_oeis",
+        json!({"query": "many", "limit": 500}),
+    )
+    .await;
     assert_eq!(out.data["sequences"].as_array().unwrap().len(), 50);
     assert_eq!(out.cursor.as_deref(), Some("50"));
 }
@@ -483,7 +491,10 @@ async fn get_paper_lists_a_starred_section_unnumbered_and_refuses_to_return_it()
         json!({"arxiv_id": "2401.00001", "section": "2"}),
     )
     .await;
-    assert_eq!(two.data["text"], "second", "the starred section is not counted");
+    assert_eq!(
+        two.data["text"], "second",
+        "the starred section is not counted"
+    );
 }
 
 #[tokio::test]

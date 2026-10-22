@@ -77,7 +77,10 @@ impl From<Raw> for CitedPaper {
         CitedPaper {
             source: SOURCE,
             paper_id: raw.paper_id,
-            arxiv_id: ids.as_ref().and_then(|i| i.arxiv.as_deref()).map(unversioned),
+            arxiv_id: ids
+                .as_ref()
+                .and_then(|i| i.arxiv.as_deref())
+                .map(unversioned),
             doi: ids.and_then(|i| i.doi),
             title: raw.title,
             year: raw.year,

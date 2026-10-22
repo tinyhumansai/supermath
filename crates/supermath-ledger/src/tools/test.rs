@@ -130,7 +130,11 @@ async fn recall_memory_asks_cortexdb_for_the_granular_view_of_the_hosts_scope() 
     let answer = call(&tool, json!({"query": "bounds"})).await;
     assert_eq!(answer.data, json!({"notes": ""}));
     let request = seen.await.unwrap();
-    assert!(request.head.starts_with("POST /v1/recall"), "{}", request.head);
+    assert!(
+        request.head.starts_with("POST /v1/recall"),
+        "{}",
+        request.head
+    );
     assert_eq!(request.body["view"], "granular");
     assert_eq!(request.body["scope"], "ws:t/project:sendov/app:brain");
     assert_eq!(request.body["query"], "bounds");

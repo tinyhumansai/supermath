@@ -339,10 +339,12 @@ async fn a_redirect_to_arxiv_is_refused_like_a_direct_arxiv_url() {
     // Port 1 on the redirect targets: if the refusal ever regresses, the
     // fetch fails locally instead of reading arXiv.
     let stub = site(None, |request| match request.path.as_str() {
-        "/to-paper" => Response::status(302)
-            .with_header("location", "http://arxiv.org:1/abs/1908.08483v2"),
-        "/to-listing" => Response::status(301)
-            .with_header("location", "http://export.arxiv.org:1/list/math/new"),
+        "/to-paper" => {
+            Response::status(302).with_header("location", "http://arxiv.org:1/abs/1908.08483v2")
+        }
+        "/to-listing" => {
+            Response::status(301).with_header("location", "http://export.arxiv.org:1/list/math/new")
+        }
         _ => Response::status(404),
     })
     .await;

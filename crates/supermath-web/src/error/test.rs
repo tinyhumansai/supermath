@@ -35,7 +35,10 @@ fn maps_every_variant_to_its_documented_code() {
             ErrorCode::InvalidInput,
         ),
         (Error::TooLarge { limit: 1 }, ErrorCode::InvalidInput),
-        (Error::ArxivPaper { arxiv_id: None }, ErrorCode::InvalidInput),
+        (
+            Error::ArxivPaper { arxiv_id: None },
+            ErrorCode::InvalidInput,
+        ),
         (Error::NotFound, ErrorCode::NotFound),
         (Error::Forbidden("x".into()), ErrorCode::Forbidden),
         (

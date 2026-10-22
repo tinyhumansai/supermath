@@ -105,7 +105,9 @@ async fn loopback(reply: String) -> (Url, Arc<AtomicUsize>) {
 }
 
 fn redirect_to(location: &str) -> String {
-    format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+    format!(
+        "HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+    )
 }
 
 #[tokio::test]
@@ -147,6 +149,9 @@ async fn a_redirect_into_a_private_address_is_refused_on_that_hop() {
 async fn without_a_vetted_origin_the_first_hop_is_checked_too() {
     let (start, hits) = loopback(redirect_to("https://example.com/")).await;
     let result = fetch_from(&WebConfig::default(), start, None).await;
-    assert!(matches!(result, Err(Error::PrivateAddress(_))), "{result:?}");
+    assert!(
+        matches!(result, Err(Error::PrivateAddress(_))),
+        "{result:?}"
+    );
     assert_eq!(hits.load(Ordering::SeqCst), 0);
 }

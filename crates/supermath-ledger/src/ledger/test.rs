@@ -541,7 +541,11 @@ async fn re_recording_refuses_uses_that_would_close_a_cycle() {
         );
         assert_eq!(error.code(), ErrorCode::InvalidInput);
     }
-    assert_eq!(h.cortex.events().len(), written, "a refused cycle writes nothing");
+    assert_eq!(
+        h.cortex.events().len(),
+        written,
+        "a refused cycle writes nothing"
+    );
 }
 
 #[tokio::test]

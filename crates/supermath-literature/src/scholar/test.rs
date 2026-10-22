@@ -50,6 +50,10 @@ fn an_arxiv_id_from_semantic_scholar_loses_its_version() {
             r#"{{"data": [{{"citedPaper": {{"externalIds": {{"ArXiv": "{given}"}}}}}}]}}"#
         ));
         let raw = parsed.data.into_iter().next().unwrap().cited.unwrap();
-        assert_eq!(CitedPaper::from(raw).arxiv_id.as_deref(), Some(want), "{given}");
+        assert_eq!(
+            CitedPaper::from(raw).arxiv_id.as_deref(),
+            Some(want),
+            "{given}"
+        );
     }
 }
