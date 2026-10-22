@@ -7,7 +7,8 @@
 //!   runs on a Surplus model such as `deepseek-v4.1-flash`, at the configured
 //!   reasoning effort;
 //! - **Jev**, reached through `OpenRouter`, ranks `tool_search` over deferred
-//!   tools, with Surplus's embedding model as its retriever.
+//!   tools, with the configured embedding model (Surplus's by default) as its
+//!   retriever.
 //!
 //! [`Runner::agent`] composes the toolkit for one project, builds the
 //! `agent_*` children on the same runtime, and registers the top-level agent:
@@ -94,8 +95,8 @@ fn jev_ranker(config: &Config, mut runtime_config: RuntimeConfig) -> Arc<TinyHum
         .parent()
         .unwrap_or(&config.workspace)
         .join("config.toml");
-    let embedder = OpenAiEmbeddingModel::new(config.surplus_api_key.clone())
-        .with_base_url(config.surplus_url.clone())
+    let embedder = OpenAiEmbeddingModel::new(config.embedding_api_key().to_owned())
+        .with_base_url(config.embedding_url().to_owned())
         .with_model(config.embedding_model.clone())
         .with_dimensions(config.embedding_dims);
     let embedder: Arc<dyn tinyinference_embeddings::EmbeddingModel> = Arc::new(embedder);

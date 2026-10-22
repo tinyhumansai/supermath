@@ -56,10 +56,17 @@ pub struct Config {
     /// The reasoning effort every turn asks for, such as `medium`, sent with
     /// each request.
     pub reasoning_effort: String,
-    /// The Surplus model that serves embeddings.
+    /// The model that serves embeddings, on Surplus unless
+    /// [`Self::embedding_url`] names another endpoint.
     pub embedding_model: String,
     /// The width of [`Self::embedding_model`]'s vectors.
     pub embedding_dims: usize,
+    /// An OpenAI-compatible API root for embeddings
+    /// (`SUPERMATH_EMBEDDING_URL`); `None` embeds on Surplus.
+    pub embedding_endpoint: Option<String>,
+    /// The bearer token for [`Self::embedding_endpoint`]
+    /// (`SUPERMATH_EMBEDDING_API_KEY`); `None` reuses the Surplus key.
+    pub embedding_endpoint_key: Option<String>,
     /// `OpenRouter` key; Jev's decision calls are its only use.
     pub openrouter_api_key: String,
     /// `OpenHuman` backend URL; `None` leaves `OpenHuman`'s own default.
@@ -89,6 +96,7 @@ impl std::fmt::Debug for Config {
             .field("reasoning_effort", &self.reasoning_effort)
             .field("embedding_model", &self.embedding_model)
             .field("embedding_dims", &self.embedding_dims)
+            .field("embedding_endpoint", &self.embedding_endpoint)
             .field("backend_url", &self.backend_url)
             .field("workspace", &self.workspace)
             .field("cortex_url", &self.toolkit.ledger.cortex_url)
@@ -102,6 +110,23 @@ impl std::fmt::Debug for Config {
 }
 
 impl Config {
+    /// The API root embeddings are requested from: the configured embedding
+    /// endpoint, or Surplus.
+    #[must_use]
+    pub fn embedding_url(&self) -> &str {
+        self.embedding_endpoint
+            .as_deref()
+            .unwrap_or(&self.surplus_url)
+    }
+
+    /// The bearer token embedding requests carry.
+    #[must_use]
+    pub fn embedding_api_key(&self) -> &str {
+        self.embedding_endpoint_key
+            .as_deref()
+            .unwrap_or(&self.surplus_api_key)
+    }
+
     /// Reads the configuration from the process environment.
     ///
     /// # Errors
@@ -166,6 +191,9 @@ impl Config {
             reasoning_effort,
             embedding_model: or("SUPERMATH_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL),
             embedding_dims,
+            embedding_endpoint: get("SUPERMATH_EMBEDDING_URL")
+                .map(|url| url.trim_end_matches('/').to_string()),
+            embedding_endpoint_key: get("SUPERMATH_EMBEDDING_API_KEY"),
             openrouter_api_key,
             backend_url: get("SUPERMATH_BACKEND_URL"),
             workspace: PathBuf::from(or("SUPERMATH_WORKSPACE", DEFAULT_WORKSPACE)),
