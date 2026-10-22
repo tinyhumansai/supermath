@@ -42,7 +42,8 @@ pub struct LeanConfig {
     pub tactic_timeout_ms: u64,
     /// Wall time for a whole `lean_build` (15 minutes).
     pub build_timeout_ms: u64,
-    /// Wall time for a Mathlib search or a declaration lookup (15 s).
+    /// Wall time for a Mathlib search or a declaration lookup (30 s). Loogle
+    /// can take 15 s on a pattern query.
     pub query_timeout_ms: u64,
     /// Extra time an HTTP request gets beyond the time it asks the service
     /// for, so the service's own timeout answers first.
@@ -60,7 +61,7 @@ impl Default for LeanConfig {
             check_timeout_ms: 60_000,
             tactic_timeout_ms: 10_000,
             build_timeout_ms: 15 * 60_000,
-            query_timeout_ms: 15_000,
+            query_timeout_ms: 30_000,
             http_slack_ms: 10_000,
             max_range: 1_000_000,
         }
