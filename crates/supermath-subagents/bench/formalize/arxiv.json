@@ -1,0 +1,74 @@
+[
+  {
+    "id": "factorial-exponential-bounds",
+    "area": "analysis",
+    "arxiv_id": "2503.06069v3",
+    "label": "lemm:str"
+  },
+  {
+    "id": "legendre-formula",
+    "area": "number-theory",
+    "arxiv_id": "2503.06069v3",
+    "label": "lemm:leg"
+  },
+  {
+    "id": "prime-counting-third",
+    "area": "number-theory",
+    "arxiv_id": "2503.06069v3",
+    "label": "lemm:pie"
+  },
+  {
+    "id": "chebyshev-theta-bound",
+    "area": "number-theory",
+    "arxiv_id": "2503.06069v3",
+    "label": "lemm:the"
+  },
+  {
+    "id": "central-binomial-prime-divisor",
+    "area": "number-theory",
+    "arxiv_id": "1906.07652v1",
+    "label": "prop44"
+  },
+  {
+    "id": "freiman-three-k-minus-four",
+    "area": "additive-combinatorics",
+    "arxiv_id": "1812.09594v1",
+    "label": "thm:Freiman"
+  },
+  {
+    "id": "distinct-partitions-bound",
+    "area": "combinatorics",
+    "arxiv_id": "1812.09594v1",
+    "label": "lemma:partitions_basic"
+  },
+  {
+    "id": "large-sum-free-structure",
+    "area": "additive-combinatorics",
+    "arxiv_id": "1705.02584v4",
+    "label": "thm:Freiman-large-sum-free"
+  },
+  {
+    "id": "plunnecke-inequality",
+    "area": "additive-combinatorics",
+    "arxiv_id": "1705.02584v4",
+    "label": "lem:Plunnecke"
+  },
+  {
+    "id": "coset-sumset-kneser",
+    "area": "group-theory",
+    "arxiv_id": "2303.00828v1",
+    "label": "lemma:simple_kneser"
+  },
+  {
+    "id": "spectral-radius-vertex-deletion",
+    "area": "graph-theory",
+    "arxiv_id": "2603.29335v1",
+    "label": "Thm:GuoetalConj"
+  },
+  {
+    "id": "star-maximizes-homomorphisms",
+    "area": "graph-theory",
+    "arxiv_id": "2408.01478v2",
+    "label": "thm:sidoalt"
+  }
+]
