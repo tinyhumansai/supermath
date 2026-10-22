@@ -19,4 +19,6 @@
 
 ## Errors
 
-`INVALID_INPUT` for a negative, non-integer, or larger-than-`u64` argument.
+`INVALID_INPUT` for a negative, non-integer, or larger-than-`u64` argument;
+a value past `u64` is refused the same way whether it came as a decimal
+string or as a JSON number.
