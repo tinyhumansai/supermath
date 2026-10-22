@@ -1,4 +1,4 @@
-//! The four `agent_*` tools.
+//! The five `agent_*` tools.
 //!
 //! | Tool | Child | Returns |
 //! | --- | --- | --- |
@@ -6,6 +6,7 @@
 //! | [`AgentFormalize`] | formalizer | Lean files with verdicts the tool computed |
 //! | [`AgentReviewAlignment`] | reviewer | `accepted` or `disputed` |
 //! | [`AgentRefute`] | refuter | a Lean-confirmed counterexample, or the frames searched |
+//! | [`AgentSettle`] | duel prover and duel refuter, in parallel | `proved`, `refuted`, or `unknown` with bounds |
 //!
 //! They share one shape: parse and admit the call, check what it names
 //! exists, run the child on a belt of primitives, then **re-run the
@@ -17,6 +18,7 @@ mod digest;
 mod formalize;
 mod refute;
 mod review;
+mod settle;
 mod shared;
 mod verify;
 
@@ -24,6 +26,7 @@ pub use digest::AgentDigestPaper;
 pub use formalize::AgentFormalize;
 pub use refute::AgentRefute;
 pub use review::AgentReviewAlignment;
+pub use settle::AgentSettle;
 pub(crate) use refute::{frame_of, witness_of};
 pub(crate) use shared::{Agentic, Shared, parse_args};
 pub(crate) use verify::describe;

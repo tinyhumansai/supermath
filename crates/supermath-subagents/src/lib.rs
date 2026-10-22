@@ -72,6 +72,7 @@ mod belt;
 pub mod bench;
 mod child;
 mod config;
+mod duel;
 mod error;
 mod limits;
 mod subagents;
@@ -86,7 +87,9 @@ pub use config::{DuelSettings, Models};
 pub use error::{Error, Result};
 pub use limits::{BudgetArg, Limits, budget_schema};
 pub use subagents::{Runners, Subagents, SubagentsConfig, Unavailable};
-pub use tools::{AgentDigestPaper, AgentFormalize, AgentRefute, AgentReviewAlignment};
+pub use tools::{
+    AgentDigestPaper, AgentFormalize, AgentRefute, AgentReviewAlignment, AgentSettle,
+};
 
 #[cfg(doc)]
 use openhuman_embed::Runtime;
