@@ -30,4 +30,6 @@ Mathlib counterpart.
 Run it against a real stack with
 `cargo test -p supermath-agent --test live live_subagents_formalize_bench`
 (see the variables in that test's header); without them it is skipped.
-`SUPERMATH_BENCH_SET` picks `statements` (the default), `arxiv`, or `all`.
+`SUPERMATH_BENCH_SET` picks `statements` (the default), `arxiv`, or `all`;
+`SUPERMATH_BENCH_CASES` runs only the listed ids. Each case that is not
+checked is printed with the tool's `unknowns`, which say why.
