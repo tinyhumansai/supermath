@@ -3,6 +3,7 @@
 
 mod disagree;
 mod facet;
+mod words;
 
 use std::collections::BTreeSet;
 use std::sync::Arc;
@@ -16,10 +17,11 @@ use supermath_tool::{
 };
 use tokio::task::JoinSet;
 
-use crate::engine::{Engine, Finding, SourceTable, Turn};
+use crate::engine::{Engine, Finding, SourceTable, Turn, plural};
 use crate::error::{Error, Result};
 use crate::source::{SourceClass, parse_classes};
 use facet::{DEFAULT_FACETS, Facet};
+use words::{MAX_BRIEF_WORDS, fit_words};
 
 /// Longest question, in characters.
 const MAX_QUESTION: usize = 500;
@@ -141,6 +143,13 @@ fn brief(request: &Request, turns: &[Result<Turn>]) -> (Envelope, u32, usize, (u
                     entry_points.push(widget.clone());
                 }
                 unknowns.extend(turn.notes.iter().map(|n| format!("facet {name}: {n}")));
+                let over = turn.findings.len().saturating_sub(MAX_FINDINGS);
+                if over > 0 {
+                    unknowns.push(format!(
+                        "facet {name}: {} omitted by the limit of {MAX_FINDINGS} per facet",
+                        plural(over, "finding")
+                    ));
+                }
                 if let Some(reason) = &turn.unknown {
                     unknowns.push(format!("facet {name}: {reason}"));
                     notes.push(Some("no source found".to_owned()));
@@ -159,10 +168,11 @@ fn brief(request: &Request, turns: &[Result<Turn>]) -> (Envelope, u32, usize, (u
     }
 
     let ranking = table.rank(&request.prefer, MAX_SOURCES);
-    let mut facets = Map::new();
-    let mut by_facet: Vec<(&str, Vec<Finding>)> = Vec::new();
-    let mut any = false;
-    for ((facet, rows), note) in request.facets.iter().zip(slotted).zip(notes) {
+    let mut source_cut = 0;
+    let mut kept: Vec<Vec<Finding>> = Vec::new();
+    let mut cut_notes: Vec<Option<&str>> = Vec::new();
+    for rows in slotted {
+        let before = rows.len();
         let findings: Vec<Finding> = rows
             .into_iter()
             .filter_map(|(text, slots)| {
@@ -170,14 +180,44 @@ fn brief(request: &Request, turns: &[Result<Turn>]) -> (Envelope, u32, usize, (u
                 (!sources.is_empty()).then_some(Finding { text, sources })
             })
             .collect();
+        source_cut += before - findings.len();
+        cut_notes.push((before > findings.len()).then_some("findings omitted by the source limit"));
+        kept.push(findings);
+    }
+    let lengths: Vec<usize> = kept.iter().map(Vec::len).collect();
+    let word_cut = fit_words(&mut kept, MAX_BRIEF_WORDS);
+    for ((cut_note, findings), before) in cut_notes.iter_mut().zip(&kept).zip(lengths) {
+        if findings.len() < before {
+            *cut_note = Some("findings omitted by the word limit");
+        }
+    }
+    if source_cut > 0 {
+        unknowns.push(format!(
+            "{} omitted by the source limit",
+            plural(source_cut, "finding")
+        ));
+    }
+    if word_cut > 0 {
+        unknowns.push(format!(
+            "{} omitted to keep the brief under 1,500 words",
+            plural(word_cut, "finding")
+        ));
+    }
+
+    let mut facets = Map::new();
+    let mut by_facet: Vec<(&str, Vec<Finding>)> = Vec::new();
+    let mut any = false;
+    for (((facet, findings), note), cut_note) in
+        request.facets.iter().zip(kept).zip(notes).zip(cut_notes)
+    {
         any |= !findings.is_empty();
         let mut entry = Map::new();
         entry.insert("findings".to_owned(), json!(findings));
         if findings.is_empty() {
-            entry.insert(
-                "note".to_owned(),
-                json!(note.unwrap_or_else(|| "no source found".to_owned())),
-            );
+            let note = note
+                .or_else(|| cut_note.map(str::to_owned))
+                .unwrap_or_else(|| "no source found".to_owned());
+            entry.insert("note".to_owned(), json!(note));
         }
         facets.insert(facet.name().to_owned(), Value::Object(entry));
         by_facet.push((facet.name(), findings));
