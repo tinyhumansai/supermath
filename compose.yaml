@@ -110,6 +110,10 @@ services:
       SUPERMATH_CONTACT: ${SUPERMATH_CONTACT:-}
       SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # The Gemini model the web_* tools ground with, and their daily call cap;
+      # unset keeps the crate's defaults.
+      SUPERMATH_WEB_MODEL: ${SUPERMATH_WEB_MODEL:-}
+      SUPERMATH_WEB_DAILY_CAP: ${SUPERMATH_WEB_DAILY_CAP:-}
       # Jev's decision calls, and nothing else.
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       CORTEX_API_URL: http://cortexdb:3141
@@ -166,6 +170,10 @@ services:
       SUPERMATH_CONTACT: ${SUPERMATH_CONTACT:-}
       SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      # The Gemini model the web_* tools ground with, and their daily call cap;
+      # unset keeps the crate's defaults.
+      SUPERMATH_WEB_MODEL: ${SUPERMATH_WEB_MODEL:-}
+      SUPERMATH_WEB_DAILY_CAP: ${SUPERMATH_WEB_DAILY_CAP:-}
     volumes:
       - projects:/projects
     networks:
