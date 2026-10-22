@@ -1,0 +1,91 @@
+# `web_search`
+
+| Crate | Area | Exposure | Permission | Phase |
+| --- | --- | --- | --- | --- |
+| `supermath-mcp` | [Web](../web.md) | direct | read | P3 |
+
+**Given → returns:** a question → grounded findings with their sources.
+
+One Gemini request with Google Search grounding
+([`web.md`](../web.md#backend-gemini-with-google-search-grounding)). Use it
+for a quick, sourced answer: "is the Sendov conjecture proved for degree
+9?", "who improved the bound on the Erdős–Ginzburg–Ziv constant after
+2020?".
+
+```json
+{
+  "question": "What is the best known bound in the sunflower conjecture?",
+  "prefer": ["preprint", "qa"],
+  "since": "2019-01-01",
+  "limit": 8
+}
+```
+
+- `question` is the search intent, in plain language, at most 500
+  characters.
+- `prefer` names [source classes](../web.md#source-classes) the prompt asks
+  Gemini to favor, and the tool sorts by. It filters nothing: sources of
+  other classes are still returned, after the preferred ones.
+- `since` asks for material from that date on; Google may still return
+  older sources, which are flagged in `unknowns`.
+- `limit` caps the sources returned (default 8, maximum 20).
+
+The prompt asks Gemini to answer in short factual sentences, to name
+authors, years, and bounds exactly, and to say "no source found" rather
+than guess. It never asks for an opinion.
+
+## Returns
+
+```json
+{
+  "outcome": "ok",
+  "data": {
+    "untrusted": true,
+    "findings": [
+      {
+        "text": "Alweiss, Lovett, Wu and Zhang improved the bound to (log k)^{k(1+o(1))} in 2019.",
+        "sources": [0, 2]
+      }
+    ],
+    "sources": [
+      {
+        "url": "https://arxiv.org/abs/1908.08483",
+        "title": "Improved bounds for the sunflower lemma",
+        "class": "preprint",
+        "arxiv_id": "1908.08483"
+      }
+    ],
+    "search_entry_point": "<html …>"
+  },
+  "coverage": {
+    "searched": ["google: sunflower conjecture best bound", "google: sunflower lemma improvement 2021"],
+    "not_covered": ["paywalled full text", "non-English sources"]
+  },
+  "unknowns": ["1 unsupported sentence omitted"],
+  "next": ["lit_get_paper {\"arxiv_id\": \"1908.08483\"}"]
+}
+```
+
+- Each finding is one sentence with the indices of the sources that
+  support it. Findings without support are dropped and counted in
+  `unknowns`.
+- Sources are deduplicated by resolved URL and sorted: preferred classes
+  first, then by how many findings they support.
+- If Gemini answered without grounding (no `groundingMetadata`), the
+  outcome is `unknown` with no findings: an ungrounded answer is a model
+  talking, not a search result.
+- "No source found" from Gemini becomes `outcome: "unknown"`, with the
+  queries in `coverage`. It never means the thing does not exist.
+
+## Errors
+
+| Code | When |
+| --- | --- |
+| `INVALID_INPUT` | an empty or over-long question, an unknown class, a malformed date |
+| `BACKEND_UNAVAILABLE` | no `GEMINI_API_KEY`, or the Gemini API is down |
+| `RATE_LIMITED` | Gemini returned 429; `retry_after_ms` is set |
+| `BUDGET_EXCEEDED` | the project's daily web cap is spent |
+| `TIMEOUT` | no answer in 30 s; the outcome is unknown |
+
+A safety block from Gemini is `outcome: "unknown"` with the block reason in
+`unknowns`, not an error.
