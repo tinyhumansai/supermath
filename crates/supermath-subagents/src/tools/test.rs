@@ -1452,6 +1452,54 @@ async fn nothing_found_records_every_frame_searched_as_a_bound() {
 }
 
 #[tokio::test]
+async fn the_record_cap_counts_only_witnesses_and_frames_and_reports_what_it_dropped() {
+    let world = World::new();
+    let claim = world.add_claim(json!({"kind": "result", "statement": "P holds for every n"}));
+    let script_world = world.clone();
+    let runner = ScriptRunner::new(script(move |_, belt| {
+        let world = script_world.clone();
+        async move {
+            let py = || {
+                json!({"path": "python/work/search.py", "predicate": "p",
+                       "frame": {"kind": "range", "from": 0, "to": 100}})
+            };
+            let lean = || {
+                json!({"path": "lean/Supermath/Search.lean", "predicate": "P",
+                       "range": {"from": 0, "to": 100}})
+            };
+            // Three searches that found nothing and stated no frame come
+            // first; they must not use up the cap.
+            for _ in 0..3 {
+                belt.call("py_search_counterexample", py()).await;
+            }
+            world.override_tool("py_search_counterexample", python_found(7));
+            for _ in 0..6 {
+                belt.call("py_search_counterexample", py()).await;
+            }
+            world.override_tool("lean_search_counterexample", lean_exhausted(100));
+            for _ in 0..7 {
+                belt.call("lean_search_counterexample", lean()).await;
+            }
+            Ok(turn("nothing confirmed"))
+        }
+    }));
+    let built = subagents(&world.registry(), &runner);
+    let answer = call(&built, "agent_refute", json!({"claim_id": claim})).await;
+    assert_eq!(answer.outcome, Outcome::Unknown, "{answer:?}");
+    assert_eq!(answer.data["leads"].as_array().unwrap().len(), 5);
+    assert_eq!(answer.data["frames"].as_array().unwrap().len(), 5);
+    let said = unknowns(&answer);
+    assert!(
+        said.contains("1 more Python witness(es) were not recorded as leads (at most 5 per call)"),
+        "{said}"
+    );
+    assert!(
+        said.contains("2 more frame(s) searched to the end were not recorded as bounds (at most 5 per call)"),
+        "{said}"
+    );
+}
+
+#[tokio::test]
 async fn a_search_that_stopped_early_records_no_frame() {
     let world = World::new();
     let claim = world.add_claim(json!({"kind": "result", "statement": "s"}));
