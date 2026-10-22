@@ -59,15 +59,26 @@ pub fn gcd(mut a: u64, mut b: u64) -> u64 {
 pub(crate) enum Bad {
     /// Missing, negative, fractional, or not a number or decimal string.
     NotInteger,
-    /// A well-formed non-negative decimal string too large for `u64`.
+    /// A non-negative integer too large for `u64`: a decimal string, or a
+    /// JSON number past `u64` (which `serde_json` reads as an `f64`).
     TooLarge,
 }
+
+/// 2^64, the first value an `f64` holds that no `u64` does. Every `f64` this
+/// large is an integer.
+const PAST_U64: f64 = 18_446_744_073_709_551_616.0;
 
 /// Reads argument `name` as a non-negative integer, from a JSON number or a
 /// string of decimal digits.
 pub(crate) fn integer(arguments: &Value, name: &str) -> Result<u64, Bad> {
     match arguments.get(name) {
-        Some(Value::Number(number)) => number.as_u64().ok_or(Bad::NotInteger),
+        Some(Value::Number(number)) => number.as_u64().ok_or_else(|| {
+            if number.as_f64().is_some_and(|value| value >= PAST_U64) {
+                Bad::TooLarge
+            } else {
+                Bad::NotInteger
+            }
+        }),
         Some(Value::String(text))
             if !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit()) =>
         {
