@@ -1,6 +1,6 @@
 # Tool: the contract every domain implements
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Crate:** `supermath-tool`
 - **Parent:** [`../README.md`](../README.md)
 
@@ -29,7 +29,8 @@ pub trait Tool: Send + Sync {
   ([`../README.md`](../README.md#one-envelope)).
 - `CallContext` carries the `Project` (slug and scope, set by the host,
   never from arguments), the `call_id` for the call log, the caller's
-  `evidence_origin`, a `Budget`, and a cancellation token.
+  `evidence_origin` (`Collected` or `Supplied`), a `Budget`, and a
+  `Cancellation` signal (a cloneable watch channel; `tokio` `sync` only).
 - `Kind::Agentic` names its backend (`Gemini` or `OpenHuman`), and an
   agentic tool's description must begin "Runs a … turn"
   ([kinds](../README.md#primitive-and-agentic-tools)).
@@ -38,30 +39,42 @@ pub trait Tool: Send + Sync {
 
 | Type | Holds |
 | --- | --- |
-| `Envelope` | `outcome`, `data`, `coverage`, `unknowns`, `next`, `cursor`, `usage`; constructors `ok`, `unknown`, `error` |
+| `Envelope` | `outcome`, `data`, `coverage`, `unknowns`, `next`, `cursor`, `usage`, `error`; constructors `ok`, `unknown`, `error`, and `with_*` builders |
+| `ErrorInfo` | the `error` field: `code`, `message`, `retry_after_ms`; present exactly when `outcome` is `error` |
 | `Outcome` | `Ok`, `Unknown`, `Error` |
 | `ErrorCode` | the stable codes of [`../README.md`](../README.md#one-envelope); `#[non_exhaustive]` |
 | `Coverage` | `searched`, `not_covered`, `cached_age` |
 | `Usage` | `model`, `turns`, `tool_calls`, `input_tokens`, `output_tokens`, `elapsed_ms`; required on agentic tools |
-| `Budget` | wall time, rows, bytes, and for agentic tools iterations and tokens; `admit` refuses with `BUDGET_EXCEEDED` |
-| `Project` | slug and scope root; constructed only by a host |
+| `Budget` | `wall_time_ms`, `rows`, `bytes`, and for agentic tools `iterations` and `tokens`; `admit(&Demand)` returns a `Refusal`, which converts to a `BUDGET_EXCEEDED` envelope |
+| `Project` | slug (`[a-z0-9-]+`) and scope root; constructed only by a host |
 | `ToolRegistry` | tools by name; what the composition hands to `supermath-subagents` |
-| `CallLog` | the calls made in this process, by `call_id` |
+| `CallLog` | a port recording one `CallRecord` per call, by `call_id`; `InMemoryCallLog` keeps them for the process; `ToolRegistry::dispatch` logs each call |
 
 ## Contract tests
 
-`supermath_tool::contract::check(&dyn Tool, fixtures)` is run by every
-domain crate over each of its tools. It asserts:
+`supermath_tool::contract::check(&dyn Tool, domain, &[Fixture])` is run by
+every domain crate over each of its tools; `domain` is the crate's prefix
+(`file`, `lean`, `py`, `lit`, `web`, `ledger`, `calc`, or `agent`). A
+`Fixture` is a `CallContext` and arguments (`Fixture::new(args)` uses a
+scratch project). `check` returns `Error::Contract` listing every
+`Violation`; `violations` returns the list itself. It asserts:
 
 - the name matches `^(file|lean|py|lit|web|ledger|calc|agent)_[a-z_]+$` or
   is `recall_memory`, and its prefix matches the crate's domain;
 - the description's first sentence states the question, and an agentic
   tool's begins "Runs a";
-- the schema is a valid JSON Schema with `additionalProperties: false`;
+- the schema is an object schema with `additionalProperties: false` and
+  `required` names drawn from `properties` (a structural check, not full
+  JSON Schema validation);
 - every code in `errors()` is produced by at least one fixture, and no
   fixture produces a code not in `errors()`;
 - every envelope serializes to the pinned form and back;
-- an agentic tool's envelopes all carry `usage`.
+- every envelope is well formed (`error` present exactly when the outcome
+  is `error`; at most three `next` calls);
+- an agentic tool's envelopes all carry `usage`;
+- at least one fixture is given.
+
+Lists share `clamp_limit`: default 10, at most 50.
 
 ## Crate
 

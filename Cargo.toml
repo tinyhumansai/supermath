@@ -46,6 +46,34 @@ must_use_candidate = "warn"
 broken_intra_doc_links = "warn"
 private_intra_doc_links = "warn"
 
+# Dependencies shared by more than one crate, declared once so the graph holds
+# one version of each. A member takes one with `{ workspace = true }` and adds
+# only the features it needs.
+[workspace.dependencies]
+# Async methods on the `Tool` trait and on ports (`CallLog`, backends), which
+# must stay object-safe so tools live in a `ToolRegistry` as `dyn Tool`.
+async-trait = "0.1"
+# The envelope, argument, and payload types' wire forms.
+serde = { version = "1", features = ["derive"] }
+# Tool arguments and `Envelope::data`, which are untyped JSON at the boundary.
+serde_json = "1"
+# Each crate's error enum (`src/error/mod.rs`).
+thiserror = "2"
+# The async runtime; each crate enables the features it uses (`sync` for
+# cancellation, `time` for timeouts, `macros` and `rt` for tests).
+tokio = "1"
+# Backend HTTP clients (Lean, Python, literature, web, ledger). Rustls avoids a
+# system OpenSSL dependency; the same feature set OpenHuman already compiles.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# File digests: the `if_sha256` write guard and the Lean provenance digest.
+sha2 = "0.10"
+# Hex-encodes those digests for the wire.
+hex = "0.4"
+# Scratch project workspaces in tests of the file, Lean, and Python crates.
+tempfile = "3"
+# Parses and validates source URLs in the literature and web crates.
+url = "2"
+
 # OpenHuman's own patch table, with every path re-rooted at `vendor/openhuman`.
 # Without it the graph holds two `tinytools` (so MCP tools fail the harness's
 # `Tool` trait), two `tinybus`, and git copies of crates OpenHuman vendors.

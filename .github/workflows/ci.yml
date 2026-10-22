@@ -48,6 +48,15 @@ jobs:
       - name: Check formatting
         run: cargo fmt --all -- --check
 
+      # Domain crates depend only on supermath-tool (lean and python also on
+      # supermath-files); only subagents and agent reach OpenHuman. The test
+      # runs the checker over fixture workspaces that break each rule.
+      - name: Test the crate dependency checker
+        run: scripts/test-check-crate-deps.sh
+
+      - name: Check crate dependency rules
+        run: scripts/check-crate-deps.sh
+
       - name: Clippy
         run: cargo clippy --locked --all-targets -- -D warnings
 
@@ -87,7 +96,7 @@ jobs:
       - name: Build documentation
         env:
           RUSTDOCFLAGS: -D warnings
-        run: cargo doc --locked --no-deps -p supermath-agent
+        run: cargo doc --locked --no-deps --workspace
 
   compose:
     name: Compose file

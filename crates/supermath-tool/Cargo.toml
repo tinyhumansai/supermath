@@ -1,0 +1,26 @@
+[package]
+name = "supermath-tool"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The tool contract every supermath domain crate implements: Tool, Envelope, budgets, and a contract checker."
+readme = "README.md"
+keywords = ["agent", "mathematics", "tools"]
+categories = ["science"]
+publish = false
+
+[dependencies]
+async-trait = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+# `sync` only: the cancellation signal is a watch channel.
+tokio = { workspace = true, features = ["sync"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "time"] }
+
+[lints]
+workspace = true

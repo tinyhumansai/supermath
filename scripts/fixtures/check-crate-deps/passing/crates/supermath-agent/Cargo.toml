@@ -1,0 +1,10 @@
+[package]
+name = "supermath-agent"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+supermath-mcp = { path = "../supermath-mcp" }
+supermath-subagents = { path = "../supermath-subagents" }
+openhuman-embed = { path = "../openhuman-embed" }
