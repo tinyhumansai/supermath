@@ -182,7 +182,13 @@ async fn try_tactics_prefers_the_term_exact_found() {
             tactics_args("lean/Supermath/Exact.lean", &json!(["exact?"])),
         )
         .await;
-    assert!(envelope.next[0].contains("Nat.add_comm a b"));
+    let edit: Value =
+        serde_json::from_str(envelope.next[0].strip_prefix("file_edit ").unwrap()).unwrap();
+    // Inside a `by` block the edit must be a tactic, not the bare term.
+    assert_eq!(
+        edit["edits"][0],
+        json!({"old": "  sorry", "new": "  exact Nat.add_comm a b"})
+    );
 }
 
 #[tokio::test]
@@ -216,6 +222,45 @@ async fn try_tactics_notes_when_no_ready_edit_can_be_built() {
         .await;
     assert!(envelope.next.is_empty());
     assert!(envelope.unknowns[0].contains("not unique"));
+}
+
+#[tokio::test]
+async fn try_tactics_says_why_when_the_sorry_line_is_past_the_end_of_the_file() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    env.put("lean/Supermath/Main.lean", SORRIED);
+    let envelope = env
+        .call(
+            "lean_try_tactics",
+            json!({"path": "lean/Supermath/Main.lean", "sorry": {"line": 99, "column": 2}, "tactics": ["omega"]}),
+        )
+        .await;
+    assert_eq!(envelope.outcome, Outcome::Ok);
+    assert!(envelope.next.is_empty());
+    assert!(
+        envelope.unknowns[0].contains("line 99 is past the end of the file"),
+        "{:?}",
+        envelope.unknowns
+    );
+}
+
+#[tokio::test]
+async fn try_tactics_says_why_when_the_sorry_line_holds_no_sorry() {
+    let stub = service().await;
+    let env = Env::over(&stub);
+    env.put("lean/Supermath/Main.lean", SORRIED);
+    let envelope = env
+        .call(
+            "lean_try_tactics",
+            json!({"path": "lean/Supermath/Main.lean", "sorry": {"line": 3, "column": 0}, "tactics": ["omega"]}),
+        )
+        .await;
+    assert!(envelope.next.is_empty());
+    assert!(
+        envelope.unknowns[0].contains("line 3 holds no sorry"),
+        "{:?}",
+        envelope.unknowns
+    );
 }
 
 #[tokio::test]
