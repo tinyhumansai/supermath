@@ -1,4 +1,4 @@
-//! Tests for assembling the four tools.
+//! Tests for assembling the five tools.
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
@@ -18,7 +18,7 @@ fn idle() -> Arc<ScriptRunner> {
 }
 
 #[test]
-fn a_full_registry_yields_all_four_tools_in_catalogue_order() {
+fn a_full_registry_yields_all_five_tools_in_catalogue_order() {
     let world = World::new();
     let built = subagents(&world.registry(), &idle());
     let names: Vec<&str> = built.tools().iter().map(|t| t.name()).collect();
@@ -28,7 +28,8 @@ fn a_full_registry_yields_all_four_tools_in_catalogue_order() {
             "agent_digest_paper",
             "agent_formalize",
             "agent_review_alignment",
-            "agent_refute"
+            "agent_refute",
+            "agent_settle"
         ]
     );
     assert_eq!(built.unavailable().len(), 0);
@@ -167,7 +168,7 @@ fn registering_twice_reports_the_duplicate() {
     let built = subagents(&world.registry(), &idle());
     let mut registry = ToolRegistry::new();
     built.register_into(&mut registry).unwrap();
-    assert_eq!(registry.len(), 4);
+    assert_eq!(registry.len(), 5);
     let error = built.register_into(&mut registry).unwrap_err();
     assert!(matches!(error, Error::Registry(_)));
 }

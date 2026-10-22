@@ -78,7 +78,7 @@
 //! and the rest only through the [`ToolRegistry`] the composition hands it,
 //! which keeps it testable with fakes and keeps "children use primitives
 //! only" a property of what the registry holds. No model choice beyond the
-//! three Surplus model names in [`Models`], which the environment sets.
+//! four Surplus model names in [`Models`], which the environment sets.
 
 mod belt;
 pub mod bench;
