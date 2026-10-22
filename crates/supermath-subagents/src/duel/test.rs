@@ -1048,5 +1048,10 @@ async fn agent_settle_keeps_the_tool_contract() {
     supermath_tool::contract::check(tool.as_ref(), "agent", &fixtures)
         .await
         .unwrap();
-    assert!(format!("{tool:?}").is_empty() || tool.name() == "agent_settle");
+    let settle = crate::AgentSettle {
+        prover: core(&world, Side::Prover),
+        refuter: core(&world, Side::Refuter),
+        settings: DuelSettings::default(),
+    };
+    assert!(format!("{settle:?}").contains("drift_calls: 12"));
 }
