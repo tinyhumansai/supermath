@@ -50,14 +50,15 @@
 //! # }
 //! let idle: Arc<dyn ChildRunner> = Arc::new(Idle);
 //! let runners = Runners {
-//!     reader: idle.clone(), formalizer: idle.clone(), reviewer: idle.clone(), refuter: idle,
+//!     reader: idle.clone(), formalizer: idle.clone(), reviewer: idle.clone(),
+//!     refuter: idle.clone(), duel_prover: idle.clone(), duel_refuter: idle,
 //! };
 //! let project = Project::new("demo", "ws:demo/project:demo").unwrap();
 //! let subagents = Subagents::with_runners(
 //!     &ToolRegistry::new(), Arc::new(InMemoryCallLog::new()), &project, &runners, None,
 //! ).unwrap();
 //! assert!(subagents.tools().is_empty());
-//! assert_eq!(subagents.unavailable().len(), 4);
+//! assert_eq!(subagents.unavailable().len(), 5);
 //! ```
 //!
 //! # What this crate does not hold

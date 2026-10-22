@@ -40,7 +40,9 @@ fn agent_tools(toolkit: &Toolkit) -> Vec<Arc<dyn Tool>> {
         reader: idle.clone(),
         formalizer: idle.clone(),
         reviewer: idle.clone(),
-        refuter: idle,
+        refuter: idle.clone(),
+        duel_prover: idle.clone(),
+        duel_refuter: idle,
     };
     let built = Subagents::with_runners(
         &toolkit.registry(),

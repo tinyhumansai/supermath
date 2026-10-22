@@ -109,7 +109,9 @@ async fn an_agentic_primitive_would_let_children_nest_and_is_refused() {
         reader: idle.clone(),
         formalizer: idle.clone(),
         reviewer: idle.clone(),
-        refuter: idle,
+        refuter: idle.clone(),
+        duel_prover: idle.clone(),
+        duel_refuter: idle,
     };
     let error = Subagents::with_runners(
         &registry,
