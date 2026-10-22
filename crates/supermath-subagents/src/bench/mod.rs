@@ -1,21 +1,51 @@
-//! The formalization benchmark: thirty informal statements, run through
-//! `agent_formalize` per model, reporting the `checked` rate.
+//! The formalization benchmark: thirty informal statements and twelve labelled
+//! results from arXiv papers, run through `agent_formalize` per model,
+//! reporting the `checked` rate.
 //!
-//! The statements live in `bench/formalize/statements.json`, checked into the
-//! crate. [`run_formalize`] drives any `agent_formalize` tool over them and
+//! The statements live in `bench/formalize/statements.json` and the arXiv
+//! cases in `bench/formalize/arxiv.json`, both checked into the crate.
+//! [`run_formalize`] drives any `agent_formalize` tool over either set and
 //! counts a case `checked` when the tool's own `lean_check` verdict is
-//! `checked` or `checked_with_sorry`; the live test in
-//! `crates/supermath-agent/tests/live.rs` composes the real toolkit and calls it
-//! once per model.
+//! `checked` or `checked_with_sorry`. An arXiv case also exercises the
+//! literature path: the tool fetches the e-print and finds the label before
+//! the child starts. The live test in `crates/supermath-agent/tests/live.rs`
+//! composes the real toolkit and calls it once per model.
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{Value, json};
 use supermath_tool::{CallContext, ErrorCode, Outcome, Tool, Usage};
 
 use crate::error::{Error, Result};
 
 /// The checked-in benchmark set.
 const STATEMENTS: &str = include_str!("../../bench/formalize/statements.json");
+/// The checked-in arXiv cases.
+const ARXIV: &str = include_str!("../../bench/formalize/arxiv.json");
+
+/// One benchmark case, as [`run_formalize`] hands it to `agent_formalize`.
+pub trait BenchCase {
+    /// The case's unique slug.
+    fn id(&self) -> &str;
+
+    /// The tool's `source` argument for this case.
+    fn source(&self) -> Value;
+
+    /// The Lean file the benchmark asks the tool to write for this case.
+    fn path(&self) -> String {
+        let name: String = self
+            .id()
+            .split('-')
+            .map(|word| {
+                let mut chars = word.chars();
+                chars
+                    .next()
+                    .map(|first| first.to_uppercase().chain(chars).collect::<String>())
+                    .unwrap_or_default()
+            })
+            .collect();
+        format!("lean/Supermath/Bench/{name}.lean")
+    }
+}
 
 /// One informal statement and the Mathlib theorem it formalizes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -30,22 +60,36 @@ pub struct FormalizeCase {
     pub expected: String,
 }
 
-impl FormalizeCase {
-    /// The Lean file the benchmark asks the tool to write for this case.
-    #[must_use]
-    pub fn path(&self) -> String {
-        let name: String = self
-            .id
-            .split('-')
-            .map(|word| {
-                let mut chars = word.chars();
-                chars
-                    .next()
-                    .map(|first| first.to_uppercase().chain(chars).collect::<String>())
-                    .unwrap_or_default()
-            })
-            .collect();
-        format!("lean/Supermath/Bench/{name}.lean")
+impl BenchCase for FormalizeCase {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn source(&self) -> Value {
+        json!({"statement": self.statement})
+    }
+}
+
+/// One labelled result in a version-pinned arXiv paper.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArxivCase {
+    /// A unique slug, such as `legendre-formula`.
+    pub id: String,
+    /// The area of mathematics.
+    pub area: String,
+    /// The paper, with its version, such as `2503.06069v3`.
+    pub arxiv_id: String,
+    /// The `\label` of the result in the paper's source.
+    pub label: String,
+}
+
+impl BenchCase for ArxivCase {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn source(&self) -> Value {
+        json!({"arxiv_id": self.arxiv_id, "label": self.label})
     }
 }
 
@@ -57,6 +101,16 @@ impl FormalizeCase {
 /// does.
 pub fn formalize_cases() -> Result<Vec<FormalizeCase>> {
     serde_json::from_str(STATEMENTS).map_err(|error| Error::Bench(error.to_string()))
+}
+
+/// The twelve arXiv cases.
+///
+/// # Errors
+///
+/// [`Error::Bench`] if the checked-in file does not parse; a test pins that it
+/// does.
+pub fn arxiv_cases() -> Result<Vec<ArxivCase>> {
+    serde_json::from_str(ARXIV).map_err(|error| Error::Bench(error.to_string()))
 }
 
 /// What one case produced.
@@ -137,24 +191,24 @@ impl BenchReport {
 /// Runs `cases` through an `agent_formalize` tool, one call each.
 ///
 /// `ctx` supplies the project and budget; each call gets its own call id.
-pub async fn run_formalize(
+pub async fn run_formalize<C: BenchCase>(
     tool: &dyn Tool,
     ctx: &CallContext,
     rung: &str,
-    cases: &[FormalizeCase],
+    cases: &[C],
 ) -> BenchReport {
     let mut results = Vec::with_capacity(cases.len());
     for case in cases {
         let mut call_ctx = ctx.clone();
-        call_ctx.call_id = format!("{}.{}", ctx.call_id, case.id);
+        call_ctx.call_id = format!("{}.{}", ctx.call_id, case.id());
         let envelope = tool
             .call(
                 &call_ctx,
-                json!({"source": {"statement": case.statement}, "path": case.path()}),
+                json!({"source": case.source(), "path": case.path()}),
             )
             .await;
         results.push(CaseResult {
-            id: case.id.clone(),
+            id: case.id().to_owned(),
             outcome: envelope.outcome,
             verdict: envelope
                 .data
