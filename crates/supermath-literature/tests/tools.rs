@@ -763,6 +763,78 @@ async fn oeis_by_query_pages_and_accepts_the_legacy_array_shape() {
     assert!(legacy.cursor.is_none());
 }
 
+/// An OEIS stub holding `total` sequences A000001.., serving ten per page
+/// from the `start` it is asked for, as the real search does.
+fn oeis_pages(total: u64) -> impl Fn(&support::Recorded) -> Reply {
+    move |req| {
+        let start: u64 = req.query("start").unwrap().parse().unwrap();
+        let results: Vec<Value> = (start..total.min(start + 10))
+            .map(|i| json!({"number": i + 1, "name": format!("sequence {}", i + 1), "data": "1,2,3"}))
+            .collect();
+        Reply::ok(json!({"count": total, "start": start, "results": results}).to_string())
+    }
+}
+
+#[tokio::test]
+async fn oeis_fetches_further_pages_to_honour_a_limit_above_ten() {
+    let stub = Stub::start(oeis_pages(25)).await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(
+        &literature,
+        "lit_oeis",
+        json!({"query": "many", "limit": 15}),
+    )
+    .await;
+    assert_eq!(out.outcome, Outcome::Ok, "{out:?}");
+    let ids: Vec<&str> = out.data["sequences"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids.len(), 15);
+    assert_eq!(ids[0], "A000001");
+    assert_eq!(ids[14], "A000015");
+    assert_eq!(out.data["total"], 25);
+    assert_eq!(out.cursor.as_deref(), Some("15"));
+    let starts: Vec<String> = stub
+        .requests()
+        .iter()
+        .map(|r| r.query("start").unwrap())
+        .collect();
+    assert_eq!(starts, ["0", "10"]);
+
+    let rest = call(
+        &literature,
+        "lit_oeis",
+        json!({"query": "many", "limit": 50, "cursor": "15"}),
+    )
+    .await;
+    let ids: Vec<&str> = rest.data["sequences"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids.first(), Some(&"A000016"));
+    assert_eq!(ids.last(), Some(&"A000025"));
+    assert_eq!(ids.len(), 10);
+    assert!(rest.cursor.is_none(), "every match was shown");
+    assert_eq!(
+        stub.count(),
+        3,
+        "no page is fetched past the count OEIS reported"
+    );
+}
+
+#[tokio::test]
+async fn oeis_rate_limit_carries_the_servers_retry_after() {
+    let (_stub, literature) = setup().await;
+    let out = call(&literature, "lit_oeis", json!({"query": "ratelimited"})).await;
+    assert_eq!(out.code(), Some(ErrorCode::RateLimited));
+    assert_eq!(out.error.unwrap().retry_after_ms, Some(2_000));
+}
+
 #[tokio::test]
 async fn oeis_with_no_match_says_so_for_the_oeis_only() {
     let (_stub, literature) = setup().await;
