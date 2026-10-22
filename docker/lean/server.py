@@ -144,6 +144,16 @@ def check(req):
     targets = [t for t in req.get("targets", []) if N.valid_name(t)]
 
     def operation():
+        try:
+            return checked()
+        except ReplDied as died:
+            # A REPL that died on its own crashed on this file: report that
+            # as the file's error. The memory limit stays `memory`.
+            if died.memory:
+                raise
+            return N.crash_reply(died.code)
+
+    def checked():
         repl, answer, release = elaborate(slug, source, timeout)
         try:
             reply = {

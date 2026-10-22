@@ -39,11 +39,13 @@ class MathlibMissing(Exception):
 
 class ReplDied(Exception):
     """The REPL exited; `memory` is true when it was killed by SIGKILL, which
-    is how the container's memory limit shows up."""
+    is how the container's memory limit shows up. `code` is its exit status
+    (negative for a signal), or None when it could not be read."""
 
-    def __init__(self, memory):
+    def __init__(self, code):
         super().__init__("the REPL died")
-        self.memory = memory
+        self.code = code
+        self.memory = code == -9
 
 
 class Repl:
@@ -68,7 +70,7 @@ class Repl:
             self.proc.stdin.write(json.dumps(obj).encode() + b"\n\n")
             self.proc.stdin.flush()
         except (BrokenPipeError, OSError):
-            raise ReplDied(self._memory_death())
+            raise ReplDied(self._exit_code())
         buf = b""
         fd = self.proc.stdout.fileno()
         while not buf.endswith(b"\n\n"):
@@ -81,18 +83,18 @@ class Repl:
                 continue
             chunk = os.read(fd, 65536)
             if not chunk:
-                raise ReplDied(self._memory_death())
+                raise ReplDied(self._exit_code())
             buf += chunk
             if len(buf) > MAX_OUTPUT:
                 self.kill()
                 raise ReplOutputLimit()
         return json.loads(buf.decode("utf-8", "replace"))
 
-    def _memory_death(self):
+    def _exit_code(self):
         try:
-            return self.proc.wait(timeout=1) == -9
+            return self.proc.wait(timeout=1)
         except subprocess.TimeoutExpired:
-            return False
+            return None
 
     def alive(self):
         return self.proc.poll() is None
