@@ -175,7 +175,11 @@ async fn a_primitive_call_returns_the_envelope_with_its_call_id_and_is_logged() 
 }
 
 #[tokio::test]
-async fn an_error_envelope_is_a_reported_failure() {
+async fn a_refusal_envelope_is_an_answer_the_turn_continues_past() {
+    // OpenHuman halts a turn on a failed call it classifies as a credential
+    // or uncertain-effect failure, and it classifies a refusal's text by
+    // keyword: `FORBIDDEN` read as "credentials rejected". A refusal is the
+    // tool's answer, so it reaches the model as a result, still `error`.
     let host = host();
     let tool = host
         .adapt()
@@ -183,8 +187,9 @@ async fn an_error_envelope_is_a_reported_failure() {
         .find(|t| t.name() == "calc_factor")
         .unwrap();
     let result = tool.execute(json!({"n": "ten"})).await.unwrap();
-    assert!(result.is_error);
+    assert!(!result.is_error);
     assert_eq!(body(&result)["outcome"], "error");
+    assert_eq!(body(&result)["error"]["code"], "INVALID_INPUT");
 }
 
 #[tokio::test]

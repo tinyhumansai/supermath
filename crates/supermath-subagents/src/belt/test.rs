@@ -148,7 +148,7 @@ async fn a_host_tool_runs_through_the_belt_and_returns_the_envelope_as_json() {
         .execute(json!({"path": "lean/Nope.lean"}))
         .await
         .unwrap();
-    assert!(refused.is_error);
+    assert!(!refused.is_error, "a refusal is an answer, not a harness failure");
     assert!(refused.output().contains("NOT_FOUND"));
     assert_eq!(belt.tool_calls(), 2);
 }
