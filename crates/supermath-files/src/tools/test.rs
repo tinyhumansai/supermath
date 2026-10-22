@@ -165,6 +165,26 @@ async fn file_tools_builds_the_four_in_order() {
 }
 
 #[tokio::test]
+async fn write_reads_the_string_null_as_a_new_file_and_refuses_a_non_digest() {
+    // Models often send `"null"`, the string, for a new file. Read as a
+    // digest it was a CONFLICT ("expected null, found no file") that cost a
+    // duel side one iteration per file it created.
+    let fx = fx();
+    let tool = FileWrite::new(fx.ws.clone());
+    for (path, null) in [(LEAN, "null"), ("python/work/s.py", " NULL "), ("python/work/t.py", "")] {
+        let content = if path == LEAN { SOURCE } else { "import math\n" };
+        let created = call(&tool, json!({"path": path, "content": content, "if_sha256": null})).await;
+        assert!(created.is_ok(), "{null:?}: {created:?}");
+    }
+    let stale = call(&tool, json!({"path": LEAN, "content": SOURCE, "if_sha256": "null"})).await;
+    assert_eq!(code(&stale), ErrorCode::Conflict, "an existing file still needs its digest");
+
+    let garbled = call(&tool, json!({"path": "lean/Supermath/B.lean", "content": SOURCE, "if_sha256": "abc"})).await;
+    assert_eq!(code(&garbled), ErrorCode::InvalidInput);
+    assert!(garbled.error.unwrap().message.contains("if_sha256"));
+}
+
+#[tokio::test]
 async fn write_creates_replaces_and_suggests_the_checker() {
     let fx = fx();
     let tool = FileWrite::new(fx.ws.clone());
