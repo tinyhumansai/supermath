@@ -141,9 +141,9 @@ async fn check(project: &str) -> supermath_agent::Result<()> {
 
 async fn solve(project: &str, prompt_file: &str, turns: NonZeroUsize) -> supermath_agent::Result<()> {
     let prompt = std::fs::read_to_string(prompt_file).map_err(|error| {
-        supermath_agent::Error::InvalidConfig {
-            name: "prompt-file",
-            value: format!("{prompt_file}: {error}"),
+        supermath_agent::Error::Prompt {
+            path: prompt_file.to_owned(),
+            reason: error.to_string(),
         }
     })?;
     let config = Config::from_env()?;

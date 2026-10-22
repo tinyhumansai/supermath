@@ -42,6 +42,15 @@ pub enum Error {
     #[error("openhuman runtime failed: {0}")]
     Runtime(String),
 
+    /// The problem prompt could not be read.
+    #[error("cannot read the prompt `{path}`: {reason}")]
+    Prompt {
+        /// The file named on the command line.
+        path: String,
+        /// Why it could not be read.
+        reason: String,
+    },
+
     /// `OpenHuman` failed one of the agent's turns.
     #[error("agent turn failed: {0}")]
     Turn(String),
