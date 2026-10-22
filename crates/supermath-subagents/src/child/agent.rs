@@ -172,7 +172,7 @@ where
     let mut listening = true;
     loop {
         tokio::select! {
-            sent = &mut send => return sent,
+            outcome = &mut send => return outcome,
             signal = control.next(), if listening => match signal {
                 ControlSignal::Steer(text) => {
                     // A turn that has already ended refuses the steer and the

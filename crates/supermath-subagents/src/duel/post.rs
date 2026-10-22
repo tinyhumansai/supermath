@@ -76,13 +76,13 @@ fn short(sha: &str) -> &str {
 
 impl DuelPost {
     /// Checks a lemma in Lean and relays it as verified.
-    async fn lemma(&self, ctx: &CallContext, args: &PostArgs) -> Result<Vec<Item>, Envelope> {
+    async fn lemma(&self, ctx: &CallContext, args: &PostArgs) -> Result<Vec<Item>, Box<Envelope>> {
         let (Some(path), Some(declaration)) = (&args.path, &args.declaration) else {
-            return Err(invalid("a lemma post needs `path` and `declaration`"));
+            return Err(Box::new(invalid("a lemma post needs `path` and `declaration`"));
         };
         let areas = self.board.target().areas(self.side);
         if !path.ends_with(".lean") || !within(path, &areas) {
-            return Err(invalid(format!(
+            return Err(Box::new(invalid(format!(
                 "a lemma must be in a Lean file under your area ({})",
                 areas.join(" or ")
             )));
@@ -92,7 +92,7 @@ impl DuelPost {
             .lean_verdict_for(ctx, json!({"path": path, "targets": [declaration]}))
             .await;
         let Some(sha) = verdict.file_sha256.filter(|_| verdict.verdict == "checked") else {
-            return Err(invalid(format!(
+            return Err(Box::new(invalid(format!(
                 "lean_check says {} for {declaration} in {path}; only a checked lemma is relayed",
                 verdict.verdict
             )));
@@ -128,10 +128,10 @@ impl DuelPost {
 
     /// Records each frame the side's searches covered since its last bound
     /// post, and relays them as verified.
-    async fn bound(&self, ctx: &CallContext, args: &PostArgs) -> Result<Vec<Item>, Envelope> {
+    async fn bound(&self, ctx: &CallContext, args: &PostArgs) -> Result<Vec<Item>, Box<Envelope>> {
         let frames = self.board.take_unposted_frames(self.side);
         if frames.is_empty() {
-            return Err(invalid(
+            return Err(Box::new(invalid(
                 "no search of yours covered a new frame to the end since your last bound post",
             ));
         }
@@ -144,9 +144,9 @@ impl DuelPost {
                     ctx,
                     json!({
                         "kind": "bound",
-                        "statement": format!("No counterexample to {claim} found in: {}", frame.frame),
+                        "statement": format!("No counterexample to {claim} found in: {}", frame.range),
                         "source": {"tool": {"tool": frame.tool, "call_id": frame.call_id}},
-                        "frame": frame.frame,
+                        "frame": frame.range,
                     }),
                 )
                 .await;
@@ -158,7 +158,7 @@ impl DuelPost {
                 verified: true,
                 line: format!(
                     "VERIFIED bound: no counterexample in {} ({})",
-                    frame.frame, args.text
+                    frame.range, args.text
                 ),
             });
         }

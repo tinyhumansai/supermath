@@ -433,16 +433,16 @@ impl Duel<'_> {
                     self.ctx,
                     json!({
                         "kind": "bound",
-                        "statement": format!("No counterexample to {} found in: {}", target.claim_id, frame.frame),
+                        "statement": format!("No counterexample to {} found in: {}", target.claim_id, frame.range),
                         "source": {"tool": {"tool": frame.tool, "call_id": frame.call_id}},
-                        "frame": frame.frame,
+                        "frame": frame.range,
                     }),
                 )
                 .await;
             match recorded {
                 Ok(entry) => settled.board.keep_entry(Bucket::Bound, entry.to_json()),
                 Err(why) => {
-                    unknowns.push(format!("the frame {} was not recorded: {why}", frame.frame))
+                    unknowns.push(format!("the frame {} was not recorded: {why}", frame.range))
                 }
             }
         }

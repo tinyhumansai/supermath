@@ -111,6 +111,14 @@ impl ChildKind {
                 prompt: prompts::REFUTER,
                 defaults: Limits::DEFAULT,
             },
+            Self::DuelProver | Self::DuelRefuter => self.duel_spec(),
+        }
+    }
+
+    /// The two duel sides' descriptions; every other kind is described by
+    /// [`ChildKind::spec`] alone.
+    const fn duel_spec(self) -> ChildSpec {
+        match self {
             Self::DuelProver => ChildSpec {
                 kind: self,
                 tool: "agent_settle",
@@ -133,7 +141,7 @@ impl ChildKind {
                 prompt: prompts::DUEL_PROVER,
                 defaults: Limits::DUEL,
             },
-            Self::DuelRefuter => ChildSpec {
+            _ => ChildSpec {
                 kind: self,
                 tool: "agent_settle",
                 suffix: "duel-refuter",
