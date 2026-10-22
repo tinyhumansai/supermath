@@ -52,9 +52,9 @@ crate and depends only on `supermath-tool`; `supermath-mcp` composes them into
 a toolkit and serves it over MCP; OpenHuman owns the agent loop, tools
 runtime, and sessions; `supermath-subagents` and `supermath-agent` are the
 only crates that depend on it. Surplus Intelligence serves every model call,
-called directly with concrete model names;
-OpenRouter serves Jev, the decision model that ranks `tool_search`; CortexDB
-holds memory. `scripts/check-crate-deps.sh` enforces the dependency rules.
+called directly with concrete model names
+(`docs/adr/0008-call-surplus-intelligence-directly.md`); OpenRouter serves
+Jev, the decision model that ranks `tool_search`; CortexDB holds memory. `scripts/check-crate-deps.sh` enforces the dependency rules.
 
 Add a crate by creating `crates/<name>/` — `members = ["crates/*"]` picks it up
 by existing. Inherit `version`, `edition`, `rust-version`, `license`, and
