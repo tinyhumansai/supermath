@@ -1,0 +1,86 @@
+//! Inputs and outputs of the [`Ledger`](super::Ledger) operations.
+
+use serde_json::Number;
+
+use crate::types::{BoundSpec, Direction, Entry, Kind, Source};
+
+/// A claim to record. It carries no status and no evidence origin: both are
+/// computed.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Claim {
+    /// What the entry holds.
+    pub kind: Kind,
+    /// The finding, in words.
+    pub statement: String,
+    /// Where it came from.
+    pub source: Source,
+    /// Claims it depends on.
+    pub uses: Vec<String>,
+    /// For a `lead`: why it is worth trying.
+    pub rationale: Option<String>,
+    /// For a `dead_end`: why it failed.
+    pub reason: Option<String>,
+    /// For a `refutation`: the claim it refutes.
+    pub refutes: Option<String>,
+    /// For a `tool` source: the finite range the result covered.
+    pub frame: Option<String>,
+    /// For a bound: its quantity, direction, and value.
+    pub bound: Option<BoundSpec>,
+}
+
+impl Claim {
+    /// A claim of `kind` stating `statement` from `source`, with nothing
+    /// else set.
+    #[must_use]
+    pub fn new(kind: Kind, statement: impl Into<String>, source: Source) -> Self {
+        Self {
+            kind,
+            statement: statement.into(),
+            source,
+            uses: Vec::new(),
+            rationale: None,
+            reason: None,
+            refutes: None,
+            frame: None,
+            bound: None,
+        }
+    }
+}
+
+/// What recording did.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Recorded {
+    /// The entry that stands for the claim now.
+    pub entry: Entry,
+    /// Whether a new revision was written; `false` for a repeat.
+    pub created: bool,
+    /// Why the status is what it is, when the trust rules held it down.
+    pub notes: Vec<String>,
+}
+
+/// A bound to offer to the ledger.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoundRequest {
+    /// The named quantity.
+    pub quantity: String,
+    /// Which way the bound points.
+    pub direction: Direction,
+    /// The bound's value.
+    pub value: Number,
+    /// Where the bound came from.
+    pub source: Source,
+    /// For a `tool` source: the finite range the result covered.
+    pub frame: Option<String>,
+}
+
+/// The result of offering a bound.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BoundOutcome {
+    /// Whether the offered bound became the best one.
+    pub improved: bool,
+    /// The best bound so far, or the offered one if nothing better exists.
+    pub best: Entry,
+    /// What recording the offer did: a `bound` if it improved, otherwise a
+    /// `fact`.
+    pub recorded: Recorded,
+}

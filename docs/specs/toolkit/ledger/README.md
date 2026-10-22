@@ -1,6 +1,6 @@
 # Ledger tools
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Crate:** `supermath-ledger`
 - **Parent:** [`README.md`](../README.md)
 
@@ -17,6 +17,7 @@ status, a source, and edges.
 ```json
 {
   "id": "clm_7f3a…",
+  "revision": 1,
   "kind": "result",
   "statement": "Every polynomial of degree n ≥ 2 with all roots in the closed unit disk …",
   "status": "cited",
@@ -70,16 +71,23 @@ The statuses and what each needs are in
 | --- | --- |
 | → `asserted` | always; the default on record |
 | → `cited` | `source` is `arxiv` |
-| → `checked` | `source` is a `tool` call this process made, with `evidence_origin: collected` |
+| → `checked` | `source` is a successful `calc_*`, `py_*`, or `lean_*` call this process logged for this project, with a stated `frame` (without one: `INVALID_INPUT`); any other tool's call stays `asserted` |
 | → `formalised` | the `LeanEvidence` port ran `lean_check` on `lean.path` at `lean.file_sha256` in this process and got `checked` with no debt for `lean.declaration` |
 | any → lower | a re-check failed or a Mathlib bump broke it; recorded with `supersedes` |
 
 `ledger_record` is called by a model or an MCP client, so it never takes a
 status from its arguments: a caller that sends `"status": "formalised"`
-gets `FORBIDDEN`. Given a `lean` source, `ledger_record` runs `lean_check`
+(or `cited`, or `checked`) or `"evidence_origin": "collected"` gets
+`FORBIDDEN`; `"status": "asserted"` and `"evidence_origin": "supplied"` are
+accepted and only pin the claim down, with no check run. A call whose
+`CallContext` carries `evidence_origin: supplied` likewise earns nothing
+above `asserted` and runs no check. Given a `lean` source, `ledger_record` runs `lean_check`
 on the declaration itself and records the status that check earns; given a
 `tool` source, it accepts only a call id from this process's own call log.
-The rule holds for every caller, our runner included. This is the
+A call id that is not in the log is `FORBIDDEN`, as is one that ran in
+another project, was a different tool, or did not end `ok`. A `lean` source
+whose `file_sha256` is not the digest Lean checked is `CONFLICT`. The rule
+holds for every caller, our runner included. This is the
 `evidence_origin` rule from
 [`strategies/04-trust.md`](../../../research/strategies/04-trust.md).
 
@@ -101,6 +109,13 @@ cited facts it records what a paper's proof relies on, from
 is no stronger than the weakest claim it uses: the ledger reports a claim's
 **effective status** as the minimum over everything it reaches.
 
+A stored `formalised` holds only for the digest it was earned at, so every
+read asks `LeanEvidence` again: a changed digest, a check that no longer
+earns `formalised`, or a Lean that cannot be reached all give an effective
+status of `asserted`, with the reason in `unknowns`. `ledger_claims` reports
+the effective status, never the stored one, and `limited_by` lists the chain
+of claims from the one asked about to the weakest it reaches.
+
 ## Scopes
 
 ```text
@@ -118,20 +133,33 @@ Scope strings are built by the host from the project slug, as today.
 Each entry is written as one CortexDB experience through
 `Memory::remember`, with the entry's JSON as its text and labels
 `kind:<kind>`, `status:<status>`, and `claim:<id>`. Writes wait for the
-`indexed` barrier. An entry is never edited: a status change writes a new
-entry whose `supersedes` names the old id, and readers take the newest.
+`indexed` barrier. An entry is never edited: a change writes a new
+revision of the same claim, and readers take the highest `revision`. A
+revision keeps the claim's `id` (so `uses` edges stay valid) and its
+`supersedes` names the revision it replaces as `<id>#<revision>`.
+Every revision is one experience; `status:` and `kind:` labels are for
+humans browsing CortexDB, the ledger itself reads the JSON.
 
 `id` is `clm_` followed by the FNV-1a digest the memory client already uses
 for idempotency keys, over the kind, statement, and source. Recording the
-same finding twice is a no-op that returns the existing id.
+same finding twice is a no-op that returns the existing id: a repeat that
+earns the same status, with no new `uses`, writes nothing. A repeat that
+earns a different one (a re-check, a changed verdict) writes the next
+revision, which is how `any → lower` is recorded.
+
+Besides the fields above an entry may carry `rationale` (a `lead`),
+`reason` (a `dead_end`), `refutes` (a `refutation`), `frame` (a `tool`
+source: the finite range the result covered), and `bound`
+(`{quantity, direction, value}`, on `bound` entries).
 
 ## Crate
 
 | | |
 | --- | --- |
 | Name | `supermath-ledger` |
-| Depends on | `supermath-tool`, `reqwest`, `serde_json`, `tokio` |
-| Public API | `Memory` (the CortexDB client, moved from `supermath-agent`), `Entry`, `Kind`, `Status`, `Source`, `Ledger`, the evidence ports below, and the tools below |
+| Depends on | `supermath-tool`, `reqwest`, `serde`, `serde_json`, `tokio`, `async-trait`, `thiserror` |
+| Public API | `Memory` (the CortexDB client, moved from `supermath-agent`; its project type is exported as `MemoryProject`), `Config`, `Entry`, `Kind`, `Status`, `Source`, `Ledger`, the evidence ports below, and `tools(&Memory, &Arc<Ledger>)`, which returns the five tools |
+| Feature `test-support` | exposes the CortexDB loopback stubs (`memory::stub::{stub, FakeCortex}`) and `FakeLeanEvidence` to other crates' tests |
 | Configuration | `CORTEX_API_URL`, `CORTEX_API_KEY`, `CORTEX_SCOPE_ROOT` |
 | Tests | the CortexDB loopback stub, and fake evidence ports; every status transition, allowed and refused |
 
@@ -141,10 +169,27 @@ crates that produce evidence. It defines a port, which the composition in
 
 ```rust
 /// Runs Lean on a file in this process and reports the verdict for one declaration.
+#[async_trait]
 pub trait LeanEvidence: Send + Sync {
     async fn verify(&self, path: &str, declaration: &str) -> Result<LeanVerdict>;
 }
+
+/// `lean_check`'s verdict, reduced to what the ledger needs.
+pub struct LeanVerdict {
+    pub verdict: LeanVerdictKind,          // checked | checked_with_sorry | failed | unknown
+    pub file_sha256: String,               // the digest Lean checked
+    pub sorries: u32,
+    pub debt: Vec<String>,                 // native_decide / compiler trust
+    pub axioms: BTreeMap<String, Vec<String>>, // per target declaration
+    pub provenance: serde_json::Value,
+}
 ```
+
+`LeanVerdict::earns_formalised(declaration)` is the one rule: `checked`, no
+`sorry`, no debt, and the declaration present with every axiom in the
+allowlist (`propext`, `Classical.choice`, `Quot.sound`). A missing file or
+declaration is `NOT_FOUND`, Lean down is `BACKEND_UNAVAILABLE`, and a timeout
+is `unknown`, none of which records anything.
 
 `tool` sources are checked against `supermath-tool`'s `CallLog`, the record
 of every call this process made.
@@ -173,7 +218,16 @@ the shape [`../tools.md`](../tools.md) sets out.
 
 ## Open questions
 
-1. Does CortexDB recall filter by label exactly, or does `ledger_claims`
-   need a local index rebuilt from CortexDB?
+1. ~~Does CortexDB recall filter by label exactly?~~ **Settled: filter
+   client-side.** Recall is by similarity and `/v1/recall` takes no label
+   predicate we can rely on, so the ledger recalls a window of the project's
+   most recent events (`DEFAULT_WINDOW`, 200), parses each one's text as an
+   entry, skips what is not an entry, groups by `id`, keeps the highest
+   `revision`, and filters by kind, status, and alignment itself. A single
+   claim is found by recalling its id, which its own JSON contains. The
+   limit is the window: a ledger with more than 200 recent notes can hide
+   older entries from a list, and `ledger_claims` says so in `unknowns`. A
+   local index would remove the limit and is the next step if projects grow
+   past it. `status:` and `kind:` labels are still written, for people.
 2. When should a project's fact be promoted to the library: on
    `formalised` and `accepted`, or also on `cited`?

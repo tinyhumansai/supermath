@@ -1,0 +1,43 @@
+[package]
+name = "supermath-ledger"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The claim ledger: CortexDB memory, claim statuses earned only on evidence, and the recall_memory and ledger_* tools."
+readme = "README.md"
+keywords = ["agent", "mathematics", "memory", "cortexdb"]
+categories = ["science"]
+publish = false
+
+[features]
+# Exposes the CortexDB loopback stubs (`memory::stub`) so `supermath-mcp` and
+# `supermath-agent` tests can run against a fake server. Never enabled in a
+# release build.
+test-support = ["tokio/net", "tokio/io-util", "tokio/rt", "tokio/sync"]
+
+[dependencies]
+# The `Tool` contract, `Envelope`, `CallContext`, and the `CallLog` port the
+# ledger checks `tool` sources against.
+supermath-tool = { path = "../supermath-tool" }
+# Async methods on the `LeanEvidence` port and on the tools, both used as
+# trait objects.
+async-trait = { workspace = true }
+# Entry, source, and argument types' wire forms.
+serde = { workspace = true }
+# Entries are stored as JSON text, and tool arguments are untyped JSON.
+serde_json = { workspace = true }
+# The crate-wide error enum.
+thiserror = { workspace = true }
+# Timeouts on CortexDB calls.
+tokio = { workspace = true, features = ["time"] }
+# The CortexDB HTTP client. Rustls avoids a system OpenSSL dependency.
+reqwest = { workspace = true }
+
+[dev-dependencies]
+# Async tests, and the loopback stub's listener.
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread", "net", "io-util", "sync", "time"] }
+
+[lints]
+workspace = true
