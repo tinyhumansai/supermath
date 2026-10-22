@@ -3,13 +3,14 @@
 //! | Source | Earns |
 //! | --- | --- |
 //! | `supplied`, `web` | `asserted` (a web page is a lead, not a citation) |
-//! | `arxiv` | `cited` |
+//! | `arxiv` | `cited`, unless the call's evidence is supplied |
 //! | `tool` (`calc_*`, `py_*`, `lean_*`) | `checked`, from a successful call this process logged for this project, on a stated frame |
 //! | `tool` (any other tool) | `asserted` |
 //! | `lean` | `formalised` when the evidence port says so, otherwise `asserted` |
 //!
-//! A call made with [`EvidenceOrigin::Supplied`] never earns more than the
-//! source alone would without evidence: the ledger runs no check for it.
+//! A call made with [`EvidenceOrigin::Supplied`] earns `asserted` whatever
+//! the source: the ledger runs no check for it, and supplied text is not
+//! evidence, even when it names a paper.
 
 use supermath_tool::{CallContext, EvidenceOrigin, Outcome};
 
@@ -43,6 +44,12 @@ impl Earned {
         self.notes.push(note.into());
         self
     }
+
+    /// What any source earns when the call's evidence is supplied.
+    fn supplied() -> Self {
+        Self::new(Status::Asserted, EvidenceOrigin::Supplied)
+            .note("this call's evidence is supplied text, which is not evidence")
+    }
 }
 
 impl Ledger {
@@ -54,6 +61,7 @@ impl Ledger {
             Source::Supplied(_) => Ok(Earned::new(Status::Asserted, EvidenceOrigin::Supplied)),
             Source::Web { .. } => Ok(Earned::new(Status::Asserted, origin)
                 .note("a web source is a lead and caps the claim at asserted")),
+            Source::Arxiv { .. } if origin == EvidenceOrigin::Supplied => Ok(Earned::supplied()),
             Source::Arxiv { .. } => Ok(Earned::new(Status::Cited, origin)),
             Source::Tool { tool, call_id, .. } => self.earn_from_tool(ctx, claim, tool, call_id),
             Source::Lean {
@@ -75,8 +83,7 @@ impl Ledger {
         call_id: &str,
     ) -> Result<Earned> {
         if ctx.evidence_origin == EvidenceOrigin::Supplied {
-            return Ok(Earned::new(Status::Asserted, EvidenceOrigin::Supplied)
-                .note("this call's evidence is supplied text, which is not evidence"));
+            return Ok(Earned::supplied());
         }
         let Some(record) = self.calls.get(call_id) else {
             return Err(Error::UnrecordedCall(call_id.to_string()));
@@ -115,8 +122,7 @@ impl Ledger {
         file_sha256: &str,
     ) -> Result<Earned> {
         if ctx.evidence_origin == EvidenceOrigin::Supplied {
-            return Ok(Earned::new(Status::Asserted, EvidenceOrigin::Supplied)
-                .note("this call's evidence is supplied text, which is not evidence"));
+            return Ok(Earned::supplied());
         }
         let verdict = self.evidence.verify(path, declaration).await?;
         if verdict.file_sha256 != file_sha256 {
