@@ -132,6 +132,12 @@ CortexDB refuses, so `recall_memory` and the `ledger_*` tools answer
   catalogue is unchanged.
 - A `ledger_record` with a `lean` source, served over MCP, is promoted only
   by the stubbed Lean check, never by its arguments.
+- Exactly six tools are `direct` (`recall_memory`, `lit_search_arxiv`,
+  `web_search`, `lean_check`, `py_run`, `ledger_record`) and every
+  description passes the contract's description rule.
+- The same arguments give the same envelope, `call_id` included, over this
+  server and through the runner's host tool
+  (`supermath-agent/tests/parity.rs`).
 
 ## Open questions
 

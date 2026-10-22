@@ -8,7 +8,8 @@
 //! | `SUPERMATH_DUEL_MODEL` | `deepseek-v4-pro` | both sides of `agent_settle` |
 //!
 //! The values are Surplus Intelligence model names, so a change of model is a
-//! change to these variables, never to this crate.
+//! change to these variables, never to this crate. The reviewer may not run
+//! on the formalizer's model ([`Models::check`]).
 //!
 //! [`DuelSettings`] reads how `agent_settle` keeps its two sides on task:
 //!
