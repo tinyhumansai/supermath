@@ -30,9 +30,11 @@ a `\begin{theorem}` (or lemma, proposition, corollary, conjecture,
 definition, remark) with no `\newtheorem` in the source, a counter the paper
 renumbers with `\renewcommand{\the<counter>}` or `\def`, a `within` other
 than section or subsection, a counter shared with a non-theorem counter, and
-an environment never closed. `limit` (default 10, maximum 50) and `cursor`
-page the rows; `data.total` counts them all, and `data.locator` is
-`{arxiv_id, version}`. A PDF-only paper is `unknown` with no rows.
+an environment never closed. `limit` (default 10, maximum 50; a larger
+value is clamped to 50, not rejected) and `cursor` page the rows;
+`data.total` counts them all, and `data.locator` is `{arxiv_id, version}`.
+A PDF-only paper is `unknown` with no rows and `data.total: null`: nothing
+was counted, which is not the same as zero statements.
 
 Errors: `INVALID_INPUT`, `NOT_FOUND`, `RATE_LIMITED`, `TIMEOUT`,
 `BACKEND_UNAVAILABLE`.
