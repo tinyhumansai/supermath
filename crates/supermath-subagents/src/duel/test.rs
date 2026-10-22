@@ -998,7 +998,7 @@ async fn an_accepting_review_lets_an_unreviewed_claim_be_settled() {
 
     let answer = call(&tool, json!({"claim_id": "clm_1", "review_id": review_id})).await;
     assert_eq!(answer.code(), None, "{answer:?}");
-    assert!(!prover.prompts().is_empty());
+    assert_ne!(prover.prompts().len(), 0);
 }
 
 #[tokio::test]

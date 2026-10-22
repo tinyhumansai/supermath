@@ -81,6 +81,30 @@ impl AgentSettle {
         usage
     }
 
+    /// Ledger claim `claim_id`, marked `accepted` when `review_id` names
+    /// the review that accepted it.
+    ///
+    /// The reviewer's acceptance lives in its review fact, not in the
+    /// claim's own `alignment`, so a review that checks out stands in for it.
+    async fn claim(
+        &self,
+        ctx: &CallContext,
+        claim_id: &str,
+        review_id: Option<&str>,
+    ) -> Result<Value, Box<Envelope>> {
+        let mut claim = self.prover.claim(ctx, claim_id).await?;
+        if let Some(review_id) = review_id
+            && claim.get("alignment").and_then(Value::as_str) != Some("accepted")
+        {
+            let review = self.prover.claim(ctx, review_id).await?;
+            let lean = claim.get("lean").cloned().unwrap_or(Value::Null);
+            review_accepts(claim_id, &lean, &review)
+                .map_err(|message| Box::new(Envelope::error(ErrorCode::InvalidInput, message)))?;
+            claim["alignment"] = json!("accepted");
+        }
+        Ok(claim)
+    }
+
     async fn run(&self, ctx: &CallContext, args: Value) -> Envelope {
         let args: Args = match parse_args(args) {
             Ok(args) => args,
@@ -93,25 +117,13 @@ impl AgentSettle {
             Ok(limits) => limits,
             Err(envelope) => return *envelope,
         };
-        let mut claim = match self.prover.claim(ctx, &args.claim_id).await {
+        let claim = match self
+            .claim(ctx, &args.claim_id, args.review_id.as_deref())
+            .await
+        {
             Ok(claim) => claim,
             Err(envelope) => return *envelope,
         };
-        // The reviewer's acceptance lives in its review fact, not in the
-        // claim's own `alignment`; a review that checks out stands in for it.
-        if let Some(review_id) = &args.review_id
-            && claim.get("alignment").and_then(Value::as_str) != Some("accepted")
-        {
-            let review = match self.prover.claim(ctx, review_id).await {
-                Ok(review) => review,
-                Err(envelope) => return *envelope,
-            };
-            let lean = claim.get("lean").cloned().unwrap_or(Value::Null);
-            if let Err(message) = review_accepts(&args.claim_id, &lean, &review) {
-                return Envelope::error(ErrorCode::InvalidInput, message);
-            }
-            claim["alignment"] = json!("accepted");
-        }
         let target = match Target::from_claim(&args.claim_id, &claim) {
             Ok(target) => target,
             Err(message) => return Envelope::error(ErrorCode::InvalidInput, message),
