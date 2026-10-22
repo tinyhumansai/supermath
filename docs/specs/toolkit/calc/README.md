@@ -1,6 +1,6 @@
 # Calc: small exact arithmetic
 
-- **Status:** Draft
+- **Status:** Implemented
 - **Crate:** `supermath-calc`
 - **Parent:** [`../README.md`](../README.md)
 

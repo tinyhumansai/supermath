@@ -14,9 +14,11 @@
   (`FACTOR_LIMIT`), returned as `[{prime, exponent}]` with a `prime` flag.
 - Takes the integer as a JSON number or a decimal string; nothing else is
   parsed.
-- For larger integers or anything beyond factorization, `next` points at
+- For larger integers or anything beyond factorization, a refusal's `next` suggests
   Jacobian's `math.find` when that server is connected
-  ([`crates.md`](../../crates.md#consuming-other-mcp-servers)).
+  ([`crates.md`](../../crates.md#consuming-other-mcp-servers)) and `py_run`.
+- Returns `{n, factorization, factors: [{prime, exponent}], is_prime,
+  divisor_count}`.
 
 ## Errors
 

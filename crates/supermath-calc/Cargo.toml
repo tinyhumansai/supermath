@@ -1,0 +1,27 @@
+[package]
+name = "supermath-calc"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Small exact arithmetic tools for the supermath agent: calc_factor and calc_gcd_lcm."
+readme = "README.md"
+keywords = ["agent", "mathematics", "tools"]
+categories = ["science"]
+publish = false
+
+[dependencies]
+# `#[async_trait]` on the `Tool` impls.
+async-trait = { workspace = true }
+# Tool arguments and `Envelope::data` are untyped JSON at the boundary.
+serde_json = { workspace = true }
+# The `Tool` trait, `Envelope`, and error codes every tool here speaks.
+supermath-tool = { path = "../supermath-tool" }
+
+[dev-dependencies]
+# Runs the async tool calls in tests.
+tokio = { workspace = true, features = ["macros", "rt"] }
+
+[lints]
+workspace = true
