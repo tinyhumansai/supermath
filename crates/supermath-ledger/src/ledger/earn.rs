@@ -16,7 +16,7 @@ use supermath_tool::{CallContext, EvidenceOrigin, Outcome};
 
 use super::{Claim, Ledger};
 use crate::error::{Error, Result};
-use crate::types::{LeanClaim, Source, Status};
+use crate::types::{Entry, LeanClaim, Source, Status};
 
 /// Tool name prefixes whose successful runs can support `checked`.
 const CHECKING_PREFIXES: [&str; 3] = ["calc_", "py_", "lean_"];
