@@ -200,7 +200,11 @@ fn handle(state: &Mutex<State>, seen: &Seen) -> (u16, String) {
             json!({"error_code": "STUB_REFUSED", "message": "refused"}).to_string(),
         );
     }
-    let scope = seen.body["scope"].as_str().unwrap_or_default().to_string();
+    let scope = seen.body["scope"]
+        .as_str()
+        .map(str::to_string)
+        .or_else(|| query_param(&seen.head, "scope"))
+        .unwrap_or_default();
     if state
         .refuse_scope
         .as_deref()
@@ -301,13 +305,7 @@ fn matches(query: &str, text: &str) -> usize {
 /// `GET /v1/events?scope=…&labels=a,b&limit=…&cursor=…`: the scope's events
 /// carrying every listed label, oldest first, a page at a time.
 fn list_events(state: &State, head: &str) -> (u16, String) {
-    let target = head.split_whitespace().nth(1).unwrap_or_default();
-    let url = reqwest::Url::parse(&format!("http://stub{target}")).unwrap();
-    let query = |name: &str| {
-        url.query_pairs()
-            .find(|(key, _)| key == name)
-            .map(|(_, value)| value.into_owned())
-    };
+    let query = |name: &str| query_param(head, name);
     let scope = query("scope").unwrap_or_default();
     let labels: Vec<String> = query("labels")
         .map(|raw| raw.split(',').map(str::to_string).collect())
@@ -332,4 +330,13 @@ fn list_events(state: &State, head: &str) -> (u16, String) {
         body["next_cursor"] = json!(next.to_string());
     }
     (200, body.to_string())
+}
+
+/// The value of query parameter `name` in the request line of `head`.
+fn query_param(head: &str, name: &str) -> Option<String> {
+    let target = head.split_whitespace().nth(1)?;
+    let url = reqwest::Url::parse(&format!("http://stub{target}")).ok()?;
+    url.query_pairs()
+        .find(|(key, _)| key == name)
+        .map(|(_, value)| value.into_owned())
 }
