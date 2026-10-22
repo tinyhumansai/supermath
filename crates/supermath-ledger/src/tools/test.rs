@@ -656,11 +656,19 @@ async fn a_full_window_warns_even_when_revisions_collapse_to_fewer_claims() {
         .set_alignment(&ctx(), &id, crate::types::Alignment::Accepted)
         .await
         .unwrap();
+    // Two notes (a claim and its revision) fit a window of two exactly: a
+    // listing knows nothing was left out.
     let listed = call(&LedgerClaims::new(narrow.clone()), json!({})).await;
     assert_eq!(listed.data["claims"].as_array().unwrap().len(), 1);
+    assert!(listed.unknowns.is_empty(), "{:?}", listed.unknowns);
+
+    // A third note does not fit, and the read says so even though the two
+    // it did read collapse to a single claim.
+    seed(&w, "two").await;
+    let listed = call(&LedgerClaims::new(narrow), json!({})).await;
     assert!(
         listed.unknowns.iter().any(|u| u.contains("window")),
-        "two notes filled a window of two: {:?}",
+        "three notes overflow a window of two: {:?}",
         listed.unknowns
     );
 
@@ -801,11 +809,15 @@ async fn ledger_bound_warns_when_a_full_window_may_hide_an_older_best() {
     let first = call(&narrow, radius(&json!(3), &json!({"supplied": "a"}))).await;
     assert!(first.unknowns.is_empty(), "{:?}", first.unknowns);
     call(&narrow, radius(&json!(2), &json!({"supplied": "b"}))).await;
+    // Two bounds fit the window of two; the third offer reads both.
     let third = call(&narrow, radius(&json!(4), &json!({"supplied": "c"}))).await;
+    assert!(third.unknowns.is_empty(), "{:?}", third.unknowns);
+    // With three recorded, a read of two leaves one out and says so.
+    let fourth = call(&narrow, radius(&json!(5), &json!({"supplied": "d"}))).await;
     assert!(
-        third.unknowns.iter().any(|u| u.contains("window")),
+        fourth.unknowns.iter().any(|u| u.contains("window")),
         "{:?}",
-        third.unknowns
+        fourth.unknowns
     );
 }
 

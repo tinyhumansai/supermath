@@ -10,7 +10,7 @@ is [`docs/specs/toolkit/ledger/`](../../docs/specs/toolkit/ledger/README.md).
 
 | Module | Exports |
 | --- | --- |
-| `memory` | `Memory` (recall, `recall_notes`, remember, ready), `MemoryProject`, `slugify`, `render_pack`, `content_digest` |
+| `memory` | `Memory` (recall, `recall_notes`, `list_notes`, `notes_labelled`, remember, ready), `Listed`, `MemoryProject`, `slugify`, `render_pack`, `content_digest` |
 | `config` | `Config` (`CORTEX_API_URL`, `CORTEX_API_KEY`, `CORTEX_SCOPE_ROOT`) |
 | `types` | `Entry`, `Kind`, `Status`, `Source`, `Alignment`, `Direction`, `LeanClaim`, `BoundSpec` |
 | `evidence` | `LeanEvidence` (port), `LeanVerdict`, `LeanVerdictKind`, `AXIOM_ALLOWLIST`, `FakeLeanEvidence` (feature `test-support`) |
@@ -39,11 +39,13 @@ file stands as `asserted`, and a claim is no stronger than anything it `uses`.
   `supermath-mcp` wires the real implementations.
 - **Entries are never edited.** A change writes the next revision; readers
   take the highest.
-- **Reads filter client-side.** `CortexDB` recall is by similarity, so the
-  ledger recalls a window of notes (`DEFAULT_WINDOW`) ranked by similarity
-  and filters itself. A read that fills the window may miss entries, which
-  `ledger_claims` and `ledger_bound` say in `unknowns`. Nothing records when
-  an entry was written, so reads come in recall order, not time order.
+- **Reads list, never recall.** `CortexDB` recall returns only the closest
+  few notes, so the ledger lists the scope exactly (`Memory::list_notes`,
+  `GET /v1/events`) up to `DEFAULT_WINDOW` notes, newest first, and filters
+  itself; one claim is read by its `claim:` label. A read that stops at the
+  window with notes unread says so in `unknowns`.
+- **A Lean claim is its declaration.** Its id ignores the statement's
+  wording and the file digest; a changed file writes a new revision.
 - **The scope comes from the host.** Tools read the project from
   `CallContext`; no argument names a scope.
 

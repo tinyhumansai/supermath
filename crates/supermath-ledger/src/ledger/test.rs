@@ -1076,8 +1076,108 @@ async fn the_window_bounds_a_read_and_a_dead_server_is_an_error() {
     ));
 }
 
+#[tokio::test]
+async fn a_list_reads_every_entry_newest_first_however_recall_ranks_them() {
+    // CortexDB recall returns only the closest few notes, so a list built
+    // on it came back empty on a live ledger of 41 entries: each run then
+    // re-recorded what earlier runs had already found.
+    let h = harness().await;
+    for text in ["first", "second", "third"] {
+        h.ledger.record(&ctx(), supplied(text)).await.unwrap();
+    }
+    h.cortex.rank_recall(Some(0));
+
+    let listed = h.ledger.entries(SLUG, "anything at all").await.unwrap();
+    let statements: Vec<&str> = listed.iter().map(|e| e.statement.as_str()).collect();
+    assert_eq!(statements, ["third", "second", "first"]);
+    let steered = h.ledger.entries(SLUG, "second").await.unwrap();
+    assert_eq!(
+        steered[0].statement, "second",
+        "a query puts its matches first"
+    );
+    assert_eq!(
+        steered.len(),
+        3,
+        "a query orders the list; it does not cut it"
+    );
+}
+
+#[tokio::test]
+async fn a_lean_claim_keeps_its_id_when_reworded_and_revises_when_its_file_changes() {
+    // Each run recorded the conjecture in its own words, and the id hashed
+    // the words: 18 `result` claims for one Lean declaration, each with its
+    // own duel directory, none building on another.
+    let h = harness().await;
+    teach(&h, clean("aa"));
+    let first = h
+        .ledger
+        .record(&ctx(), lean_claim("Erdős 779 holds", "aa"))
+        .await
+        .unwrap();
+    let reworded = h
+        .ledger
+        .record(
+            &ctx(),
+            lean_claim("Deaconescu's conjecture, as stated in Lean", "aa"),
+        )
+        .await
+        .unwrap();
+    assert_eq!(reworded.entry.id, first.entry.id);
+    assert!(
+        !reworded.created,
+        "same declaration, same file: nothing new"
+    );
+    assert_eq!(reworded.entry.statement, "Erdős 779 holds");
+
+    teach(&h, clean("bb"));
+    let revised = h
+        .ledger
+        .record(&ctx(), lean_claim("Erdős 779 holds", "bb"))
+        .await
+        .unwrap();
+    assert_eq!(revised.entry.id, first.entry.id);
+    assert!(revised.created, "a changed file is a new revision");
+    assert_eq!(revised.entry.revision, 2);
+    assert_eq!(revised.entry.lean.unwrap().file_sha256, "bb");
+}
+
+#[tokio::test]
+async fn one_read_checks_each_lean_declaration_once() {
+    // A list re-checks every `formalised` claim. Checked one by one, a live
+    // ledger of 17 Lean declarations took 52 s per `ledger_claims`; the
+    // checks now run together, and a declaration two claims share runs once.
+    let h = harness().await;
+    teach(&h, clean("aa"));
+    let result = h
+        .ledger
+        .record(&ctx(), lean_claim("thm", "aa"))
+        .await
+        .unwrap()
+        .entry;
+    let fact = h
+        .ledger
+        .record(
+            &ctx(),
+            Claim::new(Kind::Fact, "thm, as a fact", lean_source("aa")),
+        )
+        .await
+        .unwrap()
+        .entry;
+    let before = h.lean.calls().len();
+
+    let effective = h.ledger.effective(SLUG, &[result, fact]).await.unwrap();
+
+    assert_eq!(h.lean.calls().len() - before, 1);
+    assert!(effective.iter().all(|e| e.status == Status::Formalised));
+}
+
 #[test]
 fn claim_ids_depend_on_kind_statement_and_source_only() {
+    // A Lean claim is its declaration: wording and file digest do not move it.
+    let lean = |sha: &str| lean_source(sha);
+    let d = Ledger::claim_id(Kind::Result, "t", &lean("aa"));
+    assert_eq!(d, Ledger::claim_id(Kind::Result, "reworded", &lean("bb")));
+    assert_ne!(d, Ledger::claim_id(Kind::Fact, "t", &lean("aa")));
     let s = Source::Supplied("x".into());
     let a = Ledger::claim_id(Kind::Result, "t", &s);
     assert_eq!(a, Ledger::claim_id(Kind::Result, "t", &s));

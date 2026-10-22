@@ -6,17 +6,17 @@
 //!
 //! # Reading
 //!
-//! `CortexDB` recall is by similarity and does not filter by label exactly
-//! (`docs/specs/toolkit/ledger/README.md`, open question 1), so every read
-//! recalls a window of the project's notes, ranked by similarity to a query,
-//! parses each as an [`Entry`], skips notes that are not entries, and filters
-//! client-side. The window is [`DEFAULT_WINDOW`] notes; a ledger larger than
-//! that can hide entries from a read, which `ledger_claims` and
-//! `ledger_bound` report in `unknowns`. Nothing records when an entry was
-//! written, so reads come in recall order, not time order.
-//! A single claim is looked up exactly, by its `claim:` label
-//! (`GET /v1/events`), never by recall: entries that cite a claim mention its
-//! id more often than the claim itself and outrank it.
+//! Every read lists the project's notes exactly (`GET /v1/events`), never by
+//! recall: `CortexDB` recall returns only the closest few notes, so a ledger
+//! read through it came back nearly empty, and a claim looked up by its id
+//! was outranked by the entries that cite it. A list parses each note as an
+//! [`Entry`], skips notes that are not entries, keeps each claim's highest
+//! revision, and returns them newest first, which is the order the server
+//! stored them in, reversed. A query orders the list, matches first; it
+//! never cuts it. The window is [`DEFAULT_WINDOW`] notes; a ledger larger
+//! than that can hide its newest entries from a read, which `ledger_claims`
+//! and `ledger_bound` report in `unknowns`. A single claim is read by its
+//! `claim:` label.
 //!
 //! # Trust
 //!
@@ -41,8 +41,8 @@ pub use effective::Effective;
 pub(crate) use types::Recalled;
 pub use types::{BoundOutcome, BoundRequest, Claim, Recorded};
 
-/// How many recent notes a read recalls.
-pub const DEFAULT_WINDOW: u64 = 200;
+/// The most notes one read of the ledger lists.
+pub const DEFAULT_WINDOW: u64 = 5_000;
 
 /// The claim ledger of every project in one `CortexDB` deployment.
 #[derive(Clone)]
@@ -92,6 +92,18 @@ impl Ledger {
     /// `clm_` and a digest of the three.
     #[must_use]
     pub fn claim_id(kind: Kind, statement: &str, source: &Source) -> String {
+        // A claim stated in Lean is its declaration: rewording it, or a new
+        // digest of its file, is the same claim (a changed file is a new
+        // revision of it). Any other claim is its words and its source.
+        if let Source::Lean {
+            path, declaration, ..
+        } = source
+        {
+            return format!(
+                "clm_{}",
+                memory::content_digest(&[kind.as_str(), "lean", path, declaration])
+            );
+        }
         let source = serde_json::to_string(source).unwrap_or_default();
         format!(
             "clm_{}",
@@ -100,43 +112,41 @@ impl Ledger {
     }
 
     /// Every claim in the project's window, one entry per claim (its highest
-    /// revision), recalled by similarity to `query`.
-    ///
-    /// Entries come in the order memory recalled their notes, each claim at
-    /// the place of the first of its notes recalled. That is `CortexDB`'s
-    /// ranking for `query`, not time: neither an entry nor a recalled note
-    /// carries a creation time, and `revision` counts within one claim only.
+    /// revision), newest first; the claims whose statements share the most
+    /// words with `query` come first, and an empty query keeps time order.
     ///
     /// # Errors
     ///
     /// [`Error::InvalidProject`] for a slug with no usable characters, and
-    /// the memory errors of [`Memory::recall_notes`].
+    /// the memory errors of [`Memory::list_notes`].
     pub async fn entries(&self, slug: &str, query: &str) -> Result<Vec<Entry>> {
         Ok(self.recall(slug, query).await?.entries)
     }
 
-    /// The entries of [`Ledger::entries`], and whether the recall filled
-    /// the window.
+    /// The entries of [`Ledger::entries`], and whether the listing stopped
+    /// at the window with notes left over.
     pub(crate) async fn recall(&self, slug: &str, query: &str) -> Result<Recalled> {
         let project = MemoryProject::new(slug)?;
-        let notes = self
-            .memory
-            .recall_notes(&project, query, self.window)
-            .await?;
+        let window = usize::try_from(self.window).unwrap_or(usize::MAX);
+        let listed = self.memory.list_notes(&project, None, window).await?;
+        let mut entries = latest_revisions(
+            listed
+                .notes
+                .iter()
+                .rev()
+                .filter_map(|note| serde_json::from_str::<Entry>(note).ok()),
+        );
+        order_by_query(&mut entries, query);
         Ok(Recalled {
-            window_full: notes.len() as u64 >= self.window,
-            entries: latest_revisions(
-                notes
-                    .iter()
-                    .filter_map(|note| serde_json::from_str::<Entry>(note).ok()),
-            ),
+            window_full: listed.more,
+            entries,
         })
     }
 
     /// The caveat a read that filled the window carries.
     pub(crate) fn window_note(&self) -> String {
         format!(
-            "the ledger was read through a window of {} recalled notes; older entries may be missing",
+            "the ledger was read through a window of {} notes; newer entries may be missing",
             self.window
         )
     }
@@ -216,7 +226,9 @@ impl Ledger {
         }
         let (revision, supersedes, alignment, merged_uses) = match &existing {
             Some(old)
-                if old.status == earned.status && uses.iter().all(|u| old.uses.contains(u)) =>
+                if old.status == earned.status
+                    && old.source == claim.source
+                    && uses.iter().all(|u| old.uses.contains(u)) =>
             {
                 return Ok(Recorded {
                     entry: old.clone(),
@@ -523,6 +535,24 @@ fn compare(a: &serde_json::Number, b: &serde_json::Number) -> std::cmp::Ordering
 }
 
 /// Keeps the highest revision of each claim, in order of first appearance.
+/// Puts the entries whose statements hold the most of `query`'s words
+/// first, keeping the order otherwise. Case does not matter.
+fn order_by_query(entries: &mut [Entry], query: &str) {
+    let words: Vec<String> = query.split_whitespace().map(str::to_lowercase).collect();
+    if words.is_empty() {
+        return;
+    }
+    entries.sort_by_cached_key(|entry| {
+        let statement = entry.statement.to_lowercase();
+        std::cmp::Reverse(
+            words
+                .iter()
+                .filter(|w| statement.contains(w.as_str()))
+                .count(),
+        )
+    });
+}
+
 fn latest_revisions(entries: impl Iterator<Item = Entry>) -> Vec<Entry> {
     let mut order: Vec<String> = Vec::new();
     let mut latest: BTreeMap<String, Entry> = BTreeMap::new();

@@ -18,9 +18,6 @@ use crate::types::{Alignment, Entry, Kind, Status};
 /// The longest statement a list row carries.
 const STATEMENT_LIMIT: usize = 300;
 
-/// The query a list recalls by when the caller gave none.
-const DEFAULT_QUERY: &str = "ledger claims";
-
 /// Lists and reads the project's ledger.
 #[derive(Debug, Clone)]
 pub struct LedgerClaims {
@@ -177,12 +174,7 @@ impl LedgerClaims {
         limit: usize,
     ) -> Result<Envelope, Error> {
         let slug = ctx.project.slug();
-        let query = args.query.as_deref().map_or(DEFAULT_QUERY, str::trim);
-        let query = if query.is_empty() {
-            DEFAULT_QUERY
-        } else {
-            query
-        };
+        let query = args.query.as_deref().map_or("", str::trim);
         let recalled = self.ledger.recall(slug, query).await?;
         let filtered: Vec<Entry> = recalled
             .entries

@@ -406,3 +406,35 @@ async fn notes_labelled_sends_the_scope_and_label_and_reads_an_unknown_scope_as_
         .unwrap_err();
     assert!(matches!(error, Error::MemoryRefused { .. }), "{error}");
 }
+
+#[tokio::test]
+async fn list_notes_reads_the_whole_scope_in_order_and_says_when_it_stopped_early() {
+    let cortex = FakeCortex::start().await;
+    let memory = Memory::new(cortex.url(), "k", "ws:t");
+    for n in 0..5 {
+        memory
+            .remember(
+                &project(),
+                &format!("note {n}"),
+                &[&format!("claim:clm_{n}")],
+            )
+            .await
+            .unwrap();
+    }
+    let all = memory.list_notes(&project(), None, 10).await.unwrap();
+    assert_eq!(
+        all.notes,
+        ["note 0", "note 1", "note 2", "note 3", "note 4"]
+    );
+    assert!(!all.more);
+    let exact = memory.list_notes(&project(), None, 5).await.unwrap();
+    assert!(
+        !exact.more,
+        "a cap the scope fits exactly leaves nothing out"
+    );
+    let short = memory.list_notes(&project(), None, 3).await.unwrap();
+    assert_eq!(short.notes.len(), 3);
+    assert!(short.more);
+    let none = memory.list_notes(&project(), None, 0).await.unwrap();
+    assert_eq!(none.notes.len(), 0);
+}

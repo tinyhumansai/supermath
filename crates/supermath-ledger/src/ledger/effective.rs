@@ -6,10 +6,14 @@
 //! port again; a file whose digest moved, or whose check no longer earns
 //! `formalised`, stands as `asserted` until it is recorded again.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::sync::Arc;
+
+use tokio::task::JoinSet;
 
 use super::Ledger;
 use crate::error::Result;
+use crate::evidence::LeanVerdict;
 use crate::types::{Entry, Status};
 
 /// A claim's status after its own Lean file and everything it uses are
@@ -72,26 +76,67 @@ impl Ledger {
         let roots: Vec<String> = entries.iter().map(|e| e.id.clone()).collect();
         let cache = entries.iter().map(|e| (e.id.clone(), e.clone())).collect();
         let nodes = self.closure(slug, &roots, cache).await?;
-        let mut standings = BTreeMap::new();
-        for (id, entry) in &nodes {
-            standings.insert(id.clone(), self.standing(entry).await);
-        }
+        let verdicts = self.recheck(nodes.values()).await;
+        let standings = nodes
+            .iter()
+            .map(|(id, entry)| (id.clone(), standing(entry, &verdicts)))
+            .collect();
         Ok((nodes, standings))
     }
 
-    /// Re-asks Lean about a `formalised` claim; every other status stands.
-    async fn standing(&self, entry: &Entry) -> Standing {
-        let (Status::Formalised, Some(lean)) = (entry.status, entry.lean.as_ref()) else {
-            return Standing {
-                status: entry.status,
-                note: None,
-            };
+    /// Asks Lean again about every declaration a `formalised` claim among
+    /// `entries` rests on: each declaration once, all of them at the same
+    /// time. One by one, a list of 17 took 52 s.
+    async fn recheck<'a>(&self, entries: impl Iterator<Item = &'a Entry>) -> Verdicts {
+        let wanted: BTreeSet<(String, String)> = entries
+            .filter(|entry| entry.status == Status::Formalised)
+            .filter_map(|entry| entry.lean.as_ref())
+            .map(|lean| (lean.path.clone(), lean.declaration.clone()))
+            .collect();
+        let mut checks = JoinSet::new();
+        for (path, declaration) in wanted {
+            let evidence = Arc::clone(&self.evidence);
+            checks.spawn(async move {
+                let verdict = evidence.verify(&path, &declaration).await;
+                (
+                    (path, declaration),
+                    verdict.map_err(|error| error.to_string()),
+                )
+            });
+        }
+        let mut verdicts = BTreeMap::new();
+        while let Some(joined) = checks.join_next().await {
+            // A check that panicked leaves its declaration out, and its
+            // claims stand as `asserted` with a note, as for any failed check.
+            if let Ok((key, verdict)) = joined {
+                verdicts.insert(key, verdict);
+            }
+        }
+        verdicts
+    }
+}
+
+/// Each re-checked declaration's verdict, or why it could not be checked.
+type Verdicts = BTreeMap<(String, String), std::result::Result<LeanVerdict, String>>;
+
+/// A claim's own standing: a `formalised` claim keeps that status only if
+/// its declaration still checks cleanly at the digest it was earned at;
+/// every other status stands.
+fn standing(entry: &Entry, verdicts: &Verdicts) -> Standing {
+    let (Status::Formalised, Some(lean)) = (entry.status, entry.lean.as_ref()) else {
+        return Standing {
+            status: entry.status,
+            note: None,
         };
-        let lowered = |why: String| Standing {
-            status: Status::Asserted,
-            note: Some(format!("{}: {why}", entry.id)),
-        };
-        match self.evidence.verify(&lean.path, &lean.declaration).await {
+    };
+    let lowered = |why: String| Standing {
+        status: Status::Asserted,
+        note: Some(format!("{}: {why}", entry.id)),
+    };
+    let key = (lean.path.clone(), lean.declaration.clone());
+    match verdicts.get(&key) {
+        None => lowered("it could not be re-checked (the check did not finish)".to_string()),
+        Some(verdict) => match verdict {
             Ok(verdict) if verdict.file_sha256 != lean.file_sha256 => {
                 lowered(format!("{} changed since it was checked", lean.path))
             }
@@ -103,7 +148,7 @@ impl Ledger {
                 note: None,
             },
             Err(error) => lowered(format!("it could not be re-checked ({error})")),
-        }
+        },
     }
 }
 

@@ -185,7 +185,8 @@ pub struct BoundSpec {
 /// [`Entry::revision`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Entry {
-    /// `clm_` and a digest of the kind, statement, and source.
+    /// `clm_` and a digest of the kind, statement, and source; for a `lean`
+    /// source, of the kind and the declaration's path and name only.
     pub id: String,
     /// Which revision of the claim this is, starting at 1. Readers take the
     /// highest.
