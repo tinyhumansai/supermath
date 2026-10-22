@@ -9,6 +9,8 @@
 //!   toolkit for a project and registers the top-level agent as a [`Solver`].
 //! - [`Host`] adapts the toolkit and the `agent_*` tools into `OpenHuman`
 //!   tools ([`HostTool`]); every call goes through the toolkit's call log.
+//! - [`solve`] runs the agent on a problem prompt for a number of turns in
+//!   one session, reporting every tool call as it happens.
 //!
 //! # Example
 //!
@@ -37,6 +39,7 @@ mod config;
 mod error;
 mod host;
 mod runner;
+mod solve;
 
 pub use config::{
     Config, DEFAULT_EMBEDDING_DIMS, DEFAULT_EMBEDDING_MODEL, DEFAULT_MODEL,
@@ -45,3 +48,6 @@ pub use config::{
 pub use error::{Error, Result};
 pub use host::{Host, HostTool};
 pub use runner::{MAX_ITERATIONS, Runner, SYSTEM_PROMPT, Solver};
+pub use solve::{
+    CONTINUE_PROMPT, DONE_MARKER, Transcript, call_line, declares_done, progress_line, solve,
+};

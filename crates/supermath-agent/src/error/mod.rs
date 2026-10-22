@@ -41,6 +41,10 @@ pub enum Error {
     /// The `OpenHuman` runtime failed to boot or to register the agent.
     #[error("openhuman runtime failed: {0}")]
     Runtime(String),
+
+    /// `OpenHuman` failed one of the agent's turns.
+    #[error("agent turn failed: {0}")]
+    Turn(String),
 }
 
 /// The crate's standard result type.
