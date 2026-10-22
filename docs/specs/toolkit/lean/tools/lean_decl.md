@@ -16,3 +16,7 @@ too; for those, the answer adds the `path` and line of the file it lives
 in. The signature never includes the proof, which is what lets
 [`agent_review_alignment`](../../subagents/tools/agent_review_alignment.md) judge a statement
 without seeing how it was proved.
+
+`name` must be letters, digits, `_`, `'`, `.`, `!`, `?` only; anything else is
+`INVALID_INPUT`. `TIMEOUT` and `BACKEND_UNAVAILABLE` are as for
+[`lean_check`](lean_check.md).

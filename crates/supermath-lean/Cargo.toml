@@ -1,0 +1,40 @@
+[package]
+name = "supermath-lean"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Lean tools for the supermath agent: lean_check and its verdicts, Mathlib search, goals, tactics, counterexample search, build, and blueprint."
+readme = "README.md"
+keywords = ["agent", "mathematics", "lean", "tools"]
+categories = ["science"]
+publish = false
+
+[dependencies]
+# `#[async_trait]` on the `Tool` impls.
+async-trait = { workspace = true }
+# HTTP client for the Lean service and for the hosted Loogle and LeanSearch
+# indexes; rustls, no system OpenSSL.
+reqwest = { workspace = true }
+# Typed tool arguments and the Lean service's request and reply shapes.
+serde = { workspace = true }
+# `Envelope::data` and untyped upstream JSON from the hosted indexes.
+serde_json = { workspace = true }
+# The workspace: path rules, reads, digests, guarded writes, `FileObserver`.
+supermath-files = { path = "../supermath-files" }
+# The `Tool` trait, `Envelope`, and error codes every tool here speaks.
+supermath-tool = { path = "../supermath-tool" }
+# The crate-wide `Error` enum.
+thiserror = { workspace = true }
+# `macros` for `select!` (a cancelled call), `time` for the build's wall clock.
+tokio = { workspace = true, features = ["macros", "time"] }
+
+[dev-dependencies]
+# Each test builds a scratch projects root.
+tempfile = { workspace = true }
+# Runs async tests and the loopback stub server (`net`, `io-util`).
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util", "time"] }
+
+[lints]
+workspace = true

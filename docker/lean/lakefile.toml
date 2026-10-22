@@ -1,0 +1,10 @@
+# The pinned Lean environment every check runs in. Mathlib's revision is the
+# one thing to move, and it moves only here (and in lake-manifest.json, which
+# `lake update` writes next to this file), in its own commit. `rev` must be the
+# Mathlib tag for the toolchain in `lean-toolchain`.
+name = "supermath_env"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.20.0"

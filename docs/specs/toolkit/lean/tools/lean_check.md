@@ -36,13 +36,23 @@ verdict names a file and a digest that anyone can re-check
 - The verdict is cached by the file's digest and the digests of its
   imports: checking an unchanged file returns the cached verdict, marked as
   such in `coverage`.
-- Budget: 60 s per file by default, and 1 MB of source.
+- Budget: 60 s per file by default (the tool's own limit,
+  `LeanConfig::check_timeout_ms`) and 1 MB of source (the call context's
+  `bytes` budget; a file over it is `BUDGET_EXCEEDED`).
+- `data` is `{verdict, provenance, targets, errors, error_count, sorries}`;
+  `provenance` is the object in [Provenance](../README.md#provenance).
+  `next` points at `lean_goals` and `lean_try_tactics` for the first
+  `sorry`.
 
 A statement with a `sorry` proof is the normal first step of formalizing,
 and its verdict is `checked_with_sorry`.
 
 ## Errors
 
-`INVALID_INPUT` for a path outside the package rules; `NOT_FOUND` for a
-missing file or target; `TIMEOUT`, with `outcome: "unknown"`;
-`BACKEND_UNAVAILABLE` when the Lean service is down.
+`INVALID_INPUT` for a path outside the package rules, a non-Lean path, or an
+empty or malformed `targets`; `NOT_FOUND` for a missing file or target;
+`TIMEOUT` when the check ran out of time (an `error` envelope; `data.verdict`
+is `unknown` and carries no toolchain if the service never answered), while a
+check that ran out of memory is an `unknown` outcome with the same `data`;
+`BUDGET_EXCEEDED` for source over the byte budget; `BACKEND_UNAVAILABLE`
+when the Lean service is down or `LEAN_URL` is unset.

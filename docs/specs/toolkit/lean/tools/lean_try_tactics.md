@@ -23,13 +23,22 @@
   that closes the goal is returned with the term `exact?` found, when it
   found one.
 - Tactics run in the REPL's tactic mode against that `sorry`'s proof state,
-  in parallel, each under its own timeout (10 s by default).
+  one after another in one REPL (proof states are per process), each under
+  its own timeout (10 s by default).
 - **It does not change the file.** A tactic that closes the goal comes with
   a ready [`file_edit`](../../files/tools/file_edit.md) call in `next`, replacing the `sorry`
   with it.
 
 ## Errors
 
-`INVALID_INPUT` when there is no `sorry` at that position; `NOT_FOUND` for
-a missing file; `CONFLICT` when the file changed since the position was
-reported (`if_sha256` may be passed to make that explicit).
+`INVALID_INPUT` when there is no `sorry` at that position (checked against
+the last `lean_check` of the same file digest when there is one, otherwise by
+the service) or the tactic list is empty, over 12, or has a blank or
+500-character-plus entry; `NOT_FOUND` for a missing file; `CONFLICT` when
+`if_sha256` is passed and is not the file's current digest;
+`BUDGET_EXCEEDED` for a file over the byte budget; `TIMEOUT` and
+`BACKEND_UNAVAILABLE` as for `lean_check`.
+
+When a closing tactic is found, `next` holds the `file_edit` call. It is
+omitted, with a note in `unknowns`, when the line holding the `sorry` is not
+unique in the file (an edit's `old` must occur exactly once).

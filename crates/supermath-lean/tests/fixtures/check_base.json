@@ -1,0 +1,1 @@
+{"status":"ok","toolchain":"leanprover/lean4:v4.20.0","mathlib":"4f2c9e1ab07d","elapsed_ms":500,"messages":[],"sorries":[],"axioms":{"base_fact":["propext"]},"uses":{"base_fact":[]}}

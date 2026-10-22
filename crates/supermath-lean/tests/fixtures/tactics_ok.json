@@ -1,0 +1,1 @@
+{"status":"ok","results":[{"tactic":"rfl","result":"fails","error":"The rfl tactic failed. Possible reasons: the goal is not reflexive"},{"tactic":"omega","result":"closes"},{"tactic":"simp","result":"progress","goals":["⊢ b + a = b + a"]}]}

@@ -51,6 +51,22 @@ a separate server the caller composes
 - lean-lsp-mcp may be connected for interactive exploration, but never sets
   a status.
 
+## Evaluation of kimina-lean-server
+
+[kimina-lean-server](https://github.com/project-numina/kimina-lean-server)
+already pools REPLs behind REST and was considered first, as above. It was
+assessed from its documented API, not run. We wrote our own small wrapper
+(`docker/lean/server.py`, standard library only) because the verdicts need
+things its documented API does not return in one call: the
+axioms of named targets after elaboration in the same environment, `sorry`
+goals with positions, a tactic run against a given `sorry`'s proof state,
+and a range search in chunks with the largest value covered. Wrapping
+Kimina would have meant a second layer of calls per check, a heavier image,
+and an API of its own to track. The wrapper is about 350 lines over the
+REPL's JSON protocol; if it outgrows that, revisit adopting Kimina's pool
+and keep only the verdict-specific commands. The API is specified in
+[`specs/toolkit/lean/README.md`](../specs/toolkit/lean/README.md#the-http-api).
+
 ## Consequences
 
 - Verdicts are reproducible across operators and over time.

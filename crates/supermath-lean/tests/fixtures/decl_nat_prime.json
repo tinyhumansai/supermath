@@ -1,0 +1,1 @@
+{"status":"ok","name":"Nat.Prime.two_le","kind":"theorem","signature":"Nat.Prime.two_le {p : ℕ} (hp : Nat.Prime p) : 2 ≤ p","doc":"A prime is at least two.","module":"Mathlib.Data.Nat.Prime.Defs"}

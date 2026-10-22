@@ -20,6 +20,8 @@ first.
 }
 ```
 
+The range is inclusive at both ends.
+
 - `predicate` names a declaration of type `ℕ → Prop` (or `ℤ → Prop`) with a
   `DecidablePred` instance in that file; anything else is `INVALID_INPUT`
   with Lean's error.
@@ -27,12 +29,23 @@ first.
   [Lean service](../README.md#the-lean-service)'s budgets.
 - **Found:** `outcome: "ok"` with the first witness, and the tool appends
   `theorem <predicate>_witness : ∃ n, <predicate> n := ⟨w, by decide⟩` to a
-  generated file `lean/Supermath/Witnesses/<Name>.lean` and checks it, so the
-  refutation can be recorded as `checked` with `evidence_origin:
-  collected`.
-- **Not found:** `outcome: "unknown"` with the frame searched, recorded so
-  "nothing found" always says how far it looked. It is never `false`.
-- A budget hit mid-range returns `unknown` with the largest value covered.
+  generated file `lean/Supermath/Witnesses/<Name>.lean` (`<Name>` is the
+  predicate's dotted name with each segment capitalised and joined, so
+  `Euler.notPrime` is `EulerNotPrime`; the file imports the predicate's
+  module) and checks it, so the refutation can be recorded as `checked` with
+  `evidence_origin: collected`. `data` carries the witness, the frame, the
+  witness file, and the check's verdict and provenance; a witness theorem
+  that does not check is noted in `unknowns` and is not evidence.
+- **Exhausted:** the whole range was decided and no value satisfies the
+  predicate: `outcome: "ok"` with `data.found: false`,
+  `data.result: "exhausted"`, `data.frame` (`covered_to` equals `to`), and
+  `coverage` naming the range. The answer is complete for that range and
+  says nothing outside it; a ledger `tool` source with the frame earns
+  `checked` on it.
+- A budget hit mid-range returns `unknown` (`data.result: "limit"`) with the
+  largest value covered (`data.frame.covered_to`); a service that does not
+  answer in time is also `unknown`, with no `covered_to`. `unknown` is only
+  for a search cut short, never a negative answer.
 
 The frame is the `search_frame` of
 [`proofatlas/02-refutation-path.md`](../../../../research/math-superagent/proofatlas/02-refutation-path.md).

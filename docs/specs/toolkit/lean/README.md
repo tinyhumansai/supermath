@@ -1,6 +1,6 @@
 # Lean tools
 
-- **Status:** Draft
+- **Status:** Implemented; the `docker/lean` image is not yet built or run against real Lean and Mathlib
 - **Crate:** `supermath-lean`
 - **Parent:** [`README.md`](../README.md)
 - **Decision:** [`../../../adr/0003-run-lean-as-a-pinned-service.md`](../../../adr/0003-run-lean-as-a-pinned-service.md)
@@ -25,17 +25,21 @@ A `lean` service in `compose.yaml`, built from `docker/lean/Dockerfile`:
   `env`, `tactic` with a `proofState`) carry the goal-level tools.
 - **Behind HTTP.** A thin server in the image takes a check request, hands it
   to a pooled REPL, and returns the REPL's messages, sorries, and proof
-  states. Before writing one, evaluate
-  [kimina-lean-server](https://github.com/project-numina/kimina-lean-server),
-  which already pools REPLs behind REST; the decision goes in the ADR.
+  states. It is a small stdlib-only Python server we wrote
+  (`docker/lean/server.py`); [kimina-lean-server](https://github.com/project-numina/kimina-lean-server)
+  was considered and not adopted
+  ([ADR 0003](../../../adr/0003-run-lean-as-a-pinned-service.md#evaluation-of-kimina-lean-server)).
 - **Per-project package.** The service mounts the `projects` volume and
   builds each project's `lean/` package there
   ([`files/`](../files/README.md#layout)).
 
-`supermath-lean` reaches the service at `LEAN_URL` (default
-`http://localhost:3150`). The service's `GET /health` reports the toolchain
-and Mathlib revision; `supermath-mcp check` and `supermath-agent check`
-report both.
+`supermath-lean` reaches the service at `LEAN_URL` (for example
+`http://lean:3150` inside compose, or `http://localhost:3150` through the
+opt-in `lean-gateway`). **With `LEAN_URL` unset there is no service, and every
+tool that needs it answers `BACKEND_UNAVAILABLE`**; nothing is checked and
+nothing is guessed. The service's `GET /health` reports the toolchain and
+Mathlib revision; `supermath-mcp check` and `supermath-agent check` report
+both.
 
 ### Isolation
 
@@ -49,6 +53,60 @@ Lean source is untrusted. Elaboration can run arbitrary code through
 - refuses to write files containing `IO.Process`, `IO.FS` writes, or
   `#exit`-style escapes (a deny-list in `file_write` and `file_edit` is a
   backstop, not the boundary; the container is the boundary).
+
+## The HTTP API
+
+The contract between `crates/supermath-lean` and `docker/lean/server.py`.
+Every route but `/health` is a JSON `POST`; a request names a project `slug`
+and a `path` and the service reads the file itself from the `projects` volume
+(a request never carries source). Replies are `200` with a `status`:
+
+| `status` | Meaning |
+| --- | --- |
+| `ok` | the operation ran to completion |
+| `timeout`, `memory`, `output_limit` | it hit a limit and the REPL was killed |
+| `no_sorry`, `bad_position`, `bad_predicate`, `not_found` | the operation's own refusals, named below |
+
+`404` means the project file does not exist and `400` that the request was
+malformed (a bad slug, path, or name); both carry `{"status": "refused",
+"message"}`. Anything else (`5xx`, a reply that does not parse) is the service
+being down. Every execution reply also carries `toolchain`, `mathlib`, and
+`elapsed_ms`.
+
+| Route | Request | Reply |
+| --- | --- | --- |
+| `GET /health` | | `{status, toolchain, mathlib}` |
+| `POST /check` | `{project, path, targets, uses, timeout_ms}` | `{messages, sorries, axioms, uses}` |
+| `POST /goals` | `{project, path, line, column, timeout_ms}` | `{goals}` (`bad_position` outside the file) |
+| `POST /tactics` | `{project, path, line, column, tactics, timeout_ms}` (per tactic) | `{results: [{tactic, result, goals, error, term}]}` (`no_sorry`) |
+| `POST /decl` | `{project, name, path, timeout_ms}` | `{name, kind, signature, doc, module}` (`not_found`) |
+| `POST /search` | `{query, limit, timeout_ms}` | `{mathlib, results: [{name, type, module}]}` |
+| `POST /counterexample` | `{project, path, predicate, from, to, timeout_ms}` | `{domain, witness, covered_to}` (`bad_predicate` with `message`; `timeout` keeps `covered_to`) |
+
+- `messages` is `[{severity, line, column, text}]` (`error`, `warning`, or
+  `info`), lines one-based and columns zero-based, exactly as the REPL
+  reports them. `sorries` is `[{line, column, goal}]`.
+- `axioms` maps each target to the axioms `#print axioms` listed after
+  elaboration in the same environment, or `null` when the target does not
+  exist. With `uses: true`, `uses` maps each target to the project
+  declarations its type and value mention.
+- `/decl` looks in Mathlib; when `path` is given it elaborates that project
+  file first, so the project's own declarations resolve. `signature` is
+  `#check`'s output, which never includes the proof.
+- `/tactics` runs each tactic against the `sorry`'s proof state in order, in
+  one REPL, each under `timeout_ms`; `result` is `closes`, `progress`, or
+  `fails`, and `term` is what `exact?` found.
+- `/search` matches name fragments over Mathlib's environment, shortest
+  names first. `pattern` and `natural` modes never reach the service: it has
+  no network, so the agent calls Loogle and LeanSearch itself
+  (`LOOGLE_URL`, `LEANSEARCH_URL`).
+- `/counterexample` evaluates the predicate in chunks of 1,000 and stops at
+  the first witness; the range is inclusive, `domain` is `nat` or `int`.
+
+A file that imports `Supermath.*` modules is checked after the service runs
+`lake build` on them, in the project's own package; a file that imports only
+Mathlib runs in a warm REPL with `import Mathlib` already elaborated. Per-
+request memory is the container's limit: a REPL killed by it is `memory`.
 
 ## Files, not source
 
@@ -120,8 +178,8 @@ stale, and the ledger reports claims resting on it as unchecked until
 | --- | --- |
 | Name | `supermath-lean` |
 | Depends on | `supermath-tool`, `supermath-files`, `reqwest`, `serde_json`, `tokio` |
-| Public API | `LeanClient`, `Verdict`, `Provenance`, `LeanObserver` (a `FileObserver`), `LeanEvidence` (the ledger's evidence port), and the tools below |
-| Configuration | `LEAN_URL` |
+| Public API | `Lean` (builds everything), `LeanClient`, `LeanChecker` (`verify` a declaration at a path, `is_current` for staleness; what `supermath-mcp` adapts to the ledger's `LeanEvidence` port, so this crate does not depend on the ledger), `Verdict`, `Provenance`, `CheckReport`, `LeanObserver` (a `FileObserver`), `ClaimIndex` (the port `lean_blueprint` asks for claim ids), and the tools below |
+| Configuration | `LEAN_URL`; `LOOGLE_URL`, `LEANSEARCH_URL` (hosted indexes); `LeanConfig` also holds the per-tool time budgets |
 | Tests | verdict reduction and every tool against a loopback stub replaying recorded REPL answers; `live_lean_*` against a real service, gated by `LEAN_URL` |
 
 ## Tools
@@ -136,7 +194,7 @@ the shape [`../tools.md`](../tools.md) sets out.
 | [`lean_decl`](tools/lean_decl.md) | a declaration name → signature, docstring, module, without the proof |
 | [`lean_goals`](tools/lean_goals.md) | a file and a position → the goal state there |
 | [`lean_try_tactics`](tools/lean_try_tactics.md) | a file, one of its `sorry`s, and tactics → per-tactic outcome |
-| [`lean_search_counterexample`](tools/lean_search_counterexample.md) | a decidable predicate in a project file and a range → a witness, or none in range |
+| [`lean_search_counterexample`](tools/lean_search_counterexample.md) | a decidable predicate in a project file and a range → a witness, or `exhausted` over the whole range |
 | [`lean_build`](tools/lean_build.md) | the project package → per-file verdicts |
 | [`lean_blueprint`](tools/lean_blueprint.md) | the project → the declaration DAG with status |
 
@@ -152,7 +210,7 @@ The Mathlib revision moves only by an explicit change to
 - `lean_check` maps each of these to its verdict, in unit tests against a
   stubbed service: a clean proof, a `sorry`, an `admit`, an error, a custom
   axiom, `native_decide`, a timeout.
-- A `live_lean_check` test, gated by `LEAN_URL`, writes `two_add_two` to a
+- A `live_lean_check` test (`tests/live.rs`), gated by `LEAN_URL`, writes `two_add_two` to a
   file, checks it as `checked`, and records the service's toolchain and
   Mathlib revision.
 - `file_write` and `file_edit` refuse a path outside `Supermath/`, a path
@@ -166,7 +224,8 @@ The Mathlib revision moves only by an explicit change to
 
 ## Open questions
 
-1. Build the HTTP wrapper ourselves in Rust, or adopt kimina-lean-server?
+1. ~~Build the HTTP wrapper ourselves, or adopt kimina-lean-server?~~ Decided:
+   our own small wrapper, [ADR 0003](../../../adr/0003-run-lean-as-a-pinned-service.md#evaluation-of-kimina-lean-server).
 2. Host LeanSearch-style natural search ourselves, or accept a hosted index
    on a different Mathlib revision?
 3. How many warm REPLs per service, and is one service shared by every

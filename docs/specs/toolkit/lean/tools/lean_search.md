@@ -17,3 +17,13 @@ Given a query and a mode, returns Mathlib declarations.
 Each row is `{name, type, module}`, with types trimmed to 300 characters.
 `coverage` names the backend and the Mathlib revision it indexes; a hosted
 backend on a different revision than ours is noted in `unknowns`.
+
+`name` mode needs the Lean service; `pattern` and `natural` call the hosted
+indexes from the agent (the service has no network).
+
+## Errors
+
+`INVALID_INPUT` for an empty or over-long query, an unknown mode, or a query
+Loogle rejects; `BACKEND_UNAVAILABLE` when the service (name mode) or the
+hosted index is down; `RATE_LIMITED` when a hosted index asks us to slow down
+(`retry_after_ms`); `TIMEOUT` when it is too slow.

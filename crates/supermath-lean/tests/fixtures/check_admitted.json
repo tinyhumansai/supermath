@@ -1,0 +1,1 @@
+{"status":"ok","toolchain":"leanprover/lean4:v4.20.0","mathlib":"4f2c9e1ab07d","elapsed_ms":880,"messages":[{"severity":"warning","line":3,"column":8,"text":"declaration uses 'sorry'"}],"sorries":[{"line":4,"column":2,"goal":"⊢ 1 + 1 = 2"}],"axioms":{"admitted_claim":["sorryAx"]}}
