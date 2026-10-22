@@ -89,3 +89,49 @@ async fn keeps_the_tool_contract() {
         .await
         .unwrap();
 }
+
+/// Splits a `next` entry into its tool name and its JSON arguments.
+fn call_parts(entry: &str) -> (&str, Value) {
+    let (tool, arguments) = entry
+        .split_once(' ')
+        .unwrap_or_else(|| panic!("{entry:?} has no arguments"));
+    let arguments = serde_json::from_str(arguments)
+        .unwrap_or_else(|e| panic!("{entry:?} arguments are not JSON: {e}"));
+    (tool, arguments)
+}
+
+#[tokio::test]
+async fn a_refusal_suggests_concrete_calls_that_factor_n_in_python() {
+    let envelope = call(json!({ "n": "99999999999999999999999" })).await;
+    let calls: Vec<_> = envelope.next.iter().map(|e| call_parts(e)).collect();
+    let tools: Vec<&str> = calls.iter().map(|(tool, _)| *tool).collect();
+    assert_eq!(tools, ["file_write", "py_run"]);
+
+    let (_, write) = &calls[0];
+    let path = write["path"].as_str().unwrap();
+    assert!(path.starts_with("python/work/"), "{path}");
+    let source = write["content"].as_str().unwrap();
+    assert!(source.contains("from sympy import factorint"), "{source}");
+    assert!(source.contains("def factor(n):"), "{source}");
+
+    let (_, run) = &calls[1];
+    assert_eq!(run["path"], path);
+    assert_eq!(run["entry"], "factor");
+    // The exact digits, as a string, so nothing is rounded on the way.
+    assert_eq!(run["args"], json!({ "n": "99999999999999999999999" }));
+
+    let limit = call(json!({ "n": FACTOR_LIMIT + 1 })).await;
+    let (_, run) = call_parts(&limit.next[1]);
+    assert_eq!(run["args"]["n"], (FACTOR_LIMIT + 1).to_string());
+}
+
+#[tokio::test]
+async fn a_bare_number_past_u64_gets_no_run_with_rounded_digits() {
+    // An f64 has lost the digits, so only the file is suggested; the message
+    // says to send `n` as a string.
+    let args = serde_json::from_str(r#"{ "n": 99999999999999999999999 }"#).unwrap();
+    let envelope = call(args).await;
+    let tools: Vec<&str> = envelope.next.iter().map(|e| call_parts(e).0).collect();
+    assert_eq!(tools, ["file_write"]);
+    assert!(envelope.error.unwrap().message.contains("decimal string"));
+}

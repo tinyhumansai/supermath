@@ -783,6 +783,52 @@ async fn citations_maps_a_bare_429_to_a_default_retry_and_rejects_bad_arguments(
 }
 
 #[tokio::test]
+async fn citations_suggest_no_next_step_when_no_row_has_an_arxiv_id() {
+    let stub = Stub::start(|_| {
+        Reply::ok(
+            json!({"data": [
+                {"citedPaper": {"paperId": "a", "title": "Journal only", "externalIds": {"DOI": "10.1/a"}}},
+                {"citedPaper": {"paperId": "b", "title": "No ids"}}
+            ]})
+            .to_string(),
+        )
+    })
+    .await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(
+        &literature,
+        "lit_citations",
+        json!({"arxiv_id": "2401.00001", "direction": "references"}),
+    )
+    .await;
+    assert_eq!(out.outcome, Outcome::Ok, "{out:?}");
+    assert_eq!(out.data["papers"].as_array().unwrap().len(), 2);
+    assert!(out.next.is_empty(), "{:?}", out.next);
+}
+
+#[tokio::test]
+async fn citations_suggest_reading_a_versioned_arxiv_row_without_its_version() {
+    let stub = Stub::start(|_| {
+        Reply::ok(
+            json!({"data": [
+                {"citingPaper": {"paperId": "c", "externalIds": {"ArXiv": "2311.04567v3"}}}
+            ]})
+            .to_string(),
+        )
+    })
+    .await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(
+        &literature,
+        "lit_citations",
+        json!({"arxiv_id": "2401.00001", "direction": "cited_by"}),
+    )
+    .await;
+    assert_eq!(out.data["papers"][0]["arxiv_id"], "2311.04567");
+    assert_eq!(out.next, [r#"lit_get_paper {"arxiv_id": "2311.04567"}"#]);
+}
+
+#[tokio::test]
 async fn a_garbled_scholar_answer_is_a_backend_failure() {
     let stub = Stub::start(|_| Reply::ok("[1, 2")).await;
     let literature = Literature::new(&config(&stub.base)).unwrap();
