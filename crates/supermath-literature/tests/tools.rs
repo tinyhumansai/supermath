@@ -236,6 +236,24 @@ async fn a_429_becomes_rate_limited_with_the_servers_retry_after() {
 }
 
 #[tokio::test]
+async fn a_503_is_rate_limited_and_arxiv_defaults_to_three_seconds_without_retry_after() {
+    let stub = Stub::start(|_| Reply::status(503)).await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(&literature, "lit_search_arxiv", json!({"query": "x"})).await;
+    assert_eq!(out.code(), Some(ErrorCode::RateLimited));
+    assert_eq!(out.error.unwrap().retry_after_ms, Some(3_000));
+}
+
+#[tokio::test]
+async fn a_503_with_retry_after_reports_the_servers_wait() {
+    let stub = Stub::start(|_| Reply::status(503).header("Retry-After", "11")).await;
+    let literature = Literature::new(&config(&stub.base)).unwrap();
+    let out = call(&literature, "lit_search_arxiv", json!({"query": "x"})).await;
+    assert_eq!(out.code(), Some(ErrorCode::RateLimited));
+    assert_eq!(out.error.unwrap().retry_after_ms, Some(11_000));
+}
+
+#[tokio::test]
 async fn an_unreachable_arxiv_is_backend_unavailable() {
     let literature = Literature::new(&config("http://127.0.0.1:1")).unwrap();
     let out = call(&literature, "lit_search_arxiv", json!({"query": "x"})).await;
