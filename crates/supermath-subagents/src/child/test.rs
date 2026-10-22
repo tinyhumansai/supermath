@@ -103,3 +103,53 @@ fn every_prompt_names_the_reply_the_tool_parses() {
     assert!(marker(ChildKind::Refuter).contains("REPAIRED:"));
     assert!(marker(ChildKind::Reader).contains("120 words"));
 }
+
+// ---------------------------------------------------------------- control
+
+mod control {
+    use super::super::{ControlSignal, TurnControl};
+
+    #[tokio::test]
+    async fn steers_come_out_in_the_order_they_were_queued() {
+        let control = TurnControl::new();
+        control.steer("first");
+        control.steer("second");
+        assert_eq!(control.next().await, ControlSignal::Steer("first".into()));
+        assert_eq!(control.next().await, ControlSignal::Steer("second".into()));
+        assert!(control.take_steers().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_cancel_comes_before_queued_steers_and_stays() {
+        let control = TurnControl::new();
+        control.steer("never applied");
+        control.cancel();
+        assert!(control.is_cancelled());
+        assert_eq!(control.next().await, ControlSignal::Cancel);
+        assert_eq!(control.next().await, ControlSignal::Cancel);
+        assert_eq!(control.take_steers(), ["never applied"]);
+    }
+
+    #[tokio::test]
+    async fn a_waiting_runner_wakes_on_a_steer_from_another_task() {
+        let control = TurnControl::new();
+        let host = control.clone();
+        let waiter = tokio::spawn(async move { control.next().await });
+        tokio::task::yield_now().await;
+        host.steer("look at odd n");
+        assert_eq!(
+            waiter.await.unwrap(),
+            ControlSignal::Steer("look at odd n".into())
+        );
+    }
+
+    #[tokio::test]
+    async fn a_waiting_runner_wakes_on_a_cancel() {
+        let control = TurnControl::new();
+        let host = control.clone();
+        let waiter = tokio::spawn(async move { control.next().await });
+        tokio::task::yield_now().await;
+        host.cancel();
+        assert_eq!(waiter.await.unwrap(), ControlSignal::Cancel);
+    }
+}

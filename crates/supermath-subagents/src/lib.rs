@@ -79,7 +79,8 @@ mod tools;
 
 pub use belt::{Belt, CallNote, HostTool, Progress};
 pub use child::{
-    ChildEnd, ChildKind, ChildRequest, ChildRunner, ChildSpec, ChildTurn, OpenHumanChild,
+    ChildEnd, ChildKind, ChildRequest, ChildRunner, ChildSpec, ChildTurn, ControlSignal,
+    OpenHumanChild, TurnControl,
 };
 pub use config::Models;
 pub use error::{Error, Result};
