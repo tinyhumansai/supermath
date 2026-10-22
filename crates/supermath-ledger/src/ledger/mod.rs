@@ -133,7 +133,8 @@ impl Ledger {
     ///
     /// # Errors
     ///
-    /// [`Error::InvalidArguments`] for an empty statement or a `uses` that
+    /// [`Error::InvalidArguments`] for an empty statement, an `arxiv`
+    /// source without a version and exactly one locator, or a `uses` that
     /// repeats; [`Error::ClaimNotFound`] when a `uses` id is not in the
     /// ledger; [`Error::LinkCycle`] when re-recording a claim with a new
     /// `uses` id that is the claim itself or already reaches it, the rule
@@ -148,6 +149,7 @@ impl Ledger {
                 "`statement` must not be empty".into(),
             ));
         }
+        earn::check_source(&claim.source)?;
         let mut uses = Vec::new();
         for id in &claim.uses {
             if uses.contains(id) {

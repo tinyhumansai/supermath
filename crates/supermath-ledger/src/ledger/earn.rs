@@ -3,7 +3,7 @@
 //! | Source | Earns |
 //! | --- | --- |
 //! | `supplied`, `web` | `asserted` (a web page is a lead, not a citation) |
-//! | `arxiv` | `cited`, unless the call's evidence is supplied |
+//! | `arxiv` (`id`, `version`, and one of `label` or `section`) | `cited`, unless the call's evidence is supplied |
 //! | `tool` (`calc_*`, `py_*`, `lean_*`) | `checked`, from a successful call this process logged for this project, on a stated frame |
 //! | `tool` (any other tool) | `asserted` |
 //! | `lean` | `formalised` when the evidence port says so, otherwise `asserted` |
@@ -50,6 +50,30 @@ impl Earned {
         Self::new(Status::Asserted, EvidenceOrigin::Supplied)
             .note("this call's evidence is supplied text, which is not evidence")
     }
+}
+
+/// Checks the shape a source must have before it can earn anything: an
+/// `arxiv` source names its `id` and `version` and exactly one locator,
+/// `label` or `section`. A blank field counts as missing.
+pub(super) fn check_source(source: &Source) -> Result<()> {
+    let Source::Arxiv {
+        id,
+        version,
+        label,
+        section,
+    } = source
+    else {
+        return Ok(());
+    };
+    let given = |field: Option<&String>| field.is_some_and(|f| !f.trim().is_empty());
+    let locators = usize::from(given(label.as_ref())) + usize::from(given(section.as_ref()));
+    if !given(Some(id)) || !given(Some(version)) || locators != 1 {
+        return Err(Error::InvalidArguments(
+            "an arxiv source needs `id`, `version`, and exactly one of `label` or `section`"
+                .into(),
+        ));
+    }
+    Ok(())
 }
 
 impl Ledger {
