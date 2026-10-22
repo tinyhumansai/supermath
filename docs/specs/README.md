@@ -27,6 +27,6 @@ A specification that outgrows 500 lines becomes a directory with a
 
 - [`agent-runner.md`](agent-runner.md): the OpenHuman runner, ladder, Jev,
   and CortexDB wiring.
-- [`toolkit/`](toolkit/README.md): the Lean-backed conjecture toolkit, the
-  `supermath-mcp` and `supermath-agent` crates, and one spec per tool in
-  [`toolkit/tools/`](toolkit/tools/README.md).
+- [`toolkit/`](toolkit/README.md): the conjecture toolkit, one folder per
+  crate (files, Lean, Python, literature, web, ledger, calc, sub-agents,
+  and the MCP composition), each with one spec per tool.

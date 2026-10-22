@@ -21,5 +21,5 @@ into the plan.
 
 ## Index
 
-- [`lean-toolkit.md`](lean-toolkit.md): the conjecture toolkit, in five
-  phases.
+- [`lean-toolkit.md`](lean-toolkit.md): the conjecture toolkit, one crate
+  per tool domain, in six phases.

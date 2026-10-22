@@ -10,14 +10,13 @@
 
 ## Next
 
-- the conjecture toolkit, in five phases
+- the conjecture toolkit, one crate per tool domain, in six phases
   ([spec](docs/specs/toolkit/README.md), [plan](docs/plans/lean-toolkit.md)):
-  the toolkit split into its own `supermath-mcp` crate and MCP server, with
-  `supermath-agent` as the OpenHuman runner; a pinned Lean service and
-  `lean_check`; a claim ledger in CortexDB; arXiv and OEIS; web research
-  through Gemini with Google Search grounding; sub-agents that
-  digest papers and formalize statements in Lean; Jacobian, counterexample
-  search, and refutation
+  the tool contract, the project workspace, and the MCP server; a pinned
+  Lean service and the ledger's evidence; arXiv, OEIS, and web research
+  through Gemini with Google Search grounding; a pinned Python solver
+  service; sub-agents that digest papers and formalize statements in Lean;
+  counterexample search, refutation, and the blueprint
 - design how the agent works on a problem, drawing on `docs/research/`
 
 ## Out Of Scope
