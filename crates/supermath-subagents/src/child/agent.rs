@@ -136,6 +136,7 @@ impl ChildRunner for OpenHumanChild {
                     end: hook
                         .cut_off()
                         .map_or(ChildEnd::Finished, ChildEnd::OutOfBudget),
+                    unapplied: outcome.unapplied_steers,
                 })
             }
             Err(CoreError::DeadlineExceeded { .. }) => Ok(ChildTurn {
@@ -145,8 +146,47 @@ impl ChildRunner for OpenHumanChild {
                 input_tokens: tally.input,
                 output_tokens: tally.output,
                 end: ChildEnd::OutOfBudget("wall time".into()),
+                unapplied: steering.map(|s| s.take_unapplied()).unwrap_or_default(),
             }),
             Err(error) => Err(error.to_string()),
+        }
+    }
+}
+
+/// Polls the turn to its end while forwarding the host's [`TurnControl`]:
+/// each steer to `OpenHuman`'s steering queue, and a cancellation to the
+/// turn's cancellation handle. The send future keeps being polled while the
+/// cancellation is acknowledged, as `TurnCancellation::cancel` requires.
+async fn drive<F, T>(
+    send: F,
+    control: &TurnControl,
+    steering: &TurnSteering,
+    cancellation: TurnCancellation,
+) -> T
+where
+    F: std::future::Future<Output = T>,
+{
+    tokio::pin!(send);
+    let mut cancelling = false;
+    loop {
+        tokio::select! {
+            sent = &mut send => return sent,
+            signal = control.next(), if !cancelling => match signal {
+                ControlSignal::Steer(text) => {
+                    // A turn that has already ended refuses the steer; the
+                    // send future is about to return, and the host learns
+                    // of the text from `unapplied`.
+                    if let Err(refused) = steering.steer(text) {
+                        control.steer(refused.text);
+                        cancelling = true;
+                    }
+                }
+                ControlSignal::Cancel => {
+                    cancelling = true;
+                    let cancellation = cancellation.clone();
+                    tokio::spawn(async move { cancellation.cancel().await });
+                }
+            },
         }
     }
 }
