@@ -432,19 +432,31 @@ async fn the_brief_is_cut_by_whole_findings_to_stay_under_1500_words() {
 #[tokio::test]
 async fn a_facet_cut_whole_by_the_word_limit_says_so() {
     let stub = gemini_stub(|request| {
-        let words = if facet_of(&request.body) == "status" { 1_400 } else { 200 };
+        let words = if facet_of(&request.body) == "status" {
+            1_400
+        } else {
+            200
+        };
         let sentences = vec![format!("{}end.", "word ".repeat(words - 1))];
-        grounded_answer(&sentences, &["https://example.org/a".to_owned()], |_| vec![0])
+        grounded_answer(&sentences, &["https://example.org/a".to_owned()], |_| {
+            vec![0]
+        })
     })
     .await;
     let envelope = toolkit(config(&stub))
         .research()
-        .call(&ctx(), json!({"question": "Q", "facets": ["status", "approaches"]}))
+        .call(
+            &ctx(),
+            json!({"question": "Q", "facets": ["status", "approaches"]}),
+        )
         .await;
     let facets = &envelope.data["facets"];
     assert_eq!(facets["status"]["findings"].as_array().unwrap().len(), 1);
     assert_eq!(facets["approaches"]["findings"], json!([]));
-    assert_eq!(facets["approaches"]["note"], "findings omitted by the word limit");
+    assert_eq!(
+        facets["approaches"]["note"],
+        "findings omitted by the word limit"
+    );
     assert!(
         envelope
             .unknowns
