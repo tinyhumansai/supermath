@@ -44,7 +44,7 @@ struct Args {
 /// `data.found: false` and `data.frame` as `{predicate, from, to, covered_to,
 /// domain}`. A search that stopped early (a limit, a timeout, a crash in the
 /// predicate) ends `unknown` and covered no stated frame.
-fn frame_of(note: &CallNote) -> Option<String> {
+pub(crate) fn frame_of(note: &CallNote) -> Option<String> {
     if note.envelope.outcome != Outcome::Ok {
         return None;
     }
@@ -78,7 +78,7 @@ fn frame_of(note: &CallNote) -> Option<String> {
 }
 
 /// The witness a search call found, as text, if it found one.
-fn witness_of(note: &CallNote) -> Option<String> {
+pub(crate) fn witness_of(note: &CallNote) -> Option<String> {
     note.envelope
         .data
         .get("witness")
