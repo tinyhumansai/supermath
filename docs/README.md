@@ -35,7 +35,9 @@ covering their design, public surface, and important constraints.
 The agent runner is specified in
 [`specs/agent-runner.md`](specs/agent-runner.md), and
 [`adr/0002-build-on-openhuman.md`](adr/0002-build-on-openhuman.md) records why
-it embeds OpenHuman.
+it embeds OpenHuman, and
+[`adr/0008-call-surplus-intelligence-directly.md`](adr/0008-call-surplus-intelligence-directly.md)
+why every model call goes straight to Surplus Intelligence.
 
 The conjecture toolkit (literature, web research, Lean, Python solvers, the
 claim ledger, and sub-agents) is built as one crate per tool domain,
