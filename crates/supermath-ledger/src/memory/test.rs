@@ -389,7 +389,7 @@ async fn notes_labelled_sends_the_scope_and_label_and_reads_an_unknown_scope_as_
         .notes_labelled(&project(), "claim:clm_a")
         .await
         .unwrap();
-    assert!(notes.is_empty());
+    assert_eq!(notes.len(), 0);
     let head = seen.await.unwrap().head;
     assert!(head.starts_with("GET /v1/events?"), "{head}");
     assert!(head.contains("labels=claim%3Aclm_a"), "{head}");
