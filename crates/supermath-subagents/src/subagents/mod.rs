@@ -24,10 +24,10 @@ use crate::tools::{
 /// How the children are built.
 #[derive(Clone, Default)]
 pub struct SubagentsConfig {
-    /// The ladder rung of each child.
+    /// The Surplus model of each child.
     pub models: Models,
-    /// The provider the children run on; `None` keeps the runtime's own (the
-    /// ladder). Tests pass `Provider::custom` with a scripted model.
+    /// The provider the children run on; `None` keeps the runtime's own
+    /// (Surplus Intelligence). Tests pass `Provider::custom` with a scripted model.
     pub provider: Option<Provider>,
     /// Receives each child's tool events, for the parent's progress stream.
     pub progress: Option<Arc<dyn Progress>>,

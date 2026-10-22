@@ -9,9 +9,9 @@
 //!
 //! | Tool | Child model | Returns |
 //! | --- | --- | --- |
-//! | [`AgentDigestPaper`] | `SUPERMATH_READER_MODEL` (`flash`) | ledger ids recorded from a paper |
-//! | [`AgentFormalize`] | `SUPERMATH_FORMALIZER_MODEL` (`formalize`) | Lean files with verdicts |
-//! | [`AgentReviewAlignment`] | `SUPERMATH_REVIEWER_MODEL` (`reasoning`) | `accepted` or `disputed` |
+//! | [`AgentDigestPaper`] | `SUPERMATH_READER_MODEL` (`deepseek-v4.1-flash`) | ledger ids recorded from a paper |
+//! | [`AgentFormalize`] | `SUPERMATH_FORMALIZER_MODEL` (`deepseek-v4-pro`) | Lean files with verdicts |
+//! | [`AgentReviewAlignment`] | `SUPERMATH_REVIEWER_MODEL` (`deepseek-v4-pro`) | `accepted` or `disputed` |
 //! | [`AgentRefute`] | `SUPERMATH_FORMALIZER_MODEL` | a Lean-confirmed counterexample, or the frames searched |
 //!
 //! # The rule that makes them trustworthy
@@ -65,8 +65,8 @@
 //! No primitive and no domain crate: it reaches `lean_check`, `ledger_record`
 //! and the rest only through the [`ToolRegistry`] the composition hands it,
 //! which keeps it testable with fakes and keeps "children use primitives
-//! only" a property of what the registry holds. No ladder or model
-//! choice beyond the three rung names, which belong to the ladder's config.
+//! only" a property of what the registry holds. No model choice beyond the
+//! three Surplus model names in [`Models`], which the environment sets.
 
 mod belt;
 pub mod bench;

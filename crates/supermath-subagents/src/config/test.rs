@@ -6,25 +6,25 @@ use super::Models;
 use crate::error::Error;
 
 #[test]
-fn defaults_are_the_documented_rungs() {
+fn defaults_are_the_documented_surplus_models() {
     let models = Models::from_lookup(|_| None).unwrap();
     assert_eq!(models, Models::default());
-    assert_eq!(models.reader, "flash");
-    assert_eq!(models.formalizer, "formalize");
-    assert_eq!(models.reviewer, "reasoning");
+    assert_eq!(models.reader, "deepseek-v4.1-flash");
+    assert_eq!(models.formalizer, "deepseek-v4-pro");
+    assert_eq!(models.reviewer, "deepseek-v4-pro");
 }
 
 #[test]
-fn each_variable_overrides_only_its_own_rung() {
+fn each_variable_overrides_only_its_own_model() {
     let models = Models::from_lookup(|name| match name {
-        "SUPERMATH_FORMALIZER_MODEL" => Some("kimina".into()),
-        "SUPERMATH_REVIEWER_MODEL" => Some("deep".into()),
+        "SUPERMATH_FORMALIZER_MODEL" => Some("kimi-k3".into()),
+        "SUPERMATH_REVIEWER_MODEL" => Some("glm-5.3".into()),
         _ => None,
     })
     .unwrap();
-    assert_eq!(models.reader, "flash");
-    assert_eq!(models.formalizer, "kimina");
-    assert_eq!(models.reviewer, "deep");
+    assert_eq!(models.reader, "deepseek-v4.1-flash");
+    assert_eq!(models.formalizer, "kimi-k3");
+    assert_eq!(models.reviewer, "glm-5.3");
 }
 
 #[test]

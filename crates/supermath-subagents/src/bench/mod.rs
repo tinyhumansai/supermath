@@ -1,12 +1,12 @@
 //! The formalization benchmark: thirty informal statements, run through
-//! `agent_formalize` per ladder rung, reporting the `checked` rate.
+//! `agent_formalize` per model, reporting the `checked` rate.
 //!
 //! The statements live in `bench/formalize/statements.json`, checked into the
 //! crate. [`run_formalize`] drives any `agent_formalize` tool over them and
 //! counts a case `checked` when the tool's own `lean_check` verdict is
 //! `checked` or `checked_with_sorry`; the live test in
 //! `crates/supermath-agent/tests/live.rs` composes the real toolkit and calls it
-//! once per rung.
+//! once per model.
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
