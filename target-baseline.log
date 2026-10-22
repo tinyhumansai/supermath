@@ -491,3 +491,96 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
      Running tests/check.rs (target/llvm-cov-target/debug/deps/check-08a78c95b80de865)
 
 running 3 tests
+test reports_usage_and_configuration_errors ... ok
+test check_boots_the_runner_and_reports_a_ready_stack ... FAILED
+test check_fails_when_memory_is_not_ready ... ok
+
+failures:
+
+---- check_boots_the_runner_and_reports_a_ready_stack stdout ----
+
+thread 'check_boots_the_runner_and_reports_a_ready_stack' (633138) panicked at crates/supermath-agent/tests/check.rs:127:5:
+18:57:05:INF:log [tool-search] installed ranker jev log.target="openhuman_core::agent::tinyagents::discovery" log.module_path="openhuman_core::agent::tinyagents::discovery" log.file="vendor/openhuman/crates/openhuman-core/src/agent/tinyagents/discovery/mod.rs" log.line=49
+18:57:05:INF:log [keyring] init_master_key: resolved workspace_dir=/tmp/.tmpi8CXyN/workspace log.target="openhuman_core::security::secret_storage::encrypted_file_backend" log.module_path="openhuman_core::security::secret_storage::encrypted_file_backend" log.file="vendor/openhuman/crates/openhuman-core/src/security/secret_storage/encrypted_file_backend.rs" log.line=81
+18:57:05:INF:log [auth] core RPC token generated and written to /tmp/.tmpi8CXyN/core.token log.target="openhuman_core::core::auth" log.module_path="openhuman_core::core::auth" log.file="vendor/openhuman/crates/openhuman-core/src/core/auth.rs" log.line=124
+18:57:05:INF:log [boot] paths: config=/tmp/.tmpi8CXyN/config.toml workspace=/tmp/.tmpi8CXyN/workspace keyring_dir=/tmp/.tmpi8CXyN/workspace keyring_backend=memory domains=DomainSet { agent: true, memory: true, threads: true, config: true, security: true, flows: true, skills: true, mcp: true, channels: true, web3: false, voice: false, media: false, inference: true, integrations: true, automation: true, runtimes: true, desktop: false, hosted: false, modules: false, platform: true, operator: false } log.target="openhuman_core::core::runtime::context::store_init" log.module_path="openhuman_core::core::runtime::context::store_init" log.file="vendor/openhuman/crates/openhuman-core/src/core/runtime/context_store_init.rs" log.line=42
+18:57:05:INF:log [boot] memory is off: no TinyHumans backend is available log.target="openhuman_core::core::runtime::context::store_init" log.module_path="openhuman_core::core::runtime::context::store_init" log.file="vendor/openhuman/crates/openhuman-core/src/core/runtime/context_store_init.rs" log.line=57
+18:57:05:INF:log [boot] image attachments sidecar dir = /tmp/.tmpi8CXyN/workspace/attachments log.target="openhuman_core::core::runtime::context::store_init" log.module_path="openhuman_core::core::runtime::context::store_init" log.file="vendor/openhuman/crates/openhuman-core/src/core/runtime/context_store_init.rs" log.line=69
+18:57:05:INF:broker tinybus is listening listener=memory id=tinybus-0.1.6-633338
+18:57:05:INF:bus [bus] initialised with an in-process broker events_version=3.0.0
+18:57:05:INF:storage [storage] opening the configured backend driver="sqlite" url=sqlite:/tmp/.tmpi8CXyN/workspace/storage
+18:57:05:INF:storage [storage][boot] migration steps ran scope="local" steps=87
+18:57:05:INF:storage [storage][boot] schema prepared and migrated scopes=1 steps=87
+18:57:05:INF:broker tinybus is listening listener=memory id=tinybus-0.1.6-633338
+18:57:05:INF:log [scheduler_gate] startup policy=aggressive mode=auto on_ac=true charge=None cpu=7.2% server=true log.target="openhuman_core::platform::llm_gate::throttle" log.module_path="openhuman_core::platform::llm_gate::throttle" log.file="vendor/openhuman/crates/openhuman-core/src/platform/llm_gate/throttle.rs" log.line=76
+18:57:05:INF:log [auth] no session token at startup — scheduler gate set to signed_out (config_path=/tmp/.tmpi8CXyN/config.toml, keyring_backend=memory) log.target="openhuman_core::core::runtime::subscribers" log.module_path="openhuman_core::core::runtime::subscribers" log.file="vendor/openhuman/crates/openhuman-core/src/core/runtime/subscribers.rs" log.line=198
+18:57:05:INF:log [scheduler_gate] signed_out false -> true log.target="openhuman_core::platform::llm_gate::gate" log.module_path="openhuman_core::platform::llm_gate::gate" log.file="vendor/openhuman/crates/openhuman-core/src/platform/llm_gate/gate.rs" log.line=248
+18:57:05:INF:log [devices/bus] DeviceTunnelSubscriber registered log.target="openhuman_core::security::devices::bus" log.module_path="openhuman_core::security::devices::bus" log.file="vendor/openhuman/crates/openhuman-core/src/security/devices/bus.rs" log.line=43
+18:57:05:INF:bus [memory:bus] memory subscribers registered
+18:57:05:INF:log [run_ledger][finalize] run-ledger finalize subscriber registered log.target="openhuman_core::agent_runs::subagent_finalize" log.module_path="openhuman_core::agent_runs::subagent_finalize" log.file="vendor/openhuman/crates/openhuman-core/src/agent_runs/subagent_finalize.rs" log.line=112
+18:57:05:INF:log [event_bus] domain subscriber registration complete: plan=DomainSubscriberPlan { platform: true, integrations: true, security: true, desktop: false, skills: true, channels: true, flows: true, memory: true, threads: true, agent: true, hosted: false, mcp: true } log.target="openhuman_core::core::runtime::subscribers" log.module_path="openhuman_core::core::runtime::subscribers" log.file="vendor/openhuman/crates/openhuman-core/src/core/runtime/subscribers.rs" log.line=447
+18:57:15:WRN:host in-process modules are inside the host trust boundary modules=1
+18:57:15:INF:host module loaded module=openhuman
+18:57:15:INF:resolve [tinybus::module] resolving module="tinyflows" version="0.8.29"
+18:57:15:INF:resolve [tinybus::module] resolving module="tinybox" version="0.1.40"
+18:57:15:INF:github release downloaded, verified and cached asset="tinybox-0.1.40-ubuntu-24.04-x86_64.tar.gz"
+18:57:15:WRN:first_admitted [modules] 'tinybox' artifact for ubuntu-24.04-x86_64 was not admitted: module `ubuntu-24.04-x86_64` refused: module directory is writable by another user at the directory itself mode 0775
+18:57:15:INF:github release downloaded, verified and cached asset="tinyflows-module-0.8.29-ubuntu-24.04-x86_64.tar.gz"
+18:57:15:WRN:first_admitted [modules] 'tinyflows' artifact for ubuntu-24.04-x86_64 was not admitted: module `ubuntu-24.04-x86_64` refused: module directory is writable by another user at the directory itself mode 0775
+18:57:15:INF:github release downloaded, verified and cached asset="tinybox-0.1.40-ubuntu-22.04-x86_64.tar.gz"
+18:57:15:WRN:first_admitted [modules] 'tinybox' artifact for ubuntu-22.04-x86_64 was not admitted: module `ubuntu-22.04-x86_64` refused: module directory is writable by another user at the directory itself mode 0775
+18:57:15:ERR:report_error [observability] modules.resolve failed: loadable module operation failed domain="modules" operation="resolve" error=loadable module operation failed
+18:57:15:WRN:log [hooks] TinyBox shell selection failed: MODULE_CALL_REPORTED: module unavailable log.target="openhuman_core::hooks::shell" log.module_path="openhuman_core::hooks::shell" log.file="vendor/openhuman/crates/openhuman-core/src/hooks/shell.rs" log.line=49
+18:57:15:INF:log [hooks] active configuration: 0 hook(s) across 0 file(s) log.target="openhuman_core::hooks::host" log.module_path="openhuman_core::hooks::host" log.file="vendor/openhuman/crates/openhuman-core/src/hooks/host.rs" log.line=66
+18:57:15:INF:log [background_completions] boot recovery found 0 thread(s) with undelivered completions workspace_dir=/tmp/.tmpi8CXyN/workspace log.target="openhuman_core::agent::orchestration::background_completions" log.module_path="openhuman_core::agent::orchestration::background_completions" log.file="vendor/openhuman/crates/openhuman-core/src/agent/orchestration/background_completions.rs" log.line=719
+18:57:15:INF:log [cost] global CostTracker initialised at workspace /tmp/.tmpi8CXyN/workspace (cost.enabled=true, dashboard telemetry always-on). Set cost.dashboard.enabled=false in config.toml to hide the panel. log.target="openhuman_core::platform::cost::global" log.module_path="openhuman_core::platform::cost::global" log.file="vendor/openhuman/crates/openhuman-core/src/platform/cost/global.rs" log.line=63
+18:57:15:INF:host_definition [agent_defs] global registry initialised with 14 definitions
+18:57:15:INF:agent_paths [startup] workspace (internal state) and action sandbox (tool cwd) directories configured workspace=~/workspace action=~/action
+18:57:15:INF:log [openhuman:policy] SecurityPolicy created: autonomy=Supervised, workspace_only=true, allowed_cmds=40, max_actions/hr=4294967295, auto_approve_all=false log.target="openhuman_core::security::policy::enforcement" log.module_path="openhuman_core::security::policy::enforcement" log.file="vendor/openhuman/crates/openhuman-core/src/security/policy/enforcement.rs" log.line=123
+18:57:15:INF:log [web-channel] approval-surface subscriber registered (domains=approval,plan_review) — bridges ApprovalRequested → approval_request and PlanReviewRequested → plan_review_request socket events log.target="openhuman_core::web_chat::event_bus" log.module_path="openhuman_core::web_chat::event_bus" log.file="vendor/openhuman/crates/openhuman-core/src/web_chat/event_bus.rs" log.line=26
+18:57:15:INF:log [web-channel] egress-surface subscriber registered (domain=egress) — bridges ExternalTransferPending → external_transfer_pending socket events log.target="openhuman_core::web_chat::egress_surface" log.module_path="openhuman_core::web_chat::egress_surface" log.file="vendor/openhuman/crates/openhuman-core/src/web_chat/egress_surface.rs" log.line=30
+18:57:15:INF:log [web-channel] agent-surface subscriber registered (domain=agent) — bridges ThreadGoalUpdated/ThreadGoalCleared/ThreadTodosChanged/RunQueue* → thread_goal_updated/thread_goal_cleared/thread_todos_changed/queue_item_queued/queue_item_delivered socket events log.target="openhuman_core::web_chat::event_bus" log.module_path="openhuman_core::web_chat::event_bus" log.file="vendor/openhuman/crates/openhuman-core/src/web_chat/event_bus.rs" log.line=187
+18:57:15:INF:log [runtime] approval gate installed (on by default; set OPENHUMAN_APPROVAL_GATE=0 to disable, session_id=session-7048522a-a55e-476b-90e0-5710d3c64e46) — Prompt-class external-effect tool calls park for approval in interactive chat turns log.target="openhuman_core::core::runtime::bootstrap" log.module_path="openhuman_core::core::runtime::bootstrap" log.file="vendor/openhuman/crates/openhuman-core/src/core/runtime/bootstrap.rs" log.line=347
+18:57:15:INF:log [web-channel] artifact-surface subscriber registered (domain=artifact) — will bridge ArtifactPending/Ready/Failed → artifact_pending/artifact_ready/artifact_failed socket events log.target="openhuman_core::web_chat::event_bus" log.module_path="openhuman_core::web_chat::event_bus" log.file="vendor/openhuman/crates/openhuman-core/src/web_chat/event_bus.rs" log.line=47
+18:57:15:INF:log [threads:artifact-rows] subscriber registered (domain=artifact) log.target="openhuman_core::threads::artifact_rows" log.module_path="openhuman_core::threads::artifact_rows" log.file="vendor/openhuman/crates/openhuman-core/src/threads/artifact_rows.rs" log.line=275
+18:57:15:INF:log [web-channel] memory-activity-surface subscriber registered (domain=memory) — will bridge MemoryStored/MemoryRecalled → memory_activity socket events log.target="openhuman_core::web_chat::event_bus" log.module_path="openhuman_core::web_chat::event_bus" log.file="vendor/openhuman/crates/openhuman-core/src/web_chat/event_bus.rs" log.line=71
+18:57:15:INF:log [socket] SocketManager initialized and registered globally log.target="openhuman_core::core::runtime::bootstrap" log.module_path="openhuman_core::core::runtime::bootstrap" log.file="vendor/openhuman/crates/openhuman-core/src/core/runtime/bootstrap.rs" log.line=382
+18:57:16:INF:github release downloaded, verified and cached asset="tinyflows-module-0.8.29-ubuntu-22.04-x86_64.tar.gz"
+18:57:16:WRN:first_admitted [modules] 'tinyflows' artifact for ubuntu-22.04-x86_64 was not admitted: module `ubuntu-22.04-x86_64` refused: module directory is writable by another user at the directory itself mode 0775
+18:57:16:ERR:report_error [observability] modules.resolve failed: loadable module operation failed domain="modules" operation="resolve" error=loadable module operation failed
+18:57:16:WRN:flow_authoring [skills][bundled] flow-authoring resources unavailable; hiding builtin error=module 'tinyflows' could not be loaded: module `ubuntu-22.04-x86_64` refused: module directory is writable by another user at the directory itself mode 0775. This is terminal for the running process; restart the app to try again
+18:57:16:WRN:log [cron] failed to prune retired jobs: module 'tinyflows' could not be loaded: module `ubuntu-22.04-x86_64` refused: module directory is writable by another user at the directory itself mode 0775. This is terminal for the running process; restart the app to try again log.target="openhuman_core::core::runtime::services" log.module_path="openhuman_core::core::runtime::services" log.file="vendor/openhuman/crates/openhuman-core/src/core/runtime/services.rs" log.line=501
+18:57:16:INF:host_agents [host_agents] host agent resolver installed
+18:57:16:INF:log [openhuman:policy] SecurityPolicy created: autonomy=Full, workspace_only=true, allowed_cmds=40, max_actions/hr=4294967295, auto_approve_all=false log.target="openhuman_core::security::policy::enforcement" log.module_path="openhuman_core::security::policy::enforcement" log.file="vendor/openhuman/crates/openhuman-core/src/security/policy/enforcement.rs" log.line=123
+18:57:16:INF:log [openhuman:policy] SecurityPolicy created: autonomy=Full, workspace_only=true, allowed_cmds=40, max_actions/hr=4294967295, auto_approve_all=false log.target="openhuman_core::security::policy::enforcement" log.module_path="openhuman_core::security::policy::enforcement" log.file="vendor/openhuman/crates/openhuman-core/src/security/policy/enforcement.rs" log.line=123
+18:57:16:INF:log [openhuman:policy] SecurityPolicy created: autonomy=Full, workspace_only=true, allowed_cmds=40, max_actions/hr=4294967295, auto_approve_all=false log.target="openhuman_core::security::policy::enforcement" log.module_path="openhuman_core::security::policy::enforcement" log.file="vendor/openhuman/crates/openhuman-core/src/security/policy/enforcement.rs" log.line=123
+18:57:16:INF:log [openhuman:policy] SecurityPolicy created: autonomy=Full, workspace_only=true, allowed_cmds=40, max_actions/hr=4294967295, auto_approve_all=false log.target="openhuman_core::security::policy::enforcement" log.module_path="openhuman_core::security::policy::enforcement" log.file="vendor/openhuman/crates/openhuman-core/src/security/policy/enforcement.rs" log.line=123
+18:57:16:INF:log [openhuman:policy] SecurityPolicy created: autonomy=Full, workspace_only=true, allowed_cmds=40, max_actions/hr=4294967295, auto_approve_all=false log.target="openhuman_core::security::policy::enforcement" log.module_path="openhuman_core::security::policy::enforcement" log.file="vendor/openhuman/crates/openhuman-core/src/security/policy/enforcement.rs" log.line=123
+18:57:16:INF:log [openhuman:policy] SecurityPolicy created: autonomy=Full, workspace_only=true, allowed_cmds=40, max_actions/hr=4294967295, auto_approve_all=false log.target="openhuman_core::security::policy::enforcement" log.module_path="openhuman_core::security::policy::enforcement" log.file="vendor/openhuman/crates/openhuman-core/src/security/policy/enforcement.rs" log.line=123
+18:57:16:INF:log [openhuman:policy] SecurityPolicy created: autonomy=Supervised, workspace_only=true, allowed_cmds=40, max_actions/hr=4294967295, auto_approve_all=false log.target="openhuman_core::security::policy::enforcement" log.module_path="openhuman_core::security::policy::enforcement" log.file="vendor/openhuman/crates/openhuman-core/src/security/policy/enforcement.rs" log.line=123
+runner: surplus http://127.0.0.1:42843/v1 model `deepseek-v4.1-flash` at medium effort; tool_search ranked by Jev
+agent: supermath-twin-primes with 35 tools
+tools: calc_factor (deferred), calc_gcd_lcm (deferred), file_edit (deferred), file_list (deferred), file_read (deferred), file_write (deferred), lean_blueprint (deferred), lean_build (deferred), lean_check (direct), lean_decl (deferred), lean_goals (deferred), lean_search (deferred), lean_search_counterexample (deferred), lean_try_tactics (deferred), ledger_bound (deferred), ledger_claims (deferred), ledger_link (deferred), ledger_record (direct), lit_citations (deferred), lit_extract_statements (deferred), lit_get_paper (deferred), lit_oeis (deferred), lit_search_arxiv (direct), py_run (direct), py_search_counterexample (deferred), py_solvers (deferred), recall_memory (direct), web_read (deferred)
+agent tools: web_research (deferred), web_search (direct), agent_digest_paper (deferred), agent_formalize (deferred), agent_refute (deferred), agent_review_alignment (deferred), agent_settle (deferred)
+mcp servers: jacobian, lean_lsp
+memory: http://127.0.0.1:42843 ready, scope ws:supermath/project:twin-primes/app:brain
+18:57:16:INF:gate [approval::gate] denied every pending request of the agent agent_id=supermath-twin-primes denied=0 resolution="agent_dropped"
+18:57:16:INF:gate [approval::gate] denied every pending request of the agent agent_id=supermath-twin-primes-reader denied=0 resolution="agent_dropped"
+18:57:16:INF:gate [approval::gate] denied every pending request of the agent agent_id=supermath-twin-primes-formalizer denied=0 resolution="agent_dropped"
+18:57:16:INF:gate [approval::gate] denied every pending request of the agent agent_id=supermath-twin-primes-refuter denied=0 resolution="agent_dropped"
+18:57:16:INF:gate [approval::gate] denied every pending request of the agent agent_id=supermath-twin-primes-reviewer denied=0 resolution="agent_dropped"
+18:57:16:INF:gate [approval::gate] denied every pending request of the agent agent_id=supermath-twin-primes-duel-prover denied=0 resolution="agent_dropped"
+18:57:16:INF:gate [approval::gate] denied every pending request of the agent agent_id=supermath-twin-primes-duel-refuter denied=0 resolution="agent_dropped"
+18:57:16:INF:host_agents [host_agents] host agent resolver removed
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    check_boots_the_runner_and_reports_a_ready_stack
+
+test result: FAILED. 2 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 11.44s
+
+error: test failed, to rerun pass `-p supermath-agent --test check`
+error: process didn't exit successfully: `/home/ubuntu/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo test --manifest-path /home/ubuntu/work/others/supermath/worktrees/tools-complete/Cargo.toml --target-dir /home/ubuntu/work/others/supermath/worktrees/tools-complete/target/llvm-cov-target --locked --workspace --all-targets --all-features` (exit status: 101)
+EXIT 101
