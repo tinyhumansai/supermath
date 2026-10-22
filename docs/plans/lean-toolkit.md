@@ -66,26 +66,42 @@ one of the two crates.
    with the `claude mcp add` line, and the CI coverage gate to cover both
    crates.
 
-## P2: Lean service, Lean check, ledger
+## P2: Lean service, Lean files and check, ledger
 
 1. **Lean service.** `docker/lean/Dockerfile`, `lakefile.toml`,
    `lean-toolchain`, and the HTTP wrapper (kimina-lean-server if the
    evaluation in ADR 0003 holds). Add the `lean` service to `compose.yaml`
    on an `internal: true` network the agent shares, so it has no egress,
-   and `LEAN_URL` to `supermath-mcp`'s config and `.env.example`.
+   and `LEAN_URL` to `supermath-mcp`'s config and `.env.example`. Mount a
+   `lean-projects` volume in both `lean` and `agent`, and add
+   `SUPERMATH_LEAN_PROJECTS`.
 2. **Verdicts.** Tests first in `lean/test.rs`, one per row of the
    [verdict table](../specs/toolkit/lean.md#verdicts), against a stub that
    replays recorded REPL answers. Then `lean/`.
-3. **Tools:** [`lean_check`](../specs/toolkit/tools/lean_check.md),
+3. **Files.** Tests first: the [path rules](../specs/toolkit/lean.md#files-not-source)
+   (`..`, absolute paths, symlinks out, forbidden imports), atomic writes,
+   `if_sha256` conflicts, an edit matching zero or two times, the write
+   log. Then [`lean_write`](../specs/toolkit/tools/lean_write.md),
+   [`lean_edit`](../specs/toolkit/tools/lean_edit.md),
+   [`lean_read`](../specs/toolkit/tools/lean_read.md),
+   [`lean_files`](../specs/toolkit/tools/lean_files.md). A test walks every
+   `lean_*` schema and asserts no Lean-source argument outside these two
+   write tools.
+4. **Scope.** The write tools are denied under `HostOnly`, so move the
+   top-level agent to `ToolScopeSpec::Named` here (a test pins the exact
+   list) and hold the runtime as `Arc<Runtime>`.
+5. **Tools:** [`lean_check`](../specs/toolkit/tools/lean_check.md) on files,
+   cached by digest,
    [`lean_search`](../specs/toolkit/tools/lean_search.md) (name mode against
    the REPL; Loogle behind a stub),
    [`lean_decl`](../specs/toolkit/tools/lean_decl.md).
-4. **Ledger.** Tests first: every allowed and refused transition, a caller
+6. **Ledger.** Tests first: every allowed and refused transition, a caller
    sending `formalised` gets `FORBIDDEN`, a `lean` source is promoted only
-   by the server's own check, effective status over a chain. Then
+   by the server's own check, a claim whose file changed falls to
+   `asserted`, effective status over a chain. Then
    `ledger/`, [`ledger_record`](../specs/toolkit/tools/ledger_record.md) and
    [`ledger_claims`](../specs/toolkit/tools/ledger_claims.md).
-5. Both `check` commands report the Lean service's toolchain and Mathlib
+7. Both `check` commands report the Lean service's toolchain and Mathlib
    revision. `live_lean_check`, gated by `LEAN_URL`.
 
 ## P3: literature and web
@@ -115,11 +131,10 @@ one of the two crates.
 
 1. In `supermath-mcp`: [`lean_goals`](../specs/toolkit/tools/lean_goals.md),
    [`lean_try_tactics`](../specs/toolkit/tools/lean_try_tactics.md),
-   [`lean_write`](../specs/toolkit/tools/lean_write.md),
    [`ledger_link`](../specs/toolkit/tools/ledger_link.md), test-first.
-2. In `supermath-agent`: move the top-level agent to
-   `ToolScopeSpec::Named` (a test pins the exact list) and hold the runtime
-   as `Arc<Runtime>`.
+2. **Agentic tools.** The `Kind` on the `Tool` trait, the `usage` field in
+   the envelope, and a test that every child's tool list holds primitives
+   only.
 3. `subagents/`: child specs with their models (`SUPERMATH_*_MODEL`),
    scopes, and budgets, tested against a scripted provider
    (`Provider::custom`) that plays a fixed sequence of tool calls.
@@ -160,11 +175,12 @@ OpenHuman, and, for a phase that changes the stack, `docker compose up
 
 - [ ] P1: `supermath-mcp` crate, envelope, `Tool` trait, memory and calc
       moved, host adapter, `supermath-mcp serve`
-- [ ] P2: Lean service, `lean_check`, `lean_search`, `lean_decl`,
-      `ledger_record`, `ledger_claims`
+- [ ] P2: Lean service, `lean_write`, `lean_edit`, `lean_read`,
+      `lean_files`, `lean_check`, `lean_search`, `lean_decl`, `Named`
+      scope, `ledger_record`, `ledger_claims`
 - [ ] P3: `lit_search_arxiv`, `lit_get_paper`, `lit_extract_statements`,
       `lit_oeis`, `web_search`, `web_research`, `web_read`
-- [ ] P4: goal and tactic tools, `lean_write`, `Named` scope, sub-agents,
+- [ ] P4: goal and tactic tools, agentic-tool contract, sub-agents,
       formalize bench
 - [ ] P5: Jacobian and lean-lsp-mcp, counterexample search, `agent_refute`,
       bounds, citations, blueprint
