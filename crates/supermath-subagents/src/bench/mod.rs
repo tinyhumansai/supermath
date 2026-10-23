@@ -113,6 +113,20 @@ pub fn arxiv_cases() -> Result<Vec<ArxivCase>> {
     serde_json::from_str(ARXIV).map_err(|error| Error::Bench(error.to_string()))
 }
 
+/// The cases whose ids `ids` lists, comma-separated, in set order; every
+/// case when `ids` is `None`. Unknown ids select nothing.
+#[must_use]
+pub fn only<C: BenchCase>(cases: Vec<C>, ids: Option<&str>) -> Vec<C> {
+    let Some(ids) = ids else {
+        return cases;
+    };
+    let wanted: Vec<&str> = ids.split(',').map(str::trim).collect();
+    cases
+        .into_iter()
+        .filter(|case| wanted.contains(&case.id()))
+        .collect()
+}
+
 /// What one case produced.
 #[derive(Debug, Clone)]
 pub struct CaseResult {
@@ -126,6 +140,8 @@ pub struct CaseResult {
     pub error: Option<ErrorCode>,
     /// What the turn spent.
     pub usage: Option<Usage>,
+    /// What the tool could not establish, such as why the outcome is unknown.
+    pub unknowns: Vec<String>,
 }
 
 impl CaseResult {
@@ -217,6 +233,7 @@ pub async fn run_formalize<C: BenchCase>(
                 .map(str::to_owned),
             error: envelope.code(),
             usage: envelope.usage,
+            unknowns: envelope.unknowns,
         });
     }
     BenchReport {

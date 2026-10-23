@@ -18,6 +18,7 @@
 //! | `LEAN_URL`, `SUPERMATH_PROJECTS` | the Lean service and the directory it mounts |
 //! | `SUPERMATH_BENCH_RUNGS` | comma-separated Surplus models; default `deepseek-v4-pro` |
 //! | `SUPERMATH_BENCH_SET` | `statements` (default), `arxiv`, or `all` |
+//! | `SUPERMATH_BENCH_CASES` | comma-separated case ids; run only those |
 //! | `SUPERMATH_BENCH_LIMIT` | run only the first N cases of each set |
 //!
 //! Every other toolkit variable (`PYTHON_URL`, `CORTEX_*`, ...) is read
@@ -29,7 +30,9 @@
 use openhuman_embed::{Provider, Runtime, RuntimeConfig, Workspace};
 use supermath_agent::DEFAULT_SURPLUS_URL;
 use supermath_mcp::{Config, Toolkit};
-use supermath_subagents::bench::{BenchReport, arxiv_cases, formalize_cases, run_formalize};
+use supermath_subagents::bench::{
+    BenchCase, BenchReport, arxiv_cases, formalize_cases, only, run_formalize,
+};
 use supermath_subagents::{Models, Subagents, SubagentsConfig};
 use supermath_tool::{Budget, CallContext};
 
@@ -63,9 +66,29 @@ async fn bench() {
     let limit: usize = env("SUPERMATH_BENCH_LIMIT")
         .and_then(|v| v.parse().ok())
         .unwrap_or(usize::MAX);
-    let mut cases = formalize_cases().unwrap();
+    let ids = env("SUPERMATH_BENCH_CASES");
+    let all_statements = formalize_cases().unwrap();
+    let all_papers = arxiv_cases().unwrap();
+    if let Some(list) = ids.as_deref() {
+        // An id from either set is valid, whichever set runs; a typo is not.
+        let known: Vec<&str> = all_statements
+            .iter()
+            .map(BenchCase::id)
+            .chain(all_papers.iter().map(BenchCase::id))
+            .collect();
+        let unknown: Vec<&str> = list
+            .split(',')
+            .map(str::trim)
+            .filter(|id| !id.is_empty() && !known.contains(id))
+            .collect();
+        assert!(
+            unknown.is_empty(),
+            "SUPERMATH_BENCH_CASES names unknown ids: {unknown:?}"
+        );
+    }
+    let mut cases = only(all_statements, ids.as_deref());
     cases.truncate(if statements { limit } else { 0 });
-    let mut papers = arxiv_cases().unwrap();
+    let mut papers = only(all_papers, ids.as_deref());
     papers.truncate(if arxiv { limit } else { 0 });
     let config = Config::from_env().unwrap();
 
@@ -138,5 +161,8 @@ fn print_report(set: &str, report: &BenchReport) {
             "  not checked: {} ({:?}, {:?}, {:?})",
             result.id, result.outcome, result.verdict, result.error
         );
+        for unknown in &result.unknowns {
+            println!("    unknown: {unknown}");
+        }
     }
 }
