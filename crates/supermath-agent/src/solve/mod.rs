@@ -23,6 +23,9 @@ use crate::runner::Solver;
 pub const CONTINUE_PROMPT: &str = "\
 Continue the work. Check the ledger and the project files for what earlier \
 turns established, then take the next step that moves the problem forward. \
+This turn starts with only the core tools loaded: a tool you loaded with \
+tool_search in an earlier turn is not loaded now, so call tool_search for \
+each other tool you need before calling it. \
 When the problem is settled, or nothing more can be done, end your reply \
 with the line STATUS: DONE.";
 

@@ -9,7 +9,17 @@ use openhuman_embed::AgentProgress;
 use serde_json::json;
 use supermath_tool::{CallLog, CallRecord, Envelope, ErrorCode, InMemoryCallLog};
 
-use super::{Transcript, call_line, declares_done, excerpt, progress_line, sweep};
+use super::{CONTINUE_PROMPT, Transcript, call_line, declares_done, excerpt, progress_line, sweep};
+
+#[test]
+fn a_later_turn_tells_the_model_to_load_its_tools_again() {
+    // Each turn starts with only the direct tools; what `tool_search` loaded
+    // in an earlier turn is gone. A model that calls a tool it has not loaded
+    // again sends a different, loaded tool instead (a live run called
+    // `ledger_record` 80 times meaning `agent_review_alignment`).
+    assert!(CONTINUE_PROMPT.contains("tool_search"));
+    assert!(CONTINUE_PROMPT.contains("earlier turn"));
+}
 
 #[test]
 fn a_reply_is_done_only_with_the_marker_on_its_own_line() {
