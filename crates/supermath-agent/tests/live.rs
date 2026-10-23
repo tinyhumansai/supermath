@@ -30,7 +30,9 @@
 use openhuman_embed::{Provider, Runtime, RuntimeConfig, Workspace};
 use supermath_agent::DEFAULT_SURPLUS_URL;
 use supermath_mcp::{Config, Toolkit};
-use supermath_subagents::bench::{BenchReport, arxiv_cases, formalize_cases, only, run_formalize};
+use supermath_subagents::bench::{
+    BenchCase, BenchReport, arxiv_cases, formalize_cases, only, run_formalize,
+};
 use supermath_subagents::{Models, Subagents, SubagentsConfig};
 use supermath_tool::{Budget, CallContext};
 
@@ -65,9 +67,28 @@ async fn bench() {
         .and_then(|v| v.parse().ok())
         .unwrap_or(usize::MAX);
     let ids = env("SUPERMATH_BENCH_CASES");
-    let mut cases = only(formalize_cases().unwrap(), ids.as_deref());
+    let all_statements = formalize_cases().unwrap();
+    let all_papers = arxiv_cases().unwrap();
+    if let Some(list) = ids.as_deref() {
+        // An id from either set is valid, whichever set runs; a typo is not.
+        let known: Vec<&str> = all_statements
+            .iter()
+            .map(BenchCase::id)
+            .chain(all_papers.iter().map(BenchCase::id))
+            .collect();
+        let unknown: Vec<&str> = list
+            .split(',')
+            .map(str::trim)
+            .filter(|id| !id.is_empty() && !known.contains(id))
+            .collect();
+        assert!(
+            unknown.is_empty(),
+            "SUPERMATH_BENCH_CASES names unknown ids: {unknown:?}"
+        );
+    }
+    let mut cases = only(all_statements, ids.as_deref());
     cases.truncate(if statements { limit } else { 0 });
-    let mut papers = only(arxiv_cases().unwrap(), ids.as_deref());
+    let mut papers = only(all_papers, ids.as_deref());
     papers.truncate(if arxiv { limit } else { 0 });
     let config = Config::from_env().unwrap();
 
