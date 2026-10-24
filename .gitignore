@@ -29,5 +29,10 @@ worktrees/*
 core.token
 .supermath/
 
+# Loop folders `supermath-mcp loop new` writes: they name this machine's
+# binary and env file. Only the statements they start from are committed.
+loops/*
+!loops/statements/
+
 # Python bytecode from running the service tests locally.
 __pycache__/
