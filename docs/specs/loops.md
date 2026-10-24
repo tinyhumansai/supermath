@@ -64,9 +64,11 @@ subject/notes/
   by absolute path, with the same absolute `--env-file`. A generated folder is
   therefore local to one machine, and only the statements are committed
   (`loops/statements/`).
-- **Files.** Seats edit files with their harness's own tools in their
-  checkout. The toolkit's `file_*` tools are left out: two of them share the
-  harness's names.
+- **Files and search.** Seats edit files with their harness's own tools in
+  their checkout. The toolkit's `file_*` tools and `web_search` are left out,
+  because OpenHuman registers `file_read`, `file_write` and `web_search`
+  itself and refuses a second tool of the same name. `web_research` and
+  `web_read` stay.
 
 ### `supermath-mcp score proof <project>`
 
