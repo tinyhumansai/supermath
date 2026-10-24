@@ -206,13 +206,23 @@ fn loop_new_writes_a_loop_folder_that_runs_this_binary() {
         .arg(&dir)
         .output()
         .unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    assert_eq!(String::from_utf8_lossy(&out.stdout).trim(), dir.to_str().unwrap());
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        dir.to_str().unwrap()
+    );
     let manifest: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("rsi.json")).unwrap()).unwrap();
     assert_eq!(manifest["name"], "two-add-two");
     let scorer = manifest["score"]["scorers"][0]["run"].as_str().unwrap();
-    assert!(scorer.starts_with(env!("CARGO_BIN_EXE_supermath-mcp")), "{scorer}");
+    assert!(
+        scorer.starts_with(env!("CARGO_BIN_EXE_supermath-mcp")),
+        "{scorer}"
+    );
     assert!(dir.join("subject/lean/Supermath/Statement.lean").is_file());
 
     // A second run never overwrites it; a missing statement file fails too.
@@ -262,7 +272,11 @@ async fn score_proof_checks_a_copy_and_writes_the_result() {
         .env("LEAN_URL", &lean.stub.base)
         .output()
         .unwrap();
-    assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     let stdout = String::from_utf8_lossy(&out.stdout);
     assert!(stdout.starts_with("METRIC proof="), "{stdout}");
     let result: serde_json::Value =
@@ -275,11 +289,20 @@ async fn score_proof_checks_a_copy_and_writes_the_result() {
     // Both checks ran on the copy, never on the candidate.
     let sent = lean.stub.bodies("/check");
     let copy = out_dir.join("project");
-    let paths: Vec<&str> = sent.iter().map(|body| body["path"].as_str().unwrap()).collect();
+    let paths: Vec<&str> = sent
+        .iter()
+        .map(|body| body["path"].as_str().unwrap())
+        .collect();
     assert_eq!(
         paths,
-        ["lean/Supermath/Prove.lean", "lean/Supermath/ScoreProved.lean"]
+        [
+            "lean/Supermath/Prove.lean",
+            "lean/Supermath/ScoreProved.lean"
+        ]
     );
-    assert!(sent.iter().all(|body| body["root"] == copy.to_str().unwrap()));
+    assert!(
+        sent.iter()
+            .all(|body| body["root"] == copy.to_str().unwrap())
+    );
     assert!(!candidate.join("lean/Supermath/ScoreProved.lean").exists());
 }

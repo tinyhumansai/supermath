@@ -34,17 +34,26 @@ use crate::error::{Error, Result};
 const TEMPLATE: [(&str, &str); 17] = [
     ("rsi.json", include_str!("../../../template/rsi.json")),
     ("brief.md", include_str!("../../../template/brief.md")),
-    ("hive/hive.json", include_str!("../../../template/hive/hive.json")),
+    (
+        "hive/hive.json",
+        include_str!("../../../template/hive/hive.json"),
+    ),
     (
         "hive/constitution.json",
         include_str!("../../../template/hive/constitution.json"),
     ),
-    ("hive/memory.json", include_str!("../../../template/hive/memory.json")),
+    (
+        "hive/memory.json",
+        include_str!("../../../template/hive/memory.json"),
+    ),
     (
         "hive/context/rules.md",
         include_str!("../../../template/hive/context/rules.md"),
     ),
-    ("hive/roles/lead.md", include_str!("../../../template/hive/roles/lead.md")),
+    (
+        "hive/roles/lead.md",
+        include_str!("../../../template/hive/roles/lead.md"),
+    ),
     (
         "hive/roles/prover.md",
         include_str!("../../../template/hive/roles/prover.md"),
@@ -53,7 +62,10 @@ const TEMPLATE: [(&str, &str); 17] = [
         "hive/roles/refuter.md",
         include_str!("../../../template/hive/roles/refuter.md"),
     ),
-    ("hive/seats/lead.md", include_str!("../../../template/hive/seats/lead.md")),
+    (
+        "hive/seats/lead.md",
+        include_str!("../../../template/hive/seats/lead.md"),
+    ),
     (
         "hive/seats/prover.md",
         include_str!("../../../template/hive/seats/prover.md"),
@@ -170,7 +182,10 @@ fn hive_manifest(text: &str, program: &Program, registry: &ToolRegistry) -> Resu
             .collect(),
         _ => Vec::new(),
     };
-    let ids: Vec<&str> = tools.iter().filter_map(|tool| tool["id"].as_str()).collect();
+    let ids: Vec<&str> = tools
+        .iter()
+        .filter_map(|tool| tool["id"].as_str())
+        .collect();
     let toolpacks: Vec<Value> = TOOLPACKS
         .iter()
         .map(|(id, members)| {

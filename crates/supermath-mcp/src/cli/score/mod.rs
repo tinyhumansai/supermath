@@ -145,7 +145,13 @@ pub fn prepare(candidate: &Path, out: &Path) -> Result<PathBuf> {
 pub async fn check(toolkit: &Toolkit) -> [Checks; 2] {
     let mut checks: [Checks; 2] = [None, None];
     for (index, side) in SIDES.iter().enumerate() {
-        let main = run(toolkit, &format!("score-{}-file", side.name), side.file, None).await;
+        let main = run(
+            toolkit,
+            &format!("score-{}-file", side.name),
+            side.file,
+            None,
+        )
+        .await;
         if main.code() == Some(supermath_tool::ErrorCode::NotFound) {
             continue;
         }
@@ -205,9 +211,10 @@ pub fn judge(checks: &[Checks; 2]) -> Report {
             report.failures.extend(failures(side, main, verdict));
         }
     }
-    report
-        .metrics
-        .insert("settled".to_owned(), json!(u8::from(report.settled.is_some())));
+    report.metrics.insert(
+        "settled".to_owned(),
+        json!(u8::from(report.settled.is_some())),
+    );
     report
 }
 
@@ -225,7 +232,10 @@ fn side_score(main: &Envelope, verdict: &Envelope) -> (f64, bool) {
         Some("checked") => (ELABORATES_FLOOR + ELABORATES_SPAN, false),
         Some("checked_with_sorry") => {
             let sorries = data["sorries"].as_array().map_or(1, Vec::len);
-            (ELABORATES_FLOOR + ELABORATES_SPAN / (1.0 + count(sorries)), false)
+            (
+                ELABORATES_FLOOR + ELABORATES_SPAN / (1.0 + count(sorries)),
+                false,
+            )
         }
         Some("failed") => {
             let errors = data["error_count"].as_u64().unwrap_or(1);

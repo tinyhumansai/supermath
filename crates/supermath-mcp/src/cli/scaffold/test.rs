@@ -42,7 +42,12 @@ fn writes_every_template_file_and_the_statement_with_no_placeholder_left() {
     let (_root, dir) = scaffold();
     for (path, _) in TEMPLATE {
         let text = std::fs::read_to_string(dir.join(path)).unwrap();
-        for ours in ["{{slug}}", "{{binary}}", "{{env_file_arg}}", "{{statement}}"] {
+        for ours in [
+            "{{slug}}",
+            "{{binary}}",
+            "{{env_file_arg}}",
+            "{{statement}}",
+        ] {
             assert!(!text.contains(ours), "{path} keeps {ours}");
         }
     }
@@ -169,7 +174,9 @@ fn the_subject_package_matches_the_lean_service() {
     let toolchain = |path: &Path| std::fs::read_to_string(path).unwrap().trim().to_owned();
     assert_eq!(
         toolchain(&workspace.join("docker/lean/lean-toolchain")),
-        toolchain(&Path::new(env!("CARGO_MANIFEST_DIR")).join("template/subject/lean/lean-toolchain"))
+        toolchain(
+            &Path::new(env!("CARGO_MANIFEST_DIR")).join("template/subject/lean/lean-toolchain")
+        )
     );
     let server = std::fs::read_to_string(workspace.join("docker/lean/server.py")).unwrap();
     let lakefile = TEMPLATE

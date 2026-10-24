@@ -32,7 +32,10 @@ fn score(prove: Checks, refute: Checks) -> Report {
 #[test]
 fn a_clean_verdict_file_settles_the_conjecture() {
     let report = score(
-        side(ok(data("checked", 0, 0, &[])), ok(data("checked", 0, 0, &[]))),
+        side(
+            ok(data("checked", 0, 0, &[])),
+            ok(data("checked", 0, 0, &[])),
+        ),
         None,
     );
     assert_eq!(report.score, 1.0);
@@ -45,7 +48,10 @@ fn a_clean_verdict_file_settles_the_conjecture() {
 fn a_refutation_settles_it_too() {
     let report = score(
         side(ok(data("failed", 2, 0, &[])), ok(data("failed", 1, 0, &[]))),
-        side(ok(data("checked", 0, 0, &[])), ok(data("checked", 0, 0, &[]))),
+        side(
+            ok(data("checked", 0, 0, &[])),
+            ok(data("checked", 0, 0, &[])),
+        ),
     );
     assert_eq!((report.score, report.settled), (1.0, Some("refute")));
     // The unsettled prover's errors still reach the next brief.
@@ -55,7 +61,10 @@ fn a_refutation_settles_it_too() {
 #[test]
 fn named_debt_scores_below_settled() {
     let report = score(
-        side(ok(data("checked", 0, 0, &[])), ok(data("checked", 0, 0, &["Supermath.settled_proved"]))),
+        side(
+            ok(data("checked", 0, 0, &[])),
+            ok(data("checked", 0, 0, &["Supermath.settled_proved"])),
+        ),
         None,
     );
     assert_eq!((report.score, report.settled), (0.75, None));
@@ -66,7 +75,10 @@ fn named_debt_scores_below_settled() {
 fn fewer_sorries_and_fewer_errors_score_higher() {
     let partial = |verdict: &str, errors, sorries| {
         score(
-            side(ok(data(verdict, errors, sorries, &[])), ok(data("checked_with_sorry", 0, 1, &[]))),
+            side(
+                ok(data(verdict, errors, sorries, &[])),
+                ok(data("checked_with_sorry", 0, 1, &[])),
+            ),
             None,
         )
         .score
@@ -82,14 +94,32 @@ fn fewer_sorries_and_fewer_errors_score_higher() {
 fn the_best_side_counts_and_each_reports_its_own_metrics() {
     let report = score(
         side(ok(data("failed", 3, 0, &[])), ok(data("failed", 1, 0, &[]))),
-        side(ok(data("checked_with_sorry", 0, 1, &[])), ok(data("checked_with_sorry", 0, 1, &[]))),
+        side(
+            ok(data("checked_with_sorry", 0, 1, &[])),
+            ok(data("checked_with_sorry", 0, 1, &[])),
+        ),
     );
     assert_eq!(report.score, 0.35);
     assert_eq!(report.metrics["prove_errors"], 3);
     assert_eq!(report.metrics["refute_sorries"], 1);
-    let ids: Vec<&str> = report.failures.iter().map(|f| f["id"].as_str().unwrap()).collect();
-    assert_eq!(ids, ["prove-error-1", "prove-error-2", "prove-error-3", "refute-sorry-1"]);
-    assert_eq!(report.failures[3]["text"], "lean/Supermath/Refute.lean:1:4: sorry with goal ⊢ P");
+    let ids: Vec<&str> = report
+        .failures
+        .iter()
+        .map(|f| f["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        [
+            "prove-error-1",
+            "prove-error-2",
+            "prove-error-3",
+            "refute-sorry-1"
+        ]
+    );
+    assert_eq!(
+        report.failures[3]["text"],
+        "lean/Supermath/Refute.lean:1:4: sorry with goal ⊢ P"
+    );
 }
 
 #[test]
@@ -99,11 +129,21 @@ fn a_clean_file_whose_theorem_has_another_type_says_so() {
     let report = score(side(ok(data("checked", 0, 0, &[])), ok(verdict)), None);
     assert_eq!(report.score, 0.5);
     assert_eq!(report.failures[0]["type"], "wrong_statement");
-    assert!(report.failures[0]["text"].as_str().unwrap().contains("type mismatch"));
+    assert!(
+        report.failures[0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("type mismatch")
+    );
     // Without a message, the verdict envelope's own error is quoted.
     let refused = Envelope::error(ErrorCode::Timeout, "too slow");
     let report = score(side(ok(data("checked", 0, 0, &[])), refused), None);
-    assert!(report.failures[0]["text"].as_str().unwrap().contains("too slow"));
+    assert!(
+        report.failures[0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("too slow")
+    );
 }
 
 #[test]
@@ -119,7 +159,10 @@ fn no_side_file_scores_zero_and_failures_are_capped() {
     let report = score(None, None);
     assert_eq!((report.score, report.settled), (0.0, None));
     assert_eq!(report.metrics.len(), 1);
-    let report = score(side(ok(data("failed", 9, 0, &[])), ok(data("failed", 1, 0, &[]))), None);
+    let report = score(
+        side(ok(data("failed", 9, 0, &[])), ok(data("failed", 1, 0, &[]))),
+        None,
+    );
     assert_eq!(report.failures.len(), 5);
 }
 
@@ -133,7 +176,10 @@ fn prepare_copies_the_sources_and_writes_a_verdict_per_present_side() {
         std::fs::write(path, text).unwrap();
     };
     put(SIDES[0].file, "theorem proof : Conjecture := sorry\n");
-    put("lean/Supermath/Statement.lean", "def Conjecture : Prop := True\n");
+    put(
+        "lean/Supermath/Statement.lean",
+        "def Conjecture : Prop := True\n",
+    );
     put("lean/.lake/build/junk", "x");
     put("python/work/search.py", "def f():\n    return 1\n");
     put("notes/prover.md", "notes stay behind");
@@ -150,7 +196,10 @@ fn prepare_copies_the_sources_and_writes_a_verdict_per_present_side() {
     assert!(!project.join("lean/Supermath/Link.lean").exists());
     let verdict = std::fs::read_to_string(project.join(SIDES[0].verdict_file)).unwrap();
     assert!(verdict.contains("theorem settled_proved : Conjecture := proof"));
-    assert!(!project.join(SIDES[1].verdict_file).exists(), "no Refute.lean, no verdict");
+    assert!(
+        !project.join(SIDES[1].verdict_file).exists(),
+        "no Refute.lean, no verdict"
+    );
 }
 
 #[test]
@@ -175,5 +224,8 @@ fn the_result_is_the_json_rsi_ralph_reads_and_a_metric_line() {
     let written: Value =
         serde_json::from_str(&std::fs::read_to_string(root.path().join("result.json")).unwrap())
             .unwrap();
-    assert_eq!(written, json!({"score": 0.0, "failures": [], "metrics": {"settled": 0}}));
+    assert_eq!(
+        written,
+        json!({"score": 0.0, "failures": [], "metrics": {"settled": 0}})
+    );
 }
