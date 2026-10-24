@@ -45,16 +45,22 @@ pub(crate) fn describe(tool: &dyn Tool) -> rmcp::model::Tool {
 /// id added as `call_id`, and `isError` set when the envelope is an `error`.
 /// An `unknown` envelope is a real answer, so it is not an error.
 pub(crate) fn result(call_id: &str, envelope: &Envelope) -> CallToolResult {
-    let mut body = serde_json::to_value(envelope).unwrap_or(Value::Null);
-    if let Value::Object(object) = &mut body {
-        object.insert("call_id".to_owned(), Value::String(call_id.to_owned()));
-    }
-    let content = vec![ContentBlock::text(body.to_string())];
+    let content = vec![ContentBlock::text(body(call_id, envelope).to_string())];
     if envelope.outcome == Outcome::Error {
         CallToolResult::error(content)
     } else {
         CallToolResult::success(content)
     }
+}
+
+/// The envelope as JSON with the call's id added as `call_id`: what every
+/// caller sees, over MCP or from `supermath-mcp call`.
+pub(crate) fn body(call_id: &str, envelope: &Envelope) -> Value {
+    let mut body = serde_json::to_value(envelope).unwrap_or(Value::Null);
+    if let Value::Object(object) = &mut body {
+        object.insert("call_id".to_owned(), Value::String(call_id.to_owned()));
+    }
+    body
 }
 
 #[cfg(test)]

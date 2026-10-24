@@ -18,6 +18,8 @@
 
 mod descriptor;
 
+pub(crate) use descriptor::body;
+
 use std::sync::Arc;
 
 use rmcp::model::{
