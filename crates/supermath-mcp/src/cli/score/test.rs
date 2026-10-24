@@ -71,7 +71,7 @@ fn fewer_sorries_and_fewer_errors_score_higher() {
         )
         .score
     };
-    assert_eq!(partial("checked_with_sorry", 0, 1), 0.25);
+    assert_eq!(partial("checked_with_sorry", 0, 1), 0.35);
     assert!(partial("checked_with_sorry", 0, 1) > partial("checked_with_sorry", 0, 3));
     assert!(partial("checked_with_sorry", 0, 9) > partial("failed", 1, 0));
     assert!(partial("failed", 1, 0) > partial("failed", 4, 0));
@@ -84,7 +84,7 @@ fn the_best_side_counts_and_each_reports_its_own_metrics() {
         side(ok(data("failed", 3, 0, &[])), ok(data("failed", 1, 0, &[]))),
         side(ok(data("checked_with_sorry", 0, 1, &[])), ok(data("checked_with_sorry", 0, 1, &[]))),
     );
-    assert_eq!(report.score, 0.25);
+    assert_eq!(report.score, 0.35);
     assert_eq!(report.metrics["prove_errors"], 3);
     assert_eq!(report.metrics["refute_sorries"], 1);
     let ids: Vec<&str> = report.failures.iter().map(|f| f["id"].as_str().unwrap()).collect();

@@ -10,8 +10,9 @@
   never evidence; only `lean_check` is.
 - Score: 1.0 when a side's theorem checks with only `propext`,
   `Classical.choice` and `Quot.sound`; 0.75 with `native_decide` debt;
-  otherwise 0.5 / (1 + sorries) for a file that elaborates, and
-  0.1 / (1 + errors) for one that does not.
+  otherwise 0.2 + 0.3 / (1 + sorries) for a file that elaborates, and
+  0.1 / (1 + errors) for one that does not, so a file that elaborates
+  always beats one that does not.
 - Check every change with `lean_check`. Work each `sorry` with `lean_goals`
   and `lean_try_tactics`. Find Mathlib names with `lean_search` and
   `lean_decl`. A Python witness is a lead until Lean confirms it.

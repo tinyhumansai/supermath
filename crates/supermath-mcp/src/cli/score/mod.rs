@@ -18,7 +18,8 @@
 //! 3. [`judge`] turns the envelopes into a [`Report`]: `1.0` when a verdict
 //!    file is `checked` with only the standard axioms, `0.75` when it is
 //!    `checked` with named debt (`native_decide`), otherwise the best side's
-//!    partial credit, `0.5 / (1 + sorries)` for a file that elaborates and
+//!    partial credit: `0.2 + 0.3 / (1 + sorries)` for a file that
+//!    elaborates (so any such file beats any that does not), and
 //!    `0.1 / (1 + errors)` for one that does not.
 //!
 //! The report is written as `$RSI_OUT/result.json` (`score`, `failures` the
@@ -35,6 +36,14 @@ use crate::toolkit::Toolkit;
 /// How long one scorer check may run: building a side's imported lemmas comes
 /// first, so this is far above an interactive check's limit.
 pub const CHECK_TIMEOUT_MS: u64 = 600_000;
+
+/// The least a file that elaborates scores: above anything a file with
+/// errors can.
+const ELABORATES_FLOOR: f64 = 0.2;
+
+/// What a file that elaborates earns above the floor, shared out by its
+/// `sorry`s: all of it with none.
+const ELABORATES_SPAN: f64 = 0.3;
 
 /// Most failure entries a report carries per side.
 const FAILURES_PER_SIDE: usize = 5;
@@ -213,10 +222,10 @@ fn side_score(main: &Envelope, verdict: &Envelope) -> (f64, bool) {
     let data = &main.data;
     let count = |n: usize| f64::from(u32::try_from(n).unwrap_or(u32::MAX));
     match data["verdict"].as_str() {
-        Some("checked") => (0.5, false),
+        Some("checked") => (ELABORATES_FLOOR + ELABORATES_SPAN, false),
         Some("checked_with_sorry") => {
             let sorries = data["sorries"].as_array().map_or(1, Vec::len);
-            (0.5 / (1.0 + count(sorries)), false)
+            (ELABORATES_FLOOR + ELABORATES_SPAN / (1.0 + count(sorries)), false)
         }
         Some("failed") => {
             let errors = data["error_count"].as_u64().unwrap_or(1);

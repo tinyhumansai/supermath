@@ -42,7 +42,9 @@ fn writes_every_template_file_and_the_statement_with_no_placeholder_left() {
     let (_root, dir) = scaffold();
     for (path, _) in TEMPLATE {
         let text = std::fs::read_to_string(dir.join(path)).unwrap();
-        assert!(!text.contains("{{"), "{path} keeps a placeholder");
+        for ours in ["{{slug}}", "{{binary}}", "{{env_file_arg}}", "{{statement}}"] {
+            assert!(!text.contains(ours), "{path} keeps {ours}");
+        }
     }
     assert_eq!(
         std::fs::read_to_string(dir.join(STATEMENT_PATH)).unwrap(),
@@ -50,7 +52,8 @@ fn writes_every_template_file_and_the_statement_with_no_placeholder_left() {
     );
     let brief = std::fs::read_to_string(dir.join("brief.md")).unwrap();
     assert!(brief.contains("def Conjecture : Prop"), "{brief}");
-    assert!(brief.contains("{{incumbent}}") || brief.contains("## Where we are"));
+    // rsi-ralph fills its own placeholders each epoch.
+    assert!(brief.contains("{{incumbent}}") && brief.contains("{{failures}}"));
 }
 
 #[test]
