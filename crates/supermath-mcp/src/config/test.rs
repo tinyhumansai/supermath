@@ -88,6 +88,6 @@ fn the_debug_form_never_shows_a_secret() {
 fn from_env_reads_the_process_environment() {
     // Whatever the environment holds, it composes; the CLI reads through
     // `cli::configure` instead, so this is the only caller.
-    let config = super::Config::from_env().unwrap();
+    let config = Config::from_env().unwrap();
     assert!(!config.files.projects.as_os_str().is_empty());
 }
