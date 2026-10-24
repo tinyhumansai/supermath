@@ -192,6 +192,7 @@ fn search_answers_that_do_not_fit_the_api_are_decode_errors() {
 fn wire_forms_of_requests_are_pinned() {
     let run = RunRequest {
         project: "demo".into(),
+        root: None,
         path: "python/work/a.py".into(),
         entry: "go".into(),
         args: json!({"n": 6}),
@@ -205,6 +206,7 @@ fn wire_forms_of_requests_are_pinned() {
     );
     let search = SearchRequest {
         project: "demo".into(),
+        root: None,
         path: "python/work/a.py".into(),
         predicate: "p".into(),
         frame: json!({"kind": "range", "from": 0, "to": 9}),
@@ -235,4 +237,18 @@ fn a_configured_client_reports_it() {
         ..PythonConfig::default()
     };
     assert!(PythonClient::new(&config).unwrap().is_configured());
+}
+
+#[test]
+fn a_request_names_its_root_only_when_it_has_one() {
+    let run = RunRequest {
+        project: "demo".into(),
+        root: Some("/work/candidate".into()),
+        path: "python/work/a.py".into(),
+        entry: "go".into(),
+        args: json!({}),
+        seed: 0,
+        timeout_s: 1,
+    };
+    assert_eq!(serde_json::to_value(&run).unwrap()["root"], "/work/candidate");
 }

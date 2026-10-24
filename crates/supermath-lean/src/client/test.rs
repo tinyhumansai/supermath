@@ -16,6 +16,7 @@ use super::*;
 fn check_request_wire_form() {
     let request = CheckRequest {
         project: "demo".into(),
+        root: None,
         path: "lean/Supermath/A.lean".into(),
         targets: vec!["A.t".into()],
         uses: false,
@@ -32,6 +33,7 @@ fn check_request_wire_form() {
 fn other_requests_wire_forms() {
     let goals = GoalsRequest {
         project: "demo".into(),
+        root: None,
         path: "p".into(),
         line: 3,
         column: 2,
@@ -43,6 +45,7 @@ fn other_requests_wire_forms() {
     );
     let tactics = TacticsRequest {
         project: "demo".into(),
+        root: None,
         path: "p".into(),
         line: 3,
         column: 2,
@@ -56,6 +59,7 @@ fn other_requests_wire_forms() {
     );
     let decl = DeclRequest {
         project: "demo".into(),
+        root: None,
         name: "Nat.add".into(),
         path: None,
         timeout_ms: 5,
@@ -75,6 +79,7 @@ fn other_requests_wire_forms() {
     );
     let counter = CounterRequest {
         project: "demo".into(),
+        root: None,
         path: "p".into(),
         predicate: "P".into(),
         from: -3,
@@ -114,4 +119,20 @@ async fn an_unconfigured_client_is_unavailable_everywhere() {
         .await
         .unwrap_err();
     assert!(matches!(search, Error::Unavailable { .. }));
+}
+
+#[test]
+fn a_request_names_its_root_only_when_it_has_one() {
+    let request = CheckRequest {
+        project: "demo".into(),
+        root: Some("/work/candidate".into()),
+        path: "lean/Supermath/A.lean".into(),
+        targets: Vec::new(),
+        uses: false,
+        timeout_ms: 5,
+    };
+    let wire = serde_json::to_value(&request).unwrap();
+    assert_eq!(wire["root"], "/work/candidate");
+    let back: CheckRequest = serde_json::from_value(wire).unwrap();
+    assert_eq!(back, request);
 }
