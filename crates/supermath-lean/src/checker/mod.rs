@@ -157,6 +157,7 @@ impl LeanChecker {
 
         let request = CheckRequest {
             project: slug.to_owned(),
+            root: self.workspace.service_root(),
             path: path.to_string(),
             targets: names.clone(),
             uses,

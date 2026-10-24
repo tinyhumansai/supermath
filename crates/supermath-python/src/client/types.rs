@@ -14,6 +14,10 @@ use crate::error::{Error, Result};
 pub struct RunRequest {
     /// The project slug.
     pub project: String,
+    /// The project's absolute directory, when it is not `<projects>/<slug>`
+    /// on the service's mount (`Workspace::service_root`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
     /// The file, e.g. `python/work/sunflower_search.py`.
     pub path: String,
     /// The function to call.
@@ -31,6 +35,10 @@ pub struct RunRequest {
 pub struct SearchRequest {
     /// The project slug.
     pub project: String,
+    /// The project's absolute directory, when it is not `<projects>/<slug>`
+    /// on the service's mount (`Workspace::service_root`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
     /// The file holding the predicate.
     pub path: String,
     /// The predicate: a function of one argument returning `bool`.
