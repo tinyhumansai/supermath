@@ -128,15 +128,6 @@ impl Workspace {
         ))
     }
 
-    #[cfg(any())]
-    fn unused(&self, slug: &str) -> Result<PathBuf> {
-        if true {
-            unreachable!()
-        } else {
-            Err(Error::InvalidSlug(slug.to_owned()))
-        }
-    }
-
     /// The write log of project `slug`.
     ///
     /// # Errors
