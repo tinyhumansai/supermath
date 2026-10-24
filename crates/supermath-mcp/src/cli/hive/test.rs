@@ -67,7 +67,14 @@ fn without_an_env_file_the_command_ends_at_the_workspace() {
     let tools = generated(None);
     assert_eq!(
         find(&tools, "calc_factor")["command"],
-        json!(["/bin/supermath-mcp", "call", "calc_factor", "demo", "--workspace", "."])
+        json!([
+            "/bin/supermath-mcp",
+            "call",
+            "calc_factor",
+            "demo",
+            "--workspace",
+            "."
+        ])
     );
 }
 
@@ -75,5 +82,8 @@ fn without_an_env_file_the_command_ends_at_the_workspace() {
 fn writes_and_agentic_tools_are_marked_as_such() {
     let tools = generated(None);
     assert_eq!(find(&tools, "file_write")["side_effects"], "write");
-    assert_eq!(find(&tools, "web_research")["timeout_ms"], AGENTIC_TIMEOUT_MS);
+    assert_eq!(
+        find(&tools, "web_research")["timeout_ms"],
+        AGENTIC_TIMEOUT_MS
+    );
 }

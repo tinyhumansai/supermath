@@ -2,8 +2,6 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-
-
 use super::call;
 use crate::{Config, Toolkit};
 
@@ -20,7 +18,10 @@ async fn answers_the_envelope_with_its_call_id() {
     let body = call(&toolkit, "calc_factor", r#"{"n": 360}"#).await;
     assert_eq!(body["outcome"], "ok", "{body}");
     let call_id = body["call_id"].as_str().unwrap();
-    assert!(call_id.starts_with("call-") && call_id.ends_with("-1"), "{call_id}");
+    assert!(
+        call_id.starts_with("call-") && call_id.ends_with("-1"),
+        "{call_id}"
+    );
     assert!(toolkit.call_log().get(call_id).is_some());
     assert!(dir.path().join(".log/calls.jsonl").is_file());
 }

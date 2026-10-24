@@ -5,9 +5,7 @@
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use super::{
-    Command, DEFAULT_PROJECT, Invocation, Options, USAGE, configure, execute, parse, run,
-};
+use super::{Command, DEFAULT_PROJECT, Invocation, Options, USAGE, configure, execute, parse, run};
 use crate::error::Error;
 
 fn args(words: &[&str]) -> Vec<String> {
@@ -86,7 +84,10 @@ fn options_are_read_wherever_they_appear() {
             },
         }
     );
-    assert_eq!(parse(&args(&["serve"])).unwrap().options, Options::default());
+    assert_eq!(
+        parse(&args(&["serve"])).unwrap().options,
+        Options::default()
+    );
 }
 
 #[test]

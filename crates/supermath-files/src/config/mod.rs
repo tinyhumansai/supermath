@@ -47,7 +47,8 @@ impl FilesConfig {
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Self {
         let read = |name| lookup(name).filter(|value| !value.trim().is_empty());
         Self {
-            projects: read(PROJECTS_ENV).map_or_else(|| PathBuf::from(DEFAULT_PROJECTS), From::from),
+            projects: read(PROJECTS_ENV)
+                .map_or_else(|| PathBuf::from(DEFAULT_PROJECTS), From::from),
             workspace: read(WORKSPACE_ENV).map(PathBuf::from),
         }
     }

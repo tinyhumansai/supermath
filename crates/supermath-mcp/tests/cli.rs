@@ -83,3 +83,110 @@ async fn check_exits_nonzero_when_a_configured_backend_is_down() {
     assert!(!out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("FAILED"));
 }
+
+/// Runs `supermath-mcp call <tool> demo --workspace <dir>` with `input` on
+/// standard input.
+fn call(dir: &std::path::Path, tool: &str, input: &str, extra: &[&str]) -> std::process::Output {
+    use std::io::Write as _;
+    let mut child = binary()
+        .args(["call", tool, "demo", "--workspace"])
+        .arg(dir)
+        .args(extra)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(input.as_bytes())
+        .unwrap();
+    child.wait_with_output().unwrap()
+}
+
+fn answer(out: &std::process::Output) -> serde_json::Value {
+    serde_json::from_slice(&out.stdout).unwrap()
+}
+
+#[test]
+fn call_prints_the_envelope_and_logs_it_for_later_processes() {
+    let dir = tempfile::tempdir().unwrap();
+    let first = call(dir.path(), "calc_factor", r#"{"n": 360}"#, &[]);
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let first = answer(&first);
+    assert_eq!(first["outcome"], "ok", "{first}");
+
+    let second = answer(&call(dir.path(), "calc_factor", r#"{"n": 7}"#, &[]));
+    assert_ne!(
+        first["call_id"], second["call_id"],
+        "ids are unique across processes"
+    );
+    let log = std::fs::read_to_string(dir.path().join(".log/calls.jsonl")).unwrap();
+    assert_eq!(log.lines().count(), 2, "{log}");
+    assert!(log.contains(first["call_id"].as_str().unwrap()));
+}
+
+#[test]
+fn call_answers_an_error_envelope_with_success() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = call(dir.path(), "no_such_tool", "{}", &[]);
+    assert!(out.status.success(), "an envelope is an answer");
+    assert_eq!(answer(&out)["error"]["code"], "NOT_FOUND");
+}
+
+#[test]
+fn call_writes_into_the_workspace_it_is_given() {
+    let dir = tempfile::tempdir().unwrap();
+    let out = call(
+        dir.path(),
+        "file_write",
+        r#"{"path": "lean/Supermath/Hello.lean", "content": "theorem t : True := trivial\n"}"#,
+        &[],
+    );
+    assert_eq!(answer(&out)["outcome"], "ok", "{}", answer(&out));
+    assert!(dir.path().join("lean/Supermath/Hello.lean").is_file());
+}
+
+#[test]
+fn call_fails_without_an_answer_on_an_unreadable_env_file() {
+    let dir = tempfile::tempdir().unwrap();
+    let missing = dir.path().join("absent.env");
+    let out = call(
+        dir.path(),
+        "calc_factor",
+        "{}",
+        &["--env-file", missing.to_str().unwrap()],
+    );
+    assert!(!out.status.success());
+    assert!(out.stdout.is_empty());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("env file"));
+}
+
+#[test]
+fn hive_tools_declares_every_tool_against_this_binary() {
+    let dir = tempfile::tempdir().unwrap();
+    let env_file = dir.path().join("supermath.env");
+    std::fs::write(&env_file, "").unwrap();
+    let out = binary()
+        .args(["hive-tools", "Demo Problem", "--env-file"])
+        .arg(&env_file)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let tools: Vec<serde_json::Value> = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(tools.len(), 30);
+    let command = &tools[0]["command"];
+    assert_eq!(command[0], env!("CARGO_BIN_EXE_supermath-mcp"));
+    assert_eq!(command[3], "demo-problem");
+    assert_eq!(command[7], env_file.to_str().unwrap());
+}
