@@ -33,7 +33,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 use supermath_calc::{CalcFactor, CalcGcdLcm};
-use supermath_files::{FileObserver, Workspace, file_tools};
+use supermath_files::{FileObserver, file_tools};
 use supermath_lean::Lean;
 use supermath_ledger::{Ledger, Memory, slugify};
 use supermath_literature::Literature;
@@ -133,7 +133,13 @@ impl Toolkit {
         let (calls, call_prefix): (Arc<dyn CallLog>, String) = match persistence {
             Persistence::Memory => (Arc::new(InMemoryCallLog::new()), "call-".to_owned()),
             Persistence::Disk => (
-                Arc::new(workspace.call_log(project.slug())?),
+                // The slug was just validated, and that is the only way this
+                // can fail.
+                Arc::new(
+                    workspace
+                        .call_log(project.slug())
+                        .map_err(|_| Error::InvalidProject(project.slug().to_owned()))?,
+                ),
                 format!("call-{}-", session()),
             ),
         };
