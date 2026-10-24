@@ -64,7 +64,10 @@ project's absolute directory, when the project is not on that volume, as with
 an rsi-ralph candidate checkout (`Workspace::single`, which sends it). The
 root must lie inside a directory the service's `SUPERMATH_ROOTS` lists
 (colon-separated; unset allows none), or the request is a `400`; see
-`compose.rsi.yaml`. Replies are `200` with a `status`:
+`compose.rsi.yaml`. Such a project is only read: when a file imports other
+project modules, its `lean/` sources are staged under `LEAN_BUILDS_DIR`
+(default `/tmp/lean-builds`) and built there, so no `.lake` lands in the
+checkout. Replies are `200` with a `status`:
 
 | `status` | Meaning |
 | --- | --- |

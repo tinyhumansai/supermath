@@ -1,21 +1,16 @@
 # Opt-in override for rsi-ralph loops: lets the lean and python services read
-# (and lean build in) candidate checkouts in the rsi-ralph run store, which
-# live outside the `projects` volume.
+# candidate checkouts in the rsi-ralph run store, which live outside the
+# `projects` volume.
 #
 #   docker compose -f compose.yaml -f compose.rsi.yaml --profile host up -d lean python
 #
-# The run store ($TINYRSI_HOME, default ~/.tinyrsi) is bind-mounted at the
-# same absolute path inside both services, and SUPERMATH_ROOTS allows requests
-# whose `root` lies inside it (`supermath-mcp call ... --project-dir <dir>`
-# sends one). Nothing outside it is reachable. The directory must exist
-# before `up`: Docker would otherwise create it as root.
-#
-# Both services run as their image's user, uid 10001. Reading a checkout needs
-# nothing more, but lean writes a candidate's `lean/` package files and build
-# directory when a file imports other project modules. Grant that user access
-# to the run store once, with default ACLs so new runs inherit it:
-#
-#   setfacl -R -m u:10001:rwX -m d:u:10001:rwX "${TINYRSI_HOME:-$HOME/.tinyrsi}"
+# The run store ($TINYRSI_HOME, default ~/.tinyrsi) is bind-mounted read-only
+# at the same absolute path inside both services, and SUPERMATH_ROOTS allows
+# requests whose `root` lies inside it (`supermath-mcp call ... --project-dir
+# <dir>` sends one). Nothing outside it is reachable, and nothing in it is
+# written: lean builds such a project in a staged copy under its own /tmp
+# (`build.stage`). The directory must exist before `up`, or Docker would
+# create it as root.
 
 x-rsi-home: &rsi-home ${TINYRSI_HOME:-${HOME}/.tinyrsi}
 
@@ -27,6 +22,7 @@ services:
       - type: bind
         source: *rsi-home
         target: *rsi-home
+        read_only: true
         bind:
           create_host_path: false
 
