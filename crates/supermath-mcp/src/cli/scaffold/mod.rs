@@ -18,7 +18,7 @@
 //! copied in verbatim. `hive.json` gets one executable tool per toolkit tool
 //! (see [`declarations`](super::declarations)), less the `file_*` tools,
 //! whose work the seats' own file tools do in their checkout, and
-//! `web_search`, whose name OpenHuman's own search tool has; and one toolpack per
+//! `web_search`, whose name `OpenHuman`'s own search tool has; and one toolpack per
 //! domain, so each seat is given its domains by name. The scorer
 //! (`supermath-mcp score proof`) and every tool run this same binary, with
 //! the same `--env-file`.
@@ -101,7 +101,7 @@ const TEMPLATE: [(&str, &str); 17] = [
 pub const STATEMENT_PATH: &str = "subject/lean/Supermath/Statement.lean";
 
 /// Tools a seat does not get from the toolkit. Its harness edits files in
-/// its own checkout, and OpenHuman registers `file_read`, `file_write` and
+/// its own checkout, and `OpenHuman` registers `file_read`, `file_write` and
 /// `web_search` itself: a second tool of the same name stops the hive from
 /// starting ("tool name is already registered").
 const HARNESS_TOOLS: [&str; 5] = [
