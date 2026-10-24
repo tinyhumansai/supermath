@@ -30,6 +30,15 @@ pub enum Error {
     /// The literature domain could not be built.
     #[error("literature: {0}")]
     Literature(#[from] supermath_literature::Error),
+    /// An `--env-file` could not be read.
+    #[error("env file {path}: {source}")]
+    EnvFile {
+        /// The file as given.
+        path: String,
+        /// Why it could not be read.
+        #[source]
+        source: std::io::Error,
+    },
     /// The command line was not understood.
     #[error("{0}")]
     Usage(String),
