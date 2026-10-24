@@ -164,7 +164,7 @@ fn call_fails_without_an_answer_on_an_unreadable_env_file() {
         &["--env-file", missing.to_str().unwrap()],
     );
     assert!(!out.status.success());
-    assert!(out.stdout.is_empty());
+    assert!(out.stdout.is_empty(), "no envelope without a configuration");
     assert!(String::from_utf8_lossy(&out.stderr).contains("env file"));
 }
 
