@@ -7,16 +7,20 @@
 # The run store ($TINYRSI_HOME, default ~/.tinyrsi) is bind-mounted at the
 # same absolute path inside both services, and SUPERMATH_ROOTS allows requests
 # whose `root` lies inside it (`supermath-mcp call ... --project-dir <dir>`
-# sends one). Nothing outside it is reachable. The services run as the host
-# user (SUPERMATH_UID/GID, default 1000) so lean can write each candidate's
-# `lean/` package files and build directory, which that user owns. The
-# directory must exist before `up`: Docker would otherwise create it as root.
+# sends one). Nothing outside it is reachable. The directory must exist
+# before `up`: Docker would otherwise create it as root.
+#
+# Both services run as their image's user, uid 10001. Reading a checkout needs
+# nothing more, but lean writes a candidate's `lean/` package files and build
+# directory when a file imports other project modules. Grant that user access
+# to the run store once, with default ACLs so new runs inherit it:
+#
+#   setfacl -R -m u:10001:rwX -m d:u:10001:rwX "${TINYRSI_HOME:-$HOME/.tinyrsi}"
 
 x-rsi-home: &rsi-home ${TINYRSI_HOME:-${HOME}/.tinyrsi}
 
 services:
   lean:
-    user: "${SUPERMATH_UID:-1000}:${SUPERMATH_GID:-1000}"
     environment:
       SUPERMATH_ROOTS: *rsi-home
     volumes:
@@ -27,7 +31,6 @@ services:
           create_host_path: false
 
   python:
-    user: "${SUPERMATH_UID:-1000}:${SUPERMATH_GID:-1000}"
     environment:
       SUPERMATH_ROOTS: *rsi-home
     volumes:
