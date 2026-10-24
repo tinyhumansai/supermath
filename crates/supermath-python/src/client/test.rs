@@ -250,5 +250,8 @@ fn a_request_names_its_root_only_when_it_has_one() {
         seed: 0,
         timeout_s: 1,
     };
-    assert_eq!(serde_json::to_value(&run).unwrap()["root"], "/work/candidate");
+    assert_eq!(
+        serde_json::to_value(&run).unwrap()["root"],
+        "/work/candidate"
+    );
 }
