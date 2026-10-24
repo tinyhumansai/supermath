@@ -22,27 +22,24 @@ use crate::toolkit::Toolkit;
 pub async fn call(toolkit: &Toolkit, tool: &str, input: &str) -> Value {
     let args = match arguments(input) {
         Ok(args) => args,
-        Err(envelope) => return serde_json::to_value(envelope).unwrap_or(Value::Null),
+        Err(message) => {
+            let refused = Envelope::error(ErrorCode::InvalidInput, message);
+            return serde_json::to_value(refused).unwrap_or(Value::Null);
+        }
     };
     let done = toolkit.dispatch(tool, args).await;
     body(&done.call_id, &done.envelope)
 }
 
-/// The argument object `input` holds, or the envelope refusing it.
-fn arguments(input: &str) -> Result<Value, Envelope> {
+/// The argument object `input` holds, or why it is refused.
+fn arguments(input: &str) -> Result<Value, String> {
     if input.trim().is_empty() {
         return Ok(Value::Object(Map::new()));
     }
     match serde_json::from_str(input) {
         Ok(Value::Object(object)) => Ok(Value::Object(object)),
-        Ok(_) => Err(Envelope::error(
-            ErrorCode::InvalidInput,
-            "arguments must be a JSON object",
-        )),
-        Err(error) => Err(Envelope::error(
-            ErrorCode::InvalidInput,
-            format!("arguments are not JSON: {error}"),
-        )),
+        Ok(_) => Err("arguments must be a JSON object".to_owned()),
+        Err(error) => Err(format!("arguments are not JSON: {error}")),
     }
 }
 
