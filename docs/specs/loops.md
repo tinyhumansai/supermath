@@ -45,7 +45,8 @@ binary (`crates/supermath-mcp/template/`). It refuses an existing folder, and
 a statement that does not declare `def Conjecture` inside `namespace Supermath`.
 
 ```text
-rsi.json        dir subject; editable lean/Supermath/, python/work/, notes/;
+rsi.json        dir subject; editable lean/Supermath/, python/work/, notes/, .log/
+                (the call and write logs every tool call appends to);
                 frozen Statement.lean, lakefile.toml, lean-toolchain;
                 scorer `supermath-mcp score proof <slug> [--env-file F]`,
                 decided by seeds [1, 2], maximize, target 1.0;

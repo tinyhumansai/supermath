@@ -72,6 +72,10 @@ fn the_manifest_runs_this_binary_as_its_scorer_and_freezes_the_statement() {
     );
     let frozen = manifest["subject"]["frozen"].as_array().unwrap();
     assert!(frozen.contains(&Value::from("lean/Supermath/Statement.lean")));
+    // Every tool call appends to the checkout's `.log/`; a candidate whose
+    // only "outside" change is its own call log must still pass the surface.
+    let editable = manifest["subject"]["editable"].as_array().unwrap();
+    assert!(editable.contains(&Value::from(".log/")), "{editable:?}");
 }
 
 #[test]

@@ -5,7 +5,7 @@
   "subject": {
     "kind": "dir",
     "path": "subject",
-    "editable": ["lean/Supermath/", "python/work/", "notes/"],
+    "editable": ["lean/Supermath/", "python/work/", "notes/", ".log/"],
     "frozen": ["lean/Supermath/Statement.lean", "lean/lakefile.toml", "lean/lean-toolchain"]
   },
   "brief": "brief.md",
