@@ -15,7 +15,7 @@ fn record(id: &str, envelope: &Envelope) -> CallRecord {
 fn a_missing_log_holds_no_calls() {
     let dir = tempfile::tempdir().unwrap();
     let log = FileCallLog::new(dir.path().join(".log/calls.jsonl"));
-    assert!(log.all().is_empty());
+    assert_eq!(log.all(), []);
     assert!(log.get("call-1").is_none());
 }
 

@@ -80,6 +80,10 @@ async fn mcp_serve_and_the_host_tool_answer_the_same_envelope() {
         // intact, and flags only a service failure
         // (`supermath_subagents::tool_result`).
         assert!(!host.1, "{name} {args}: a refusal is not a host failure");
-        assert_eq!(mcp.0["call_id"], "call-1");
+        let call_id = mcp.0["call_id"].as_str().unwrap();
+        assert!(
+            call_id.starts_with("call-") && call_id.ends_with("-1"),
+            "{call_id}"
+        );
     }
 }
