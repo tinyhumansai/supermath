@@ -16,12 +16,15 @@ The service reads project files itself from the `projects` volume
 request may also name `root`, the project's absolute directory, when the
 project is not on that volume (an rsi-ralph candidate checkout); the root must
 lie inside one of the directories SUPERMATH_ROOTS lists, or it is refused.
+Such a project is only ever read: its package is built in a copy under
+LEAN_BUILDS_DIR (`build.stage`), so no build output lands in the checkout.
 """
 
 import json
 import os
 import re
 import subprocess
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
@@ -31,6 +34,8 @@ from repl import PACKAGES, Pool, Repl, ReplDied, ReplOutputLimit, ReplTimeout
 
 PROJECTS = os.environ.get("PROJECTS_DIR", "/projects")
 ROOTS = N.allowed_roots(os.environ.get("SUPERMATH_ROOTS"))
+BUILDS = os.environ.get("LEAN_BUILDS_DIR", "/tmp/lean-builds")
+STAGING = threading.Lock()
 POOL = Pool(int(os.environ.get("LEAN_POOL_SIZE", "2")))
 CHUNK = 1000
 LAKEFILE = """name = "supermath"
@@ -86,7 +91,13 @@ def project_file(req):
 
 
 def ensure_package(project):
+    """The directory to build `project`'s package in: its own `lean/` on the
+    projects volume, a staged copy for a project elsewhere."""
     lean_dir = os.path.join(project, "lean")
+    volume = os.path.realpath(PROJECTS)
+    if not os.path.realpath(project).startswith(volume + os.sep):
+        with STAGING:
+            lean_dir = build.stage(lean_dir, BUILDS)
     for name, text in (("lakefile.toml", LAKEFILE), ("lean-toolchain", TOOLCHAIN + "\n")):
         target = os.path.join(lean_dir, name)
         if not os.path.exists(target):
