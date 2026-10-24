@@ -10,20 +10,25 @@ only through them; every tool that runs code runs a file here. The spec is
 <SUPERMATH_PROJECTS>/<slug>/
 ├── lean/Supermath/…        Lean modules   (^lean/Supermath/[A-Z]…\.lean$)
 ├── python/work/…           Python modules (^python/work/[a-z]…\.py$)
-└── .log/writes.jsonl       the write log
+├── .log/writes.jsonl       the write log
+└── .log/calls.jsonl        the call log, for hosts that run each call as a process
 ```
+
+With `SUPERMATH_PROJECT_DIR` set (or `Workspace::single(dir)`), the project
+is that one directory instead of `<SUPERMATH_PROJECTS>/<slug>/`.
 
 ## Public surface
 
 | Module | Exports |
 | --- | --- |
-| `workspace` | `Workspace` (`resolve`, `read`, `sha256`, `exists`, `list`, `write`, `imports_digest`, `write_log`), `SourceFile`, `WriteMeta`, `WriteOutcome`, `ImportsDigest`, `ImportedModule`, `sha256_hex`, `MAX_FILE_BYTES` |
+| `workspace` | `Workspace` (`new`, `single`, `resolve`, `read`, `sha256`, `exists`, `list`, `write`, `imports_digest`, `write_log`, `call_log`), `SourceFile`, `WriteMeta`, `WriteOutcome`, `ImportsDigest`, `ImportedModule`, `sha256_hex`, `MAX_FILE_BYTES` |
 | `path` | `ProjectPath`, `Language` |
 | `imports` | `check`, `parse`, `is_project_module`, `Import` |
 | `outline` | `outline`, `OutlineItem` |
 | `write_log` | `WriteLog`, `WriteRecord` |
+| `call_log` | `FileCallLog`, the `CallLog` port on disk |
 | `observer` | `FileObserver` (port), `LastResult` |
-| `config` | `FilesConfig` (`SUPERMATH_PROJECTS`) |
+| `config` | `FilesConfig` (`SUPERMATH_PROJECTS`, `SUPERMATH_PROJECT_DIR`) |
 | `tools` | `FileWrite`, `FileEdit`, `FileRead`, `FileList`, `file_tools` |
 
 ## Design constraints
