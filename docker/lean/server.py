@@ -12,7 +12,10 @@ Routes (JSON in, JSON out; the contract is docs/specs/toolkit/lean/README.md):
     POST /counterexample  first value of a range satisfying a predicate
 
 The service reads project files itself from the `projects` volume
-(PROJECTS_DIR); a request names a project slug and a path, never source.
+(PROJECTS_DIR); a request names a project slug and a path, never source. A
+request may also name `root`, the project's absolute directory, when the
+project is not on that volume (an rsi-ralph candidate checkout); the root must
+lie inside one of the directories SUPERMATH_ROOTS lists, or it is refused.
 """
 
 import json
@@ -27,6 +30,7 @@ import normalize as N
 from repl import PACKAGES, Pool, Repl, ReplDied, ReplOutputLimit, ReplTimeout
 
 PROJECTS = os.environ.get("PROJECTS_DIR", "/projects")
+ROOTS = N.allowed_roots(os.environ.get("SUPERMATH_ROOTS"))
 POOL = Pool(int(os.environ.get("LEAN_POOL_SIZE", "2")))
 CHUNK = 1000
 LAKEFILE = """name = "supermath"
@@ -61,23 +65,28 @@ class Refused(Exception):
 
 
 def project_file(req):
-    """Resolves {project, path} to a real file, refusing anything odd."""
-    slug, path = req.get("project", ""), req.get("path", "")
-    if not N.SLUG_RE.match(slug) or not N.PATH_RE.match(path):
+    """Resolves {project, root?, path} to (project directory, source),
+    refusing anything odd."""
+    try:
+        project = N.project_dir(req, PROJECTS, ROOTS)
+    except ValueError as refused:
+        raise Refused(400, str(refused))
+    path = req.get("path", "")
+    if not isinstance(path, str) or not N.PATH_RE.match(path):
         raise Refused(400, "bad project or path")
-    real = os.path.realpath(os.path.join(PROJECTS, slug, path))
-    root = os.path.realpath(os.path.join(PROJECTS, slug))
-    if not real.startswith(root + os.sep) or os.path.islink(os.path.join(PROJECTS, slug, path)):
+    real = os.path.realpath(os.path.join(project, path))
+    root = os.path.realpath(project)
+    if not real.startswith(root + os.sep) or os.path.islink(os.path.join(project, path)):
         raise Refused(400, "path leaves the project")
     try:
         with open(real, encoding="utf-8") as f:
-            return slug, f.read()
+            return project, f.read()
     except OSError:
         raise Refused(404, "no such file on the projects volume")
 
 
-def ensure_package(slug):
-    lean_dir = os.path.join(PROJECTS, slug, "lean")
+def ensure_package(project):
+    lean_dir = os.path.join(project, "lean")
     for name, text in (("lakefile.toml", LAKEFILE), ("lean-toolchain", TOOLCHAIN + "\n")):
         target = os.path.join(lean_dir, name)
         if not os.path.exists(target):
@@ -104,7 +113,7 @@ def run_guarded(operation):
     return reply
 
 
-def elaborate(slug, source, timeout, with_tactics=False):
+def elaborate(project, source, timeout, with_tactics=False):
     """Returns (repl_context, first_answer). The context is a callable that
     runs more commands in the environment the source produced."""
     options = {"allTactics": True} if with_tactics else {}
@@ -122,7 +131,7 @@ def elaborate(slug, source, timeout, with_tactics=False):
             release()
             raise
         return repl, answer, release
-    lean_dir = ensure_package(slug)
+    lean_dir = ensure_package(project)
     try:
         path = build.build_modules(lean_dir, mods, PACKAGES, timeout)
     except build.BuildError as failed:
@@ -139,7 +148,7 @@ def elaborate(slug, source, timeout, with_tactics=False):
 
 
 def check(req):
-    slug, source = project_file(req)
+    project, source = project_file(req)
     timeout = req["timeout_ms"] / 1000
     targets = [t for t in req.get("targets", []) if N.valid_name(t)]
 
@@ -154,7 +163,7 @@ def check(req):
             return N.crash_reply(died.code)
 
     def checked():
-        repl, answer, release = elaborate(slug, source, timeout)
+        repl, answer, release = elaborate(project, source, timeout)
         try:
             reply = {
                 "messages": N.flatten_messages(answer.get("messages")),
@@ -177,14 +186,14 @@ def check(req):
 
 
 def goals(req):
-    slug, source = project_file(req)
+    project, source = project_file(req)
     line, column = req["line"], req["column"]
     lines = source.split("\n")
     if not 1 <= line <= len(lines) or column > len(lines[line - 1]):
         return {"status": "bad_position"}
 
     def operation():
-        repl, answer, release = elaborate(slug, source, req["timeout_ms"] / 1000, with_tactics=True)
+        repl, answer, release = elaborate(project, source, req["timeout_ms"] / 1000, with_tactics=True)
         release()
         return {"goals": N.goals_at(answer, line, column)}
 
@@ -192,11 +201,11 @@ def goals(req):
 
 
 def tactics(req):
-    slug, source = project_file(req)
+    project, source = project_file(req)
     per_tactic = req["timeout_ms"] / 1000
 
     def operation():
-        repl, answer, release = elaborate(slug, source, per_tactic)
+        repl, answer, release = elaborate(project, source, per_tactic)
         try:
             state = N.find_sorry(answer, req["line"], req["column"])
             if state is None or repl is None:
@@ -220,8 +229,8 @@ def decl(req):
 
     def operation():
         if req.get("path"):
-            slug, source = project_file(req)
-            repl, answer, release = elaborate(slug, source, timeout)
+            project, source = project_file(req)
+            repl, answer, release = elaborate(project, source, timeout)
             env = answer.get("env")
         else:
             lease = POOL.lease()
@@ -256,7 +265,7 @@ def search(req):
 
 
 def counterexample(req):
-    slug, source = project_file(req)
+    project, source = project_file(req)
     predicate = req.get("predicate", "")
     if not N.valid_name(predicate):
         raise Refused(400, "bad predicate name")
@@ -267,7 +276,7 @@ def counterexample(req):
         return max(deadline - time.monotonic(), 0.001)
 
     def operation():
-        repl, answer, release = elaborate(slug, source, left())
+        repl, answer, release = elaborate(project, source, left())
         try:
             if repl is None or "env" not in answer:
                 return {"status": "bad_predicate", "message": "the file does not elaborate"}

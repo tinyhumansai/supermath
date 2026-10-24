@@ -8,6 +8,7 @@ The reply shapes are specified in docs/specs/toolkit/lean/README.md
 """
 
 import json
+import os
 import re
 
 NAME_RE = re.compile(r"^[A-Za-z_\u0080-￿][A-Za-z0-9_.'!?\u0080-￿]*$")
@@ -17,6 +18,29 @@ IMPORT_RE = re.compile(r"^\s*(?:public\s+|meta\s+|private\s+|all\s+)*import\s+(\
 AXIOMS_RE = re.compile(r"depends on axioms: \[(.*)\]", re.S)
 TRY_THIS_RE = re.compile(r"Try this: (.*)")
 OPTION_RE = re.compile(r"^(some \(?(-?\d+)\)?|none)$")
+
+
+def allowed_roots(value):
+    """SUPERMATH_ROOTS -> the absolute directories a request's `root` may
+    name, colon-separated. Unset or empty allows none."""
+    return [os.path.realpath(p) for p in (value or "").split(":") if os.path.isabs(p)]
+
+
+def project_dir(req, projects, roots):
+    """The request's project directory: `root` when it names one inside an
+    allowed root, else <projects>/<slug>. Raises ValueError with the reason."""
+    slug = req.get("project", "")
+    if not isinstance(slug, str) or not SLUG_RE.match(slug):
+        raise ValueError("bad project or path")
+    root = req.get("root")
+    if root is None:
+        return os.path.join(projects, slug)
+    if not isinstance(root, str) or not os.path.isabs(root):
+        raise ValueError("root must be an absolute directory")
+    real = os.path.realpath(root)
+    if not any(real == allowed or real.startswith(allowed + os.sep) for allowed in roots):
+        raise ValueError("root is not inside an allowed directory")
+    return real
 
 
 def valid_name(name):
