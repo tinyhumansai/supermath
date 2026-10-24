@@ -21,10 +21,6 @@ fn ok(value: Value) -> Envelope {
     Envelope::ok(value)
 }
 
-fn side(main: Envelope, verdict: Envelope) -> Checks {
-    Some((main, verdict))
-}
-
 fn score(prove: Checks, refute: Checks) -> Report {
     judge(&[prove, refute])
 }
@@ -32,10 +28,10 @@ fn score(prove: Checks, refute: Checks) -> Report {
 #[test]
 fn a_clean_verdict_file_settles_the_conjecture() {
     let report = score(
-        side(
+        Some((
             ok(data("checked", 0, 0, &[])),
             ok(data("checked", 0, 0, &[])),
-        ),
+        )),
         None,
     );
     assert_eq!(report.score, 1.0);
@@ -47,11 +43,11 @@ fn a_clean_verdict_file_settles_the_conjecture() {
 #[test]
 fn a_refutation_settles_it_too() {
     let report = score(
-        side(ok(data("failed", 2, 0, &[])), ok(data("failed", 1, 0, &[]))),
-        side(
+        Some((ok(data("failed", 2, 0, &[])), ok(data("failed", 1, 0, &[])))),
+        Some((
             ok(data("checked", 0, 0, &[])),
             ok(data("checked", 0, 0, &[])),
-        ),
+        )),
     );
     assert_eq!((report.score, report.settled), (1.0, Some("refute")));
     // The unsettled prover's errors still reach the next brief.
@@ -61,10 +57,10 @@ fn a_refutation_settles_it_too() {
 #[test]
 fn named_debt_scores_below_settled() {
     let report = score(
-        side(
+        Some((
             ok(data("checked", 0, 0, &[])),
             ok(data("checked", 0, 0, &["Supermath.settled_proved"])),
-        ),
+        )),
         None,
     );
     assert_eq!((report.score, report.settled), (0.75, None));
@@ -75,10 +71,10 @@ fn named_debt_scores_below_settled() {
 fn fewer_sorries_and_fewer_errors_score_higher() {
     let partial = |verdict: &str, errors, sorries| {
         score(
-            side(
+            Some((
                 ok(data(verdict, errors, sorries, &[])),
                 ok(data("checked_with_sorry", 0, 1, &[])),
-            ),
+            )),
             None,
         )
         .score
@@ -93,11 +89,11 @@ fn fewer_sorries_and_fewer_errors_score_higher() {
 #[test]
 fn the_best_side_counts_and_each_reports_its_own_metrics() {
     let report = score(
-        side(ok(data("failed", 3, 0, &[])), ok(data("failed", 1, 0, &[]))),
-        side(
+        Some((ok(data("failed", 3, 0, &[])), ok(data("failed", 1, 0, &[])))),
+        Some((
             ok(data("checked_with_sorry", 0, 1, &[])),
             ok(data("checked_with_sorry", 0, 1, &[])),
-        ),
+        )),
     );
     assert_eq!(report.score, 0.35);
     assert_eq!(report.metrics["prove_errors"], 3);
@@ -126,7 +122,7 @@ fn the_best_side_counts_and_each_reports_its_own_metrics() {
 fn a_clean_file_whose_theorem_has_another_type_says_so() {
     let verdict = json!({"verdict": "failed", "error_count": 1,
         "errors": [{"line": 7, "column": 0, "message": "type mismatch"}], "sorries": []});
-    let report = score(side(ok(data("checked", 0, 0, &[])), ok(verdict)), None);
+    let report = score(Some((ok(data("checked", 0, 0, &[])), ok(verdict))), None);
     assert_eq!(report.score, 0.5);
     assert_eq!(report.failures[0]["type"], "wrong_statement");
     assert!(
@@ -137,7 +133,7 @@ fn a_clean_file_whose_theorem_has_another_type_says_so() {
     );
     // Without a message, the verdict envelope's own error is quoted.
     let refused = Envelope::error(ErrorCode::Timeout, "too slow");
-    let report = score(side(ok(data("checked", 0, 0, &[])), refused), None);
+    let report = score(Some((ok(data("checked", 0, 0, &[])), refused)), None);
     assert!(
         report.failures[0]["text"]
             .as_str()
@@ -149,7 +145,7 @@ fn a_clean_file_whose_theorem_has_another_type_says_so() {
 #[test]
 fn a_check_that_failed_to_run_is_a_failure_and_scores_nothing() {
     let down = Envelope::error(ErrorCode::BackendUnavailable, "lean is unavailable");
-    let report = score(side(down.clone(), down), None);
+    let report = score(Some((down.clone(), down)), None);
     assert_eq!(report.score, 0.0);
     assert_eq!(report.failures[0]["type"], "check_failed");
 }
@@ -160,7 +156,7 @@ fn no_side_file_scores_zero_and_failures_are_capped() {
     assert_eq!((report.score, report.settled), (0.0, None));
     assert_eq!(report.metrics.len(), 1);
     let report = score(
-        side(ok(data("failed", 9, 0, &[])), ok(data("failed", 1, 0, &[]))),
+        Some((ok(data("failed", 9, 0, &[])), ok(data("failed", 1, 0, &[])))),
         None,
     );
     assert_eq!(report.failures.len(), 5);

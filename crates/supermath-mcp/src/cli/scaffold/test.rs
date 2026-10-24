@@ -85,8 +85,9 @@ fn the_hive_holds_the_toolkit_less_the_file_tools_in_domain_toolpacks() {
         .iter()
         .map(|tool| tool["id"].as_str().unwrap())
         .collect();
-    assert_eq!(ids.len(), toolkit().registry().iter().count() - 4);
-    assert!(ids.contains(&"lean_check") && !ids.contains(&"file_write"));
+    assert_eq!(ids.len(), toolkit().registry().iter().count() - 5);
+    assert!(ids.contains(&"lean_check") && ids.contains(&"web_research"));
+    assert!(!ids.contains(&"file_write") && !ids.contains(&"web_search"));
     let pack = |id: &str| -> Vec<String> {
         hive["toolpacks"]
             .as_array()

@@ -16,8 +16,9 @@
 //!
 //! The statement file must declare `Supermath.Conjecture : Prop`; it is
 //! copied in verbatim. `hive.json` gets one executable tool per toolkit tool
-//! (see [`declarations`](super::declarations), less the `file_*` tools, whose
-//! work the seats' own file tools do in their checkout) and one toolpack per
+//! (see [`declarations`](super::declarations)), less the `file_*` tools,
+//! whose work the seats' own file tools do in their checkout, and
+//! `web_search`, whose name OpenHuman's own search tool has; and one toolpack per
 //! domain, so each seat is given its domains by name. The scorer
 //! (`supermath-mcp score proof`) and every tool run this same binary, with
 //! the same `--env-file`.
@@ -99,10 +100,17 @@ const TEMPLATE: [(&str, &str); 17] = [
 /// Where the conjecture goes in the loop folder.
 pub const STATEMENT_PATH: &str = "subject/lean/Supermath/Statement.lean";
 
-/// Tools a seat does not get from the toolkit: its harness edits files in its
-/// own checkout, and the harness's `file_read` and `file_write` share these
-/// names.
-const HARNESS_FILE_TOOLS: [&str; 4] = ["file_edit", "file_list", "file_read", "file_write"];
+/// Tools a seat does not get from the toolkit. Its harness edits files in
+/// its own checkout, and OpenHuman registers `file_read`, `file_write` and
+/// `web_search` itself: a second tool of the same name stops the hive from
+/// starting ("tool name is already registered").
+const HARNESS_TOOLS: [&str; 5] = [
+    "file_edit",
+    "file_list",
+    "file_read",
+    "file_write",
+    "web_search",
+];
 
 /// Each toolpack the template's seats name, with the tool-name prefixes (or
 /// whole names) it holds.
@@ -175,7 +183,7 @@ fn hive_manifest(text: &str, program: &Program, registry: &ToolRegistry) -> Resu
         Value::Array(tools) => tools
             .into_iter()
             .filter(|tool| {
-                !HARNESS_FILE_TOOLS
+                !HARNESS_TOOLS
                     .iter()
                     .any(|name| tool["id"].as_str() == Some(*name))
             })
