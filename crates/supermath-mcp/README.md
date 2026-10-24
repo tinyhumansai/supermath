@@ -22,6 +22,8 @@ never on OpenHuman, so `cargo test -p supermath-mcp` and the
 | `McpServer`, `serve`, `serve_on` | the `rmcp` handler and the stdio (or any transport) entry points |
 | `check::run` | the backend probes behind `supermath-mcp check` |
 | `cli::{parse, configure, execute, run}` | the command line, used by `main.rs` |
+| `cli::scaffold::create` | `loop new`: an rsi-ralph loop folder from `template/` ([`docs/specs/loops.md`](../../docs/specs/loops.md)) |
+| `cli::score::{prepare, check, judge, write_result, Report, SIDES}` | `score proof`: the loop's scorer |
 | `cli::{call, declarations, Program, EnvFile}` | one call as one process; the tools as tinyhivemind executable-tool declarations; `--env-file` parsing |
 
 ## Design
@@ -38,6 +40,11 @@ never on OpenHuman, so `cargo test -p supermath-mcp` and the
   executable-tool host may drop a failed process's stdout. `hive-tools`
   prints one tinyhivemind declaration per tool from the registry, so an
   `rsi-ralph` hive package lists exactly the tools the binary serves.
+- **Loops.** `loop new <slug> <statement.lean> [dir]` writes a loop folder
+  for the `rsi-ralph` binary from `template/` (compiled in); its tools and
+  scorer run this binary. `score proof <project>` is that scorer: it checks a
+  copy of `$RSI_CANDIDATE` against host-written verdict files and writes
+  `$RSI_OUT/result.json`. See [`docs/specs/loops.md`](../../docs/specs/loops.md).
 - **`--project-dir` and `--env-file`.** `--project-dir <dir>` makes `<dir>` the
   project's directory (`Workspace::single`), as when a seat works in a
   candidate checkout. `--env-file <file>` fills in variables the environment

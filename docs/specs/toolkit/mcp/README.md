@@ -71,6 +71,8 @@ supermath-mcp serve [project]          # MCP over stdio
 supermath-mcp check [project]          # Lean, Python, CortexDB, Gemini, and arXiv reachable
 supermath-mcp call <tool> [project]    # one call: JSON args on stdin, the tools/call body on stdout
 supermath-mcp hive-tools [project]     # every tool as a tinyhivemind executable-tool declaration
+supermath-mcp loop new <slug> <statement.lean> [dir]   # an rsi-ralph loop folder (docs/specs/loops.md)
+supermath-mcp score proof <project>    # that loop's scorer, run by rsi-ralph
 # options: --project-dir <dir> (the project's directory), --env-file <file> (unset variables)
 ```
 
