@@ -1,0 +1,31 @@
+{
+  "$schema": "https://tinyhumans.ai/schemas/rsi/v1",
+  "version": 1,
+  "name": "{{slug}}",
+  "subject": {
+    "kind": "dir",
+    "path": "subject",
+    "editable": ["lean/Supermath/", "python/work/", "notes/"],
+    "frozen": ["lean/Supermath/Statement.lean", "lean/lakefile.toml", "lean/lean-toolchain"]
+  },
+  "brief": "brief.md",
+  "hive": { "package": "hive", "lead": "lead", "wall_secs": 1800, "turn_secs": 900 },
+  "models": { "default": "deepseek-v4.1-flash", "judge": "deepseek-v4.1-flash", "retreat": "deepseek-v4.1-flash" },
+  "keys": { "openrouter": "SURPLUS_API_KEY" },
+  "score": {
+    "scorers": [
+      { "id": "proof", "run": "{{binary}} score proof {{slug}}{{env_file_arg}}", "timeout_secs": 1200 }
+    ],
+    "decide": { "on": "proof", "test": "seeds", "seeds": [1, 2], "direction": "maximize", "target": 1.0 }
+  },
+  "budget": {
+    "run_usd": 5,
+    "prices": {
+      "deepseek-v4.1-flash": { "prompt_per_mtok": 1.0, "completion_per_mtok": 4.0, "provider": "*" },
+      "deepseek-v4-pro": { "prompt_per_mtok": 3.0, "completion_per_mtok": 12.0, "provider": "*" },
+      "glm-5.3": { "prompt_per_mtok": 2.0, "completion_per_mtok": 8.0, "provider": "*" }
+    }
+  },
+  "epochs": 6,
+  "patience": 3
+}
