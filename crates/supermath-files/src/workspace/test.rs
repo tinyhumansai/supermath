@@ -48,6 +48,29 @@ fn project_dir_requires_a_valid_slug() {
         );
     }
     assert!(matches!(ws.write_log("A"), Err(Error::InvalidSlug(_))));
+    assert!(matches!(ws.call_log("A"), Err(Error::InvalidSlug(_))));
+}
+
+#[test]
+fn a_single_workspace_is_the_project_for_every_slug() {
+    let dir = tempfile::tempdir().unwrap();
+    let ws = Workspace::single(dir.path());
+    assert_eq!(ws.project_dir("demo").unwrap(), dir.path());
+    assert_eq!(ws.project_dir("other").unwrap(), dir.path());
+    assert!(matches!(ws.project_dir("A"), Err(Error::InvalidSlug(_))));
+
+    let written = put(&ws, LEAN, "theorem t : True := trivial\n");
+    assert!(dir.path().join(LEAN).is_file());
+    assert_eq!(ws.sha256("demo", &path(LEAN)).unwrap(), written);
+    assert_eq!(ws.list("demo").unwrap(), [path(LEAN)]);
+    assert_eq!(
+        ws.write_log("demo").unwrap().path(),
+        dir.path().join(".log/writes.jsonl")
+    );
+    assert_eq!(
+        ws.call_log("demo").unwrap().path(),
+        dir.path().join(".log/calls.jsonl")
+    );
 }
 
 #[test]
