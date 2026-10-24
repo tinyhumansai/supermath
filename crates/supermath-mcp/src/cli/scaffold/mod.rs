@@ -16,7 +16,7 @@
 //!
 //! The statement file must declare `Supermath.Conjecture : Prop`; it is
 //! copied in verbatim. `hive.json` gets one executable tool per toolkit tool
-//! (see [`declarations`](super::declarations)), less the `file_*` tools,
+//! (see [`declarations`]), less the `file_*` tools,
 //! whose work the seats' own file tools do in their checkout, and
 //! `web_search`, whose name `OpenHuman`'s own search tool has; and one toolpack per
 //! domain, so each seat is given its domains by name. The scorer
