@@ -9,7 +9,9 @@ project needs is `lean -o` on its own modules, in dependency order, against a
 """
 
 import glob
+import hashlib
 import os
+import shutil
 import subprocess
 
 import normalize as N
@@ -23,6 +25,50 @@ class BuildError(Exception):
     def __init__(self, text):
         super().__init__(text)
         self.text = text
+
+
+def stage(source_dir, builds_root):
+    """Mirrors the `.lean` files of the package at `source_dir` into a build
+    directory of its own under `builds_root`, and returns that directory.
+
+    A project off the projects volume (a request's `root`) is read, never
+    written: its oleans, lakefile and toolchain go here instead. The directory
+    is keyed by the source's real path, so a later check of the same project
+    reuses its oleans. Copies keep their modification times, so `stale` still
+    sees exactly which modules changed; files the source no longer has are
+    removed. `.lake` folders and symlinks in the source are ignored.
+    """
+    key = hashlib.sha256(os.path.realpath(source_dir).encode()).hexdigest()[:16]
+    dest = os.path.join(builds_root, key, "lean")
+    wanted = set()
+    for dirpath, dirnames, filenames in os.walk(source_dir):
+        dirnames[:] = [d for d in dirnames if d != ".lake" and not os.path.islink(os.path.join(dirpath, d))]
+        for name in filenames:
+            source = os.path.join(dirpath, name)
+            if not name.endswith(".lean") or os.path.islink(source):
+                continue
+            relative = os.path.relpath(source, source_dir)
+            wanted.add(relative)
+            target = os.path.join(dest, relative)
+            if not _same_file(source, target):
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                shutil.copy2(source, target)
+    for dirpath, dirnames, filenames in os.walk(dest):
+        dirnames[:] = [d for d in dirnames if d != ".lake"]
+        for name in filenames:
+            target = os.path.join(dirpath, name)
+            if name.endswith(".lean") and os.path.relpath(target, dest) not in wanted:
+                os.remove(target)
+    os.makedirs(dest, exist_ok=True)
+    return dest
+
+
+def _same_file(source, target):
+    try:
+        a, b = os.stat(source), os.stat(target)
+    except OSError:
+        return False
+    return a.st_size == b.st_size and int(a.st_mtime) == int(b.st_mtime)
 
 
 def package_paths(lean_env):
