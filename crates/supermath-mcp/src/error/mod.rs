@@ -2,8 +2,9 @@
 //!
 //! Each domain crate keeps its own error enum; this one wraps the ones
 //! composition can meet (a domain refusing to build, the contract refusing a
-//! duplicate tool) and adds the two failures only this crate has: a project
-//! name that is not a slug, and the MCP transport failing.
+//! duplicate tool) and adds the failures only this crate has: a project name
+//! that is not a slug, an unreadable `--env-file`, a command line it does not
+//! understand, and the MCP transport failing.
 
 /// What can go wrong composing, serving, or checking the toolkit.
 #[derive(Debug, thiserror::Error)]

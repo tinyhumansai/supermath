@@ -10,6 +10,10 @@ fn messages_are_lowercase_and_unpunctuated() {
         Error::InvalidProject("***".into()),
         Error::Usage("usage: supermath-mcp serve [project]".into()),
         Error::Transport("closed".into()),
+        Error::EnvFile {
+            path: "a.env".into(),
+            source: std::io::Error::from(std::io::ErrorKind::NotFound),
+        },
         Error::Tool(supermath_tool::Error::DuplicateTool("calc_factor".into())),
     ];
     for error in errors {

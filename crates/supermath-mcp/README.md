@@ -15,19 +15,33 @@ never on OpenHuman, so `cargo test -p supermath-mcp` and the
 | --- | --- |
 | `Config` | the union of the domains' environment, read once (`from_env`, `from_lookup`) |
 | `Toolkit::compose(&config, project)` | builds every domain, wires the ports, registers 30 tools |
+| `Toolkit::compose_persistent(&config, project)` | the same, with the call log on disk and call ids unique across processes |
 | `Toolkit::registry()` / `dispatch` / `dispatch_with` / `call_log` | the tools, a logged call, and the log the ledger reads |
 | `LeanBridge` | the ledger's `LeanEvidence` port, over the Lean checker, bound to the project |
 | `RecordedClaims`, `RecordsClaims` | the Lean `ClaimIndex`, fed by wrapping `ledger_record` |
 | `McpServer`, `serve`, `serve_on` | the `rmcp` handler and the stdio (or any transport) entry points |
 | `check::run` | the backend probes behind `supermath-mcp check` |
-| `cli::{parse, execute, run}` | the command line, used by `main.rs` |
+| `cli::{parse, configure, execute, run}` | the command line, used by `main.rs` |
+| `cli::{call, declarations, Program, EnvFile}` | one call as one process; the tools as tinyhivemind executable-tool declarations; `--env-file` parsing |
 
 ## Design
 
 - **One call log.** `Toolkit::dispatch` records every call, tool errors
-  included, in the `InMemoryCallLog` that the ledger holds as its `CallLog`.
-  A `tool` source in `ledger_record` is valid only if that log has the call,
-  in this project, for that tool, ending `ok`.
+  included, in the log that the ledger holds as its `CallLog`. A `tool`
+  source in `ledger_record` is valid only if that log has the call, in this
+  project, for that tool, ending `ok`. `compose` keeps the log in memory;
+  `compose_persistent`, which `serve` and `call` use, keeps it in the
+  project's `.log/calls.jsonl`, so a process can cite a call another made.
+- **A call is a process.** `supermath-mcp call <tool> [project]` reads the
+  argument object on stdin and prints the same body `tools/call` carries.
+  It exits 0 for every envelope, `error` included, because an
+  executable-tool host may drop a failed process's stdout. `hive-tools`
+  prints one tinyhivemind declaration per tool from the registry, so an
+  `rsi-ralph` hive package lists exactly the tools the binary serves.
+- **`--workspace` and `--env-file`.** `--workspace <dir>` makes `<dir>` the
+  project's directory (`Workspace::single`), as when a seat works in a
+  candidate checkout. `--env-file <file>` fills in variables the environment
+  leaves unset, for hosts that clear it.
 - **The trust boundary lives in the ledger.** `LeanBridge` returns a verdict
   (running the same checker as `lean_check`); the ledger decides what it
   earns. Arguments naming a status or `collected` evidence are refused before
@@ -60,7 +74,8 @@ never on OpenHuman, so `cargo test -p supermath-mcp` and the
   CortexDB (promotion by a stubbed check, forged status, stale digest, timeout,
   unavailable, file observers, `tool` sources, the claim index).
 - `tests/mcp.rs`: the spec's acceptance criteria over MCP.
-- `tests/check.rs`, `tests/cli.rs`: the probes and the binary's exit codes.
+- `tests/check.rs`, `tests/cli.rs`: the probes and the binary's exit codes,
+  `call` across two processes, and `hive-tools`.
 - `tests/serve.rs`: spawns the binary and handshakes over stdio.
 
 None touch the real network.
