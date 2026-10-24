@@ -52,7 +52,7 @@ fn a_declaration_has_the_pinned_wire_form() {
         json!({
             "id": "calc_factor",
             "command": ["/bin/supermath-mcp", "call", "calc_factor", "demo",
-                        "--workspace", ".", "--env-file", "/work/supermath.env"],
+                        "--project-dir", ".", "--env-file", "/work/supermath.env"],
             "stdin": "json",
             "output": "text",
             "cwd": "workspace",
@@ -72,7 +72,7 @@ fn without_an_env_file_the_command_ends_at_the_workspace() {
             "call",
             "calc_factor",
             "demo",
-            "--workspace",
+            "--project-dir",
             "."
         ])
     );

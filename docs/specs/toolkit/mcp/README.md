@@ -71,7 +71,7 @@ supermath-mcp serve [project]          # MCP over stdio
 supermath-mcp check [project]          # Lean, Python, CortexDB, Gemini, and arXiv reachable
 supermath-mcp call <tool> [project]    # one call: JSON args on stdin, the tools/call body on stdout
 supermath-mcp hive-tools [project]     # every tool as a tinyhivemind executable-tool declaration
-# options: --workspace <dir> (the project's directory), --env-file <file> (unset variables)
+# options: --project-dir <dir> (the project's directory), --env-file <file> (unset variables)
 ```
 
 - `tools/list` serves each tool's name, description, and schema. MCP has no

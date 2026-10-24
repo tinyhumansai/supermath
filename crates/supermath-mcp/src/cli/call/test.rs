@@ -7,7 +7,7 @@ use crate::{Config, Toolkit};
 
 fn toolkit(dir: &tempfile::TempDir) -> Toolkit {
     let mut config = Config::from_lookup(|_| None).unwrap();
-    config.files.workspace = Some(dir.path().to_path_buf());
+    config.files.project_dir = Some(dir.path().to_path_buf());
     Toolkit::compose_persistent(&config, "demo").unwrap()
 }
 

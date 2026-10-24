@@ -84,12 +84,12 @@ async fn check_exits_nonzero_when_a_configured_backend_is_down() {
     assert!(String::from_utf8_lossy(&out.stdout).contains("FAILED"));
 }
 
-/// Runs `supermath-mcp call <tool> demo --workspace <dir>` with `input` on
+/// Runs `supermath-mcp call <tool> demo --project-dir <dir>` with `input` on
 /// standard input.
 fn call(dir: &std::path::Path, tool: &str, input: &str, extra: &[&str]) -> std::process::Output {
     use std::io::Write as _;
     let mut child = binary()
-        .args(["call", tool, "demo", "--workspace"])
+        .args(["call", tool, "demo", "--project-dir"])
         .arg(dir)
         .args(extra)
         .stdin(Stdio::piped())

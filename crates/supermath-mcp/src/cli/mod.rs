@@ -7,7 +7,7 @@
 //! supermath-mcp hive-tools [project]     # the tools as tinyhivemind executable tools
 //!
 //! options, after the command:
-//!   --workspace <dir>    use <dir> as the project's directory (see `Workspace::single`)
+//!   --project-dir <dir>    use <dir> as the project's directory (see `Workspace::single`)
 //!   --env-file <file>    read unset variables from a `KEY=VALUE` file
 //! ```
 //!
@@ -38,7 +38,7 @@ pub use hive::{AGENTIC_TIMEOUT_MS, PRIMITIVE_TIMEOUT_MS, Program, declarations};
 
 /// The usage text, printed for `--help` and after a usage error.
 pub const USAGE: &str = "usage: supermath-mcp (serve [project] | check [project] | \
-call <tool> [project] | hive-tools [project]) [--workspace <dir>] [--env-file <file>]";
+call <tool> [project] | hive-tools [project]) [--project-dir <dir>] [--env-file <file>]";
 
 /// The project used when none is named.
 pub const DEFAULT_PROJECT: &str = "scratch";
@@ -75,8 +75,8 @@ pub enum Command {
 /// Options that apply to every command.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Options {
-    /// `--workspace`: the project's directory, in place of the projects root.
-    pub workspace: Option<PathBuf>,
+    /// `--project-dir`: the project's directory, in place of the projects root.
+    pub project_dir: Option<PathBuf>,
     /// `--env-file`: where unset variables are read from.
     pub env_file: Option<PathBuf>,
 }
@@ -104,7 +104,7 @@ pub fn parse(args: &[String]) -> Result<Invocation> {
     let mut rest = args.iter();
     while let Some(word) = rest.next() {
         let slot = match word.as_str() {
-            "--workspace" => &mut options.workspace,
+            "--project-dir" => &mut options.project_dir,
             "--env-file" => &mut options.env_file,
             _ => {
                 words.push(word.as_str());
@@ -138,7 +138,7 @@ pub fn parse(args: &[String]) -> Result<Invocation> {
 }
 
 /// Reads the configuration `options` describe: the process environment,
-/// then the `--env-file` for anything it leaves unset, then `--workspace`.
+/// then the `--env-file` for anything it leaves unset, then `--project-dir`.
 ///
 /// # Errors
 ///
@@ -154,11 +154,11 @@ pub fn configure(options: &Options) -> Result<Config> {
             .ok()
             .or_else(|| file.get(name).map(str::to_owned))
     })?;
-    if let Some(dir) = &options.workspace {
+    if let Some(dir) = &options.project_dir {
         // Absolute, so a host that hands the path to a service elsewhere
         // never sees `.`.
         let dir = std::path::absolute(dir).map_err(|_| Error::Usage(USAGE.to_owned()))?;
-        config.files.workspace = Some(dir);
+        config.files.project_dir = Some(dir);
     }
     Ok(config)
 }

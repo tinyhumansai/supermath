@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use super::{DEFAULT_PROJECTS, FilesConfig, PROJECTS_ENV, WORKSPACE_ENV};
+use super::{DEFAULT_PROJECTS, FilesConfig, PROJECTS_ENV, PROJECT_DIR_ENV};
 
 #[test]
 fn defaults_when_unset_or_blank() {
@@ -31,9 +31,9 @@ fn from_env_reads_the_process_environment() {
 #[test]
 fn reads_a_single_workspace_from_its_variable() {
     let config = FilesConfig::from_lookup(|name| {
-        (name == WORKSPACE_ENV).then(|| "/work/candidate".to_owned())
+        (name == PROJECT_DIR_ENV).then(|| "/work/candidate".to_owned())
     });
-    assert_eq!(config.workspace, Some(PathBuf::from("/work/candidate")));
+    assert_eq!(config.project_dir, Some(PathBuf::from("/work/candidate")));
     assert_eq!(config.projects, PathBuf::from(DEFAULT_PROJECTS));
     let workspace = config.open();
     assert_eq!(

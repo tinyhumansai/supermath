@@ -66,7 +66,7 @@ fn options_are_read_wherever_they_appear() {
         "a.env",
         "call",
         "lean_check",
-        "--workspace",
+        "--project-dir",
         ".",
         "p",
     ]))
@@ -79,7 +79,7 @@ fn options_are_read_wherever_they_appear() {
                 project: "p".into()
             },
             options: Options {
-                workspace: Some(PathBuf::from(".")),
+                project_dir: Some(PathBuf::from(".")),
                 env_file: Some(PathBuf::from("a.env")),
             },
         }
@@ -106,7 +106,7 @@ fn anything_else_is_a_usage_error() {
         &["call"],
         &["call", "t", "a", "b"],
         &["hive-tools", "a", "b"],
-        &["serve", "--workspace"],
+        &["serve", "--project-dir"],
         &["serve", "--env-file", "a", "--env-file", "b"],
     ] {
         let error = parse(&args(bad)).unwrap_err();
@@ -121,21 +121,21 @@ fn configure_reads_the_env_file_and_makes_the_workspace_absolute() {
     // A name no real environment sets, so the file's value is the one read.
     std::fs::write(&env_file, "CORTEX_SCOPE_ROOT=ws:from-file\n").unwrap();
     let config = configure(&Options {
-        workspace: Some(PathBuf::from("candidate")),
+        project_dir: Some(PathBuf::from("candidate")),
         env_file: Some(env_file),
     })
     .unwrap();
     assert_eq!(config.ledger.scope_root, "ws:from-file");
-    let workspace = config.files.workspace.unwrap();
-    assert!(workspace.is_absolute(), "{workspace:?}");
-    assert!(workspace.ends_with("candidate"));
+    let project_dir = config.files.project_dir.unwrap();
+    assert!(project_dir.is_absolute(), "{project_dir:?}");
+    assert!(project_dir.ends_with("candidate"));
 }
 
 #[test]
 fn configure_fails_on_a_missing_env_file() {
     let dir = tempfile::tempdir().unwrap();
     let error = configure(&Options {
-        workspace: None,
+        project_dir: None,
         env_file: Some(dir.path().join("absent.env")),
     })
     .unwrap_err();
@@ -161,7 +161,7 @@ async fn hive_tools_prints_and_succeeds() {
             project: "demo".into(),
         },
         options: Options {
-            workspace: Some(dir.path().to_path_buf()),
+            project_dir: Some(dir.path().to_path_buf()),
             env_file: None,
         },
     };

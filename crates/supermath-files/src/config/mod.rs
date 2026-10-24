@@ -9,7 +9,7 @@ pub const PROJECTS_ENV: &str = "SUPERMATH_PROJECTS";
 
 /// The environment variable naming one project directory to work in instead
 /// of a projects root; see [`Workspace::single`].
-pub const WORKSPACE_ENV: &str = "SUPERMATH_WORKSPACE";
+pub const PROJECT_DIR_ENV: &str = "SUPERMATH_PROJECT_DIR";
 
 /// The projects root when [`PROJECTS_ENV`] is unset.
 pub const DEFAULT_PROJECTS: &str = "./.supermath/projects";
@@ -21,20 +21,20 @@ pub struct FilesConfig {
     /// project.
     pub projects: PathBuf,
     /// One project directory to use in place of `projects`, when set.
-    pub workspace: Option<PathBuf>,
+    pub project_dir: Option<PathBuf>,
 }
 
 impl Default for FilesConfig {
     fn default() -> Self {
         Self {
             projects: PathBuf::from(DEFAULT_PROJECTS),
-            workspace: None,
+            project_dir: None,
         }
     }
 }
 
 impl FilesConfig {
-    /// Reads `SUPERMATH_PROJECTS` and `SUPERMATH_WORKSPACE` from the process
+    /// Reads `SUPERMATH_PROJECTS` and `SUPERMATH_PROJECT_DIR` from the process
     /// environment.
     #[must_use]
     pub fn from_env() -> Self {
@@ -49,7 +49,7 @@ impl FilesConfig {
         Self {
             projects: read(PROJECTS_ENV)
                 .map_or_else(|| PathBuf::from(DEFAULT_PROJECTS), From::from),
-            workspace: read(WORKSPACE_ENV).map(PathBuf::from),
+            project_dir: read(PROJECT_DIR_ENV).map(PathBuf::from),
         }
     }
 
@@ -57,7 +57,7 @@ impl FilesConfig {
     /// when one is set, the projects root otherwise.
     #[must_use]
     pub fn open(&self) -> Workspace {
-        match &self.workspace {
+        match &self.project_dir {
             Some(dir) => Workspace::single(dir),
             None => Workspace::new(&self.projects),
         }

@@ -20,7 +20,7 @@
 //!   [`file_tools`] builds all four.
 //! - [`FileCallLog`] (from [`Workspace::call_log`]) records calls on disk,
 //!   so a host running each call as its own process can still check one.
-//! - [`FilesConfig`] reads `SUPERMATH_PROJECTS` and `SUPERMATH_WORKSPACE`.
+//! - [`FilesConfig`] reads `SUPERMATH_PROJECTS` and `SUPERMATH_PROJECT_DIR`.
 //!
 //! # Example
 //!
@@ -59,7 +59,7 @@ mod workspace;
 mod write_log;
 
 pub use call_log::FileCallLog;
-pub use config::{DEFAULT_PROJECTS, FilesConfig, PROJECTS_ENV, WORKSPACE_ENV};
+pub use config::{DEFAULT_PROJECTS, FilesConfig, PROJECTS_ENV, PROJECT_DIR_ENV};
 pub use error::{Error, Result};
 pub use observer::{FileObserver, LastResult};
 pub use path::{Language, MAX_PATH_BYTES, ProjectPath};

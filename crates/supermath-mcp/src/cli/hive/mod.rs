@@ -9,14 +9,14 @@
 //! ```json
 //! { "id": "lean_check", "description": "Given …",
 //!   "command": ["/usr/local/bin/supermath-mcp", "call", "lean_check", "demo",
-//!               "--workspace", ".", "--env-file", "/work/supermath.env"],
+//!               "--project-dir", ".", "--env-file", "/work/supermath.env"],
 //!   "args": { "type": "object", … },
 //!   "stdin": "json", "output": "text", "cwd": "workspace",
 //!   "side_effects": "read", "timeout_ms": 120000 }
 //! ```
 //!
 //! Each call runs in the seat's workspace (`cwd: workspace`), and
-//! `--workspace .` makes that directory the project, so a seat editing a
+//! `--project-dir .` makes that directory the project, so a seat editing a
 //! candidate checkout reads and checks that checkout. The project slug is
 //! fixed in the declaration, never taken from the call's arguments.
 
@@ -59,7 +59,7 @@ fn declaration(tool: &dyn Tool, program: &Program) -> Value {
         "call".to_owned(),
         tool.name().to_owned(),
         program.project.clone(),
-        "--workspace".to_owned(),
+        "--project-dir".to_owned(),
         ".".to_owned(),
     ];
     if let Some(env_file) = &program.env_file {

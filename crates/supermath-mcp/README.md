@@ -38,7 +38,7 @@ never on OpenHuman, so `cargo test -p supermath-mcp` and the
   executable-tool host may drop a failed process's stdout. `hive-tools`
   prints one tinyhivemind declaration per tool from the registry, so an
   `rsi-ralph` hive package lists exactly the tools the binary serves.
-- **`--workspace` and `--env-file`.** `--workspace <dir>` makes `<dir>` the
+- **`--project-dir` and `--env-file`.** `--project-dir <dir>` makes `<dir>` the
   project's directory (`Workspace::single`), as when a seat works in a
   candidate checkout. `--env-file <file>` fills in variables the environment
   leaves unset, for hosts that clear it.
