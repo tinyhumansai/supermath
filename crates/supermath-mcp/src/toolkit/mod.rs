@@ -54,7 +54,6 @@ pub use types::Dispatched;
 const LEDGER_RECORD: &str = "ledger_record";
 
 /// Every primitive tool, composed for one project.
-#[derive(Debug)]
 pub struct Toolkit {
     project: Project,
     registry: ToolRegistry,
@@ -277,6 +276,18 @@ impl Toolkit {
     #[must_use]
     pub fn has_gemini_key(&self) -> bool {
         self.web_has_key
+    }
+}
+
+impl std::fmt::Debug for Toolkit {
+    // The call log is a trait object without `Debug`; the rest says which
+    // toolkit this is.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Toolkit")
+            .field("project", &self.project)
+            .field("registry", &self.registry)
+            .field("call_prefix", &self.call_prefix)
+            .finish_non_exhaustive()
     }
 }
 
