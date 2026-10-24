@@ -181,14 +181,13 @@ def project_root(config, project, root):
 
 def resolve_file(config, project, path, root=None):
     """The file's real path, refusing anything that leaves the project."""
-    project_root_dir = project_root(config, project, root)
-    project_root = project_root_dir
-    target = os.path.realpath(os.path.join(project_root, path))
-    if not target.startswith(project_root + os.sep) or not target.endswith(".py"):
+    base = project_root(config, project, root)
+    target = os.path.realpath(os.path.join(base, path))
+    if not target.startswith(base + os.sep) or not target.endswith(".py"):
         raise HttpError(400, "invalid_input", "path leaves the project")
     if not os.path.isfile(target):
         raise HttpError(404, "not_found", f"{path} does not exist in project {project}")
-    return os.path.join(project_root, "python"), target
+    return os.path.join(base, "python"), target
 
 
 def module_name(path):
