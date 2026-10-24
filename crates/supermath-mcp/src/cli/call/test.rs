@@ -2,8 +2,7 @@
 
 #![allow(clippy::unwrap_used, clippy::expect_used, clippy::panic)]
 
-use serde_json::json;
-use supermath_tool::CallLog as _;
+
 
 use super::call;
 use crate::{Config, Toolkit};
@@ -56,5 +55,5 @@ async fn input_that_is_not_an_object_never_reaches_a_tool() {
         );
         assert_eq!(body.get("call_id"), None);
     }
-    assert!(toolkit.call_log().all().is_empty(), "{:?}", json!(null));
+    assert!(toolkit.call_log().all().is_empty());
 }
