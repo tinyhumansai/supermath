@@ -59,7 +59,7 @@ mod workspace;
 mod write_log;
 
 pub use call_log::FileCallLog;
-pub use config::{DEFAULT_PROJECTS, FilesConfig, PROJECTS_ENV, PROJECT_DIR_ENV};
+pub use config::{DEFAULT_PROJECTS, FilesConfig, PROJECT_DIR_ENV, PROJECTS_ENV};
 pub use error::{Error, Result};
 pub use observer::{FileObserver, LastResult};
 pub use path::{Language, MAX_PATH_BYTES, ProjectPath};

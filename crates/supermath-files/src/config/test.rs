@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use super::{DEFAULT_PROJECTS, FilesConfig, PROJECTS_ENV, PROJECT_DIR_ENV};
+use super::{DEFAULT_PROJECTS, FilesConfig, PROJECT_DIR_ENV, PROJECTS_ENV};
 
 #[test]
 fn defaults_when_unset_or_blank() {

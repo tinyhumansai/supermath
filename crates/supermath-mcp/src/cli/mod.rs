@@ -143,7 +143,7 @@ pub fn parse(args: &[String]) -> Result<Invocation> {
 /// # Errors
 ///
 /// [`Error::EnvFile`] if the env file cannot be read; [`Error::Usage`] if
-/// the workspace cannot be made absolute; as [`Config::from_lookup`].
+/// the project directory cannot be made absolute; as [`Config::from_lookup`].
 pub fn configure(options: &Options) -> Result<Config> {
     let file = match &options.env_file {
         Some(path) => EnvFile::read(path)?,

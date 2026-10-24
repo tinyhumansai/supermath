@@ -115,7 +115,7 @@ fn anything_else_is_a_usage_error() {
 }
 
 #[test]
-fn configure_reads_the_env_file_and_makes_the_workspace_absolute() {
+fn configure_reads_the_env_file_and_makes_the_project_dir_absolute() {
     let dir = tempfile::tempdir().unwrap();
     let env_file = dir.path().join("supermath.env");
     // A name no real environment sets, so the file's value is the one read.
