@@ -117,6 +117,30 @@ impl Workspace {
         }
     }
 
+    /// The absolute project directory to name to a remote service (the Lean
+    /// and Python services), for a [`Workspace::single`]: such a project is
+    /// not at `<projects>/<slug>` on the service's own mount. `None` for a
+    /// projects root, where a service finds the project by its slug.
+    ///
+    /// ```
+    /// use supermath_files::Workspace;
+    ///
+    /// assert_eq!(Workspace::new("/data/projects").service_root(), None);
+    /// assert_eq!(
+    ///     Workspace::single("/work/candidate").service_root().as_deref(),
+    ///     Some("/work/candidate")
+    /// );
+    /// ```
+    #[must_use]
+    pub fn service_root(&self) -> Option<String> {
+        self.single.then(|| {
+            std::path::absolute(&self.root)
+                .unwrap_or_else(|_| self.root.clone())
+                .display()
+                .to_string()
+        })
+    }
+
     /// The call log of project `slug`, shared by every process that opens it.
     ///
     /// # Errors
