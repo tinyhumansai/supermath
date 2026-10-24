@@ -70,6 +70,25 @@ claude mcp add supermath -- docker compose --profile mcp run --rm -T mcp serve m
 
 Details: [`docs/specs/toolkit/mcp/README.md`](docs/specs/toolkit/mcp/README.md).
 
+## Settle a conjecture with an rsi-ralph loop
+
+[`rsi-ralph`](https://github.com/tinyhumansai/rsi-ralph) runs a hive of agents
+over epochs and promotes only a candidate that scores better. `supermath-mcp`
+writes a loop folder for one conjecture:
+- the statement is frozen;
+- a prover and a refuter each work in their own checkout;
+- every toolkit tool is offered as an executable tool;
+- a scorer accepts a side only when Lean checks its theorem at exactly the
+  pinned type.
+
+```sh
+docker compose -f compose.yaml -f compose.rsi.yaml --profile host up -d lean python cortexdb
+supermath-mcp loop new gauss-sum loops/statements/gauss-sum.lean --env-file .env
+TINYRSI_UPSTREAM=https://api.surplusintelligence.ai/v1 rsi-ralph run loops/gauss-sum
+```
+
+Details: [`docs/specs/loops.md`](docs/specs/loops.md).
+
 ## Layout
 
 ```text
