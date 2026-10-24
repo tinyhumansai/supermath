@@ -52,9 +52,9 @@ rsi.json        dir subject; editable lean/Supermath/, python/work/, notes/;
                 models on Surplus (keys.openrouter = SURPLUS_API_KEY, provider "*")
 brief.md        the statement, and rsi-ralph's {{incumbent}} {{history}} {{failures}}
 hive/           seats lead (incumbent, read-only), prover and refuter (each
-                its own candidate); `tools` = every toolkit tool but file_*,
-                as `supermath-mcp call <tool> <slug> --project-dir . [--env-file F]`
-                (and but web_search, whose name OpenHuman's own search tool has);
+                its own candidate); `tools` = every toolkit tool but file_*
+                and web_search, as
+                `supermath-mcp call <tool> <slug> --project-dir . [--env-file F]`;
                 toolpacks lean, python, literature, ledger, ledger-read
 subject/lean/Supermath/{Statement,Prove,Refute}.lean, lakefile.toml, lean-toolchain
 subject/notes/
