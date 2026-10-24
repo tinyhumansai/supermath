@@ -1,0 +1,39 @@
+# Opt-in override for rsi-ralph loops: lets the lean and python services read
+# (and lean build in) candidate checkouts in the rsi-ralph run store, which
+# live outside the `projects` volume.
+#
+#   docker compose -f compose.yaml -f compose.rsi.yaml --profile host up -d lean python
+#
+# The run store ($TINYRSI_HOME, default ~/.tinyrsi) is bind-mounted at the
+# same absolute path inside both services, and SUPERMATH_ROOTS allows requests
+# whose `root` lies inside it (`supermath-mcp call ... --project-dir <dir>`
+# sends one). Nothing outside it is reachable. The services run as the host
+# user (SUPERMATH_UID/GID, default 1000) so lean can write each candidate's
+# `lean/` package files and build directory, which that user owns. The
+# directory must exist before `up`: Docker would otherwise create it as root.
+
+x-rsi-home: &rsi-home ${TINYRSI_HOME:-${HOME}/.tinyrsi}
+
+services:
+  lean:
+    user: "${SUPERMATH_UID:-1000}:${SUPERMATH_GID:-1000}"
+    environment:
+      SUPERMATH_ROOTS: *rsi-home
+    volumes:
+      - type: bind
+        source: *rsi-home
+        target: *rsi-home
+        bind:
+          create_host_path: false
+
+  python:
+    user: "${SUPERMATH_UID:-1000}:${SUPERMATH_GID:-1000}"
+    environment:
+      SUPERMATH_ROOTS: *rsi-home
+    volumes:
+      - type: bind
+        source: *rsi-home
+        target: *rsi-home
+        read_only: true
+        bind:
+          create_host_path: false
