@@ -35,8 +35,7 @@
 //! missing backend is never an answer from a different one. No model reads a
 //! page in `web_read`, and no ledger code: a web source may record a claim as
 //! `asserted`, never `cited`, and that rule lives in the ledger crate. No
-//! `OpenHuman` or MCP types; the composition crate adapts [`Tool`] at its own
-//! edge.
+//! MCP types; the composition crate adapts [`Tool`] at its own edge.
 
 mod cache;
 mod cap;

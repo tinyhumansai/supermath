@@ -1,7 +1,7 @@
 //! [`ToolRegistry`]: tools by name.
 //!
-//! The composition fills one with every domain's tools and hands it to
-//! `supermath-subagents`, which reaches primitives only through it.
+//! The composition fills one with every domain's tools, and the MCP server,
+//! the `call` command and the loop scaffold read it.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;

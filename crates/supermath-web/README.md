@@ -4,7 +4,7 @@ The `web_*` tools: Gemini with Google Search grounding for sourced answers
 from the open web, and a plain page reader. The spec is
 [`docs/specs/toolkit/web/`](../../docs/specs/toolkit/web/README.md); the
 decision is [ADR 0005](../../docs/adr/0005-search-the-web-with-gemini-grounding.md).
-Depends on `supermath-tool` only (no OpenHuman).
+Depends on `supermath-tool` only.
 
 ## Tools
 

@@ -314,8 +314,8 @@ impl Ledger {
 
     /// Sets a claim's alignment: the verdict of an alignment review.
     ///
-    /// Only the reviewer in `supermath-subagents` calls this; no tool exposes
-    /// it to a model.
+    /// No tool exposes it to a model: an alignment verdict comes from a
+    /// review, never from the model whose claim it is.
     ///
     /// # Errors
     ///

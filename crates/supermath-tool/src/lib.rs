@@ -49,8 +49,8 @@
 //! # What this crate does not hold
 //!
 //! No tools, and no backend client: those belong to the domain crates. No
-//! `OpenHuman` or MCP types either; the runner and the MCP server adapt
-//! [`Tool`] at their own edges, so this crate compiles in seconds.
+//! MCP types either; the MCP server and the `call` command adapt [`Tool`] at
+//! their own edges, so this crate compiles in seconds.
 
 mod budget;
 mod call_log;

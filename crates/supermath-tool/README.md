@@ -2,8 +2,7 @@
 
 The contract every supermath tool domain implements. It holds no tools and
 calls no backend; it depends on nothing heavier than `serde` and `tokio`'s
-`sync`, so `cargo test -p supermath-tool` takes seconds and never compiles
-OpenHuman. The spec is
+`sync`, so `cargo test -p supermath-tool` takes seconds. The spec is
 [`docs/specs/toolkit/tool/README.md`](../../docs/specs/toolkit/tool/README.md).
 
 ## Public surface

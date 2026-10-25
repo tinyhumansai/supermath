@@ -10,7 +10,7 @@ use supermath_tool::{ErrorCode, Exposure, Outcome};
 use super::Toolkit;
 use crate::{Config, Error};
 
-/// Every non-`agent_*` tool of the catalogue in `docs/specs/toolkit/README.md`.
+/// Every tool of the catalogue in `docs/specs/toolkit/README.md`.
 const CATALOGUE: [&str; 30] = [
     "calc_factor",
     "calc_gcd_lcm",

@@ -65,7 +65,7 @@
 //! only calls it over HTTP. It does not write source (that is `file_write`),
 //! record claims (that is the ledger), or decide a witness refutes anything
 //! (that is Lean). It depends on `supermath-tool` and `supermath-files` among
-//! the workspace crates, and on no `OpenHuman` crate.
+//! the workspace crates.
 
 mod client;
 mod config;
