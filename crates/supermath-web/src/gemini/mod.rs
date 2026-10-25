@@ -147,6 +147,11 @@ impl GeminiClient {
                 .map_or(DEFAULT_RETRY_AFTER_MS, |secs| secs.saturating_mul(1000));
             return Err(Error::RateLimited { retry_after_ms });
         }
+        if status.as_u16() == 404 {
+            return Err(Error::ModelNotFound {
+                model: self.model.clone(),
+            });
+        }
         if !status.is_success() {
             return Err(Error::Unavailable(format!(
                 "gemini answered with status {}",
