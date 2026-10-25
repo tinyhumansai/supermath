@@ -59,6 +59,7 @@ impl PyRun {
         let prepared = shared.prepare(slug, &args.path)?;
         let request = RunRequest {
             project: slug.to_owned(),
+            root: shared.workspace.service_root(),
             path: prepared.path.to_string(),
             entry: args.entry.clone(),
             args: kwargs.clone(),

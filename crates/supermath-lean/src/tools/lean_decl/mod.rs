@@ -73,6 +73,7 @@ impl LeanDecl {
             .client
             .decl(&DeclRequest {
                 project: slug.to_owned(),
+                root: self.shared.workspace.service_root(),
                 name: name.to_owned(),
                 path: local.as_ref().map(|(path, _)| path.to_string()),
                 timeout_ms: self.shared.config.query_timeout_ms,

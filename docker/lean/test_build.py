@@ -97,5 +97,59 @@ class Compile(unittest.TestCase):
             self.assertEqual([p.split(os.sep)[-5] for p in B.package_paths(env)], ["batteries", "mathlib"])
 
 
+class Stage(unittest.TestCase):
+    def write(self, root, relative, text):
+        path = os.path.join(root, relative)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(text)
+        return path
+
+    def test_mirrors_lean_sources_and_reuses_its_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "candidate", "lean")
+            builds = os.path.join(tmp, "builds")
+            self.write(source, "Supermath/Statement.lean", "def Conjecture : Prop := True\n")
+            self.write(source, "Supermath/Prove.lean", "import Supermath.Statement\n")
+            self.write(source, ".lake/build/junk.olean", "x")
+            self.write(source, "notes.txt", "not lean")
+            os.symlink("/etc/passwd", os.path.join(source, "Supermath", "Link.lean"))
+            dest = B.stage(source, builds)
+            self.assertTrue(dest.startswith(builds + os.sep))
+            self.assertTrue(os.path.isfile(os.path.join(dest, "Supermath", "Prove.lean")))
+            for absent in [".lake", "notes.txt", os.path.join("Supermath", "Link.lean")]:
+                self.assertFalse(os.path.exists(os.path.join(dest, absent)), absent)
+            self.assertFalse(os.path.exists(os.path.join(source, "lakefile.toml")), "the source is never written")
+            self.assertEqual(B.stage(source, builds), dest)
+
+    def test_keeps_modification_times_and_drops_deleted_sources(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            source = os.path.join(tmp, "candidate", "lean")
+            builds = os.path.join(tmp, "builds")
+            kept = self.write(source, "Supermath/A.lean", "theorem a : True := trivial\n")
+            gone = self.write(source, "Supermath/B.lean", "theorem b : True := trivial\n")
+            os.utime(kept, (1_000_000, 1_000_000))
+            dest = B.stage(source, builds)
+            self.assertEqual(int(os.stat(os.path.join(dest, "Supermath", "A.lean")).st_mtime), 1_000_000)
+            built = self.write(dest, ".lake/build/lib/lean/Supermath/A.olean", "built")
+            os.remove(gone)
+            with open(kept, "a", encoding="utf-8") as f:
+                f.write("-- edited\n")
+            B.stage(source, builds)
+            self.assertFalse(os.path.exists(os.path.join(dest, "Supermath", "B.lean")))
+            with open(os.path.join(dest, "Supermath", "A.lean"), encoding="utf-8") as f:
+                self.assertIn("edited", f.read())
+            self.assertTrue(os.path.exists(built), "build output survives a restage")
+
+    def test_two_projects_build_apart(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            builds = os.path.join(tmp, "builds")
+            one = os.path.join(tmp, "one", "lean")
+            two = os.path.join(tmp, "two", "lean")
+            for source in [one, two]:
+                self.write(source, "Supermath/A.lean", "theorem a : True := trivial\n")
+            self.assertNotEqual(B.stage(one, builds), B.stage(two, builds))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,8 @@
+{
+  "hard_constraints": [
+    "never edit lean/Supermath/Statement.lean, lean/lakefile.toml or lean/lean-toolchain",
+    "never restate the conjecture: import Supermath.Statement and use Conjecture",
+    "never add an axiom, and never claim a result the Lean checker has not confirmed",
+    "the prover writes Prove.lean and its lemmas; the refuter writes Refute.lean and its search code"
+  ]
+}

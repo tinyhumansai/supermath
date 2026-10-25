@@ -72,6 +72,11 @@ class Config:
         self.host = environ.get("PY_SERVICE_HOST", "0.0.0.0")
         self.port = env_int(environ, "PY_SERVICE_PORT", 3160)
         self.projects = environ.get("SUPERMATH_PROJECTS", "/projects")
+        # Directories a request's `root` may name, colon-separated: where
+        # projects off the volume live, such as rsi-ralph candidate checkouts.
+        self.roots = [
+            os.path.realpath(p) for p in environ.get("SUPERMATH_ROOTS", "").split(":") if os.path.isabs(p)
+        ]
         self.max_timeout_s = env_int(environ, "PY_MAX_TIMEOUT_S", 900)
         self.memory_mb = env_int(environ, "PY_MEMORY_MB", 4096)
         self.output_mb = env_int(environ, "PY_OUTPUT_MB", 16)
@@ -161,16 +166,28 @@ def common_request(config, body):
     return project, path, seed, float(timeout)
 
 
-def resolve_file(config, project, path):
+def project_root(config, project, root):
+    """The project's real directory: `root` when the request names one inside
+    an allowed directory, else <projects>/<project>."""
+    if root is None:
+        return os.path.realpath(os.path.join(os.path.realpath(config.projects), project))
+    if not isinstance(root, str) or not os.path.isabs(root):
+        raise HttpError(400, "invalid_input", "root must be an absolute directory")
+    real = os.path.realpath(root)
+    if not any(real == allowed or real.startswith(allowed + os.sep) for allowed in config.roots):
+        raise HttpError(400, "invalid_input", "root is not inside an allowed directory")
+    return real
+
+
+def resolve_file(config, project, path, root=None):
     """The file's real path, refusing anything that leaves the project."""
-    root = os.path.realpath(config.projects)
-    project_root = os.path.realpath(os.path.join(root, project))
-    target = os.path.realpath(os.path.join(project_root, path))
-    if not target.startswith(project_root + os.sep) or not target.endswith(".py"):
+    base = project_root(config, project, root)
+    target = os.path.realpath(os.path.join(base, path))
+    if not target.startswith(base + os.sep) or not target.endswith(".py"):
         raise HttpError(400, "invalid_input", "path leaves the project")
     if not os.path.isfile(target):
         raise HttpError(404, "not_found", f"{path} does not exist in project {project}")
-    return os.path.join(project_root, "python"), target
+    return os.path.join(base, "python"), target
 
 
 def module_name(path):
@@ -211,7 +228,7 @@ def build_request(config, kind, body):
         if isinstance(max_frame, bool) or not isinstance(max_frame, int) or max_frame < 1:
             raise HttpError(400, "invalid_input", "max_frame must be a positive integer")
         request.update(predicate=predicate, frame=frame, max_frame=max_frame)
-    project_dir, target = resolve_file(config, project, path)
+    project_dir, target = resolve_file(config, project, path, body.get("root"))
     request["project_dir"] = project_dir
     return request, target, timeout
 

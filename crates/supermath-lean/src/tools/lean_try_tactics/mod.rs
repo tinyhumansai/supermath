@@ -196,6 +196,7 @@ impl LeanTryTactics {
             .client
             .tactics(&TacticsRequest {
                 project: slug.to_owned(),
+                root: self.shared.workspace.service_root(),
                 path: path.to_string(),
                 line: args.sorry.line,
                 column: args.sorry.column,

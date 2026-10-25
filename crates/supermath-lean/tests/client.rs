@@ -19,6 +19,7 @@ use support::{Reply, Stub, config, dead_url, service};
 fn check_request() -> CheckRequest {
     CheckRequest {
         project: "demo".into(),
+        root: None,
         path: "lean/Supermath/Clean.lean".into(),
         targets: vec!["two_add_two".into()],
         uses: false,
@@ -57,6 +58,7 @@ async fn every_route_posts_json_to_its_own_path() {
     client
         .goals(&GoalsRequest {
             project: "demo".into(),
+            root: None,
             path: "lean/Supermath/Main.lean".into(),
             line: 1,
             column: 0,
@@ -67,6 +69,7 @@ async fn every_route_posts_json_to_its_own_path() {
     let tactics = client
         .tactics(&TacticsRequest {
             project: "demo".into(),
+            root: None,
             path: "lean/Supermath/Main.lean".into(),
             line: 1,
             column: 0,

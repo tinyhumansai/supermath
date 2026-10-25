@@ -77,6 +77,10 @@ pub struct Sorry {
 pub struct CheckRequest {
     /// The project slug.
     pub project: String,
+    /// The project's absolute directory, when it is not `<projects>/<slug>`
+    /// on the service's mount (`Workspace::service_root`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
     /// The file, relative to the project root.
     pub path: String,
     /// Declarations to run `#print axioms` on, after elaboration.
@@ -114,6 +118,10 @@ pub struct CheckReply {
 pub struct GoalsRequest {
     /// The project slug.
     pub project: String,
+    /// The project's absolute directory, when it is not `<projects>/<slug>`
+    /// on the service's mount (`Workspace::service_root`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
     /// The file, relative to the project root.
     pub path: String,
     /// One-based line.
@@ -139,6 +147,10 @@ pub struct GoalsReply {
 pub struct TacticsRequest {
     /// The project slug.
     pub project: String,
+    /// The project's absolute directory, when it is not `<projects>/<slug>`
+    /// on the service's mount (`Workspace::service_root`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
     /// The file, relative to the project root.
     pub path: String,
     /// One-based line of the `sorry`.
@@ -183,6 +195,10 @@ pub struct TacticsReply {
 pub struct DeclRequest {
     /// The project slug.
     pub project: String,
+    /// The project's absolute directory, when it is not `<projects>/<slug>`
+    /// on the service's mount (`Workspace::service_root`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
     /// The declaration's full name.
     pub name: String,
     /// A project file to elaborate first, when the name is a project's own.
@@ -250,6 +266,10 @@ pub struct SearchReply {
 pub struct CounterRequest {
     /// The project slug.
     pub project: String,
+    /// The project's absolute directory, when it is not `<projects>/<slug>`
+    /// on the service's mount (`Workspace::service_root`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub root: Option<String>,
     /// The file declaring the predicate, relative to the project root.
     pub path: String,
     /// The predicate's full name.

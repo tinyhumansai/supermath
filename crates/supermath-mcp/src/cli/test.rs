@@ -60,6 +60,32 @@ fn every_command_takes_an_optional_project() {
 }
 
 #[test]
+fn loop_new_and_score_proof_name_their_arguments() {
+    assert_eq!(
+        command(&["loop", "new", "demo", "Statement.lean"]),
+        Command::LoopNew {
+            slug: "demo".into(),
+            statement: PathBuf::from("Statement.lean"),
+            dir: None,
+        }
+    );
+    assert_eq!(
+        command(&["loop", "new", "demo", "S.lean", "elsewhere/demo"]),
+        Command::LoopNew {
+            slug: "demo".into(),
+            statement: PathBuf::from("S.lean"),
+            dir: Some(PathBuf::from("elsewhere/demo")),
+        }
+    );
+    assert_eq!(
+        command(&["score", "proof", "demo"]),
+        Command::ScoreProof {
+            project: "demo".into()
+        }
+    );
+}
+
+#[test]
 fn options_are_read_wherever_they_appear() {
     let parsed = parse(&args(&[
         "--env-file",
@@ -106,6 +132,10 @@ fn anything_else_is_a_usage_error() {
         &["call"],
         &["call", "t", "a", "b"],
         &["hive-tools", "a", "b"],
+        &["loop", "new", "demo"],
+        &["loop", "new", "demo", "s", "d", "e"],
+        &["score", "proof"],
+        &["score", "lemma", "demo"],
         &["serve", "--project-dir"],
         &["serve", "--env-file", "a", "--env-file", "b"],
     ] {

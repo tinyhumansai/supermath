@@ -145,6 +145,7 @@ impl LeanSearchCounterexample {
             .client
             .counterexample(&CounterRequest {
                 project: slug.to_owned(),
+                root: self.shared.workspace.service_root(),
                 path: path.to_string(),
                 predicate: predicate.to_owned(),
                 from,

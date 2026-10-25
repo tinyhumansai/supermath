@@ -59,7 +59,15 @@ Lean source is untrusted. Elaboration can run arbitrary code through
 The contract between `crates/supermath-lean` and `docker/lean/server.py`.
 Every route but `/health` is a JSON `POST`; a request names a project `slug`
 and a `path` and the service reads the file itself from the `projects` volume
-(a request never carries source). Replies are `200` with a `status`:
+(a request never carries source). A request may also carry `root`, the
+project's absolute directory, when the project is not on that volume, as with
+an rsi-ralph candidate checkout (`Workspace::single`, which sends it). The
+root must lie inside a directory the service's `SUPERMATH_ROOTS` lists
+(colon-separated; unset allows none), or the request is a `400`; see
+`compose.rsi.yaml`. Such a project is only read: when a file imports other
+project modules, its `lean/` sources are staged under `LEAN_BUILDS_DIR`
+(default `/tmp/lean-builds`) and built there, so no `.lake` lands in the
+checkout. Replies are `200` with a `status`:
 
 | `status` | Meaning |
 | --- | --- |
