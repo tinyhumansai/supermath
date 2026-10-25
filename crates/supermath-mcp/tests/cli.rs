@@ -190,3 +190,119 @@ fn hive_tools_declares_every_tool_against_this_binary() {
     assert_eq!(command[3], "demo-problem");
     assert_eq!(command[7], env_file.to_str().unwrap());
 }
+
+const STATEMENT: &str = "import Mathlib\n\nnamespace Supermath\n\n\
+                         def Conjecture : Prop := 2 + 2 = 4\n\nend Supermath\n";
+
+#[test]
+fn loop_new_writes_a_loop_folder_that_runs_this_binary() {
+    let root = tempfile::tempdir().unwrap();
+    let statement = root.path().join("Statement.lean");
+    std::fs::write(&statement, STATEMENT).unwrap();
+    let dir = root.path().join("loops/two-add-two");
+    let out = binary()
+        .args(["loop", "new", "Two Add Two"])
+        .arg(&statement)
+        .arg(&dir)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert_eq!(
+        String::from_utf8_lossy(&out.stdout).trim(),
+        dir.to_str().unwrap()
+    );
+    let manifest: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(dir.join("rsi.json")).unwrap()).unwrap();
+    assert_eq!(manifest["name"], "two-add-two");
+    let scorer = manifest["score"]["scorers"][0]["run"].as_str().unwrap();
+    assert!(
+        scorer.starts_with(env!("CARGO_BIN_EXE_supermath-mcp")),
+        "{scorer}"
+    );
+    assert!(dir.join("subject/lean/Supermath/Statement.lean").is_file());
+
+    // A second run never overwrites it; a missing statement file fails too.
+    let again = binary()
+        .args(["loop", "new", "two-add-two"])
+        .arg(&statement)
+        .arg(&dir)
+        .output()
+        .unwrap();
+    assert!(!again.status.success());
+    assert!(String::from_utf8_lossy(&again.stderr).contains("already exists"));
+    let missing = binary()
+        .args(["loop", "new", "x", "/nonexistent/Statement.lean"])
+        .output()
+        .unwrap();
+    assert!(!missing.status.success());
+}
+
+#[test]
+fn score_proof_needs_the_rsi_ralph_variables() {
+    let out = binary().args(["score", "proof", "demo"]).output().unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("RSI_CANDIDATE is not set"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn score_proof_checks_a_copy_and_writes_the_result() {
+    let lean = LeanService::start().await;
+    let root = tempfile::tempdir().unwrap();
+    let candidate = root.path().join("candidate");
+    let put = |path: &str, text: &str| {
+        let path = candidate.join(path);
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(path, text).unwrap();
+    };
+    put("lean/Supermath/Statement.lean", STATEMENT);
+    put(
+        "lean/Supermath/Prove.lean",
+        "import Supermath.Statement\n\nnamespace Supermath\n\ntheorem proof : Conjecture := by\n  norm_num\n\nend Supermath\n",
+    );
+    let out_dir = root.path().join("out");
+    std::fs::create_dir_all(&out_dir).unwrap();
+    let out = binary()
+        .args(["score", "proof", "demo"])
+        .env("RSI_CANDIDATE", &candidate)
+        .env("RSI_OUT", &out_dir)
+        .env("LEAN_URL", &lean.stub.base)
+        .output()
+        .unwrap();
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    assert!(stdout.starts_with("METRIC proof="), "{stdout}");
+    let result: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(out_dir.join("result.json")).unwrap())
+            .unwrap();
+    let score = result["score"].as_f64().unwrap();
+    assert!((0.0..=1.0).contains(&score), "{result}");
+    assert_eq!(stdout.trim(), format!("METRIC proof={score}"));
+
+    // Both checks ran on the copy, never on the candidate.
+    let sent = lean.stub.bodies("/check");
+    let copy = out_dir.join("project");
+    let paths: Vec<&str> = sent
+        .iter()
+        .map(|body| body["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        paths,
+        [
+            "lean/Supermath/Prove.lean",
+            "lean/Supermath/ScoreProved.lean"
+        ]
+    );
+    assert!(
+        sent.iter()
+            .all(|body| body["root"] == copy.to_str().unwrap())
+    );
+    assert!(!candidate.join("lean/Supermath/ScoreProved.lean").exists());
+}

@@ -1,0 +1,10 @@
+name = "supermath"
+defaultTargets = ["Supermath"]
+
+[[lean_lib]]
+name = "Supermath"
+globs = ["Supermath", "Supermath.+"]
+
+[[require]]
+name = "mathlib"
+path = "/opt/lean-env/.lake/packages/mathlib"

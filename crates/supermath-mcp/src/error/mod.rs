@@ -40,6 +40,28 @@ pub enum Error {
         #[source]
         source: std::io::Error,
     },
+    /// `loop new` was pointed at a folder that already exists.
+    #[error("{0} already exists")]
+    LoopExists(String),
+    /// A loop's statement file does not declare the conjecture.
+    #[error("invalid statement: {0}")]
+    InvalidStatement(String),
+    /// The compiled-in loop template is not valid JSON where it must be.
+    #[error("loop template: {0}")]
+    Template(String),
+    /// A scorer ran without the variables rsi-ralph sets for it.
+    #[error("{0} is not set; run this as an rsi-ralph scorer")]
+    MissingEnv(&'static str),
+    /// A file of a loop folder or a scorer's working copy could not be
+    /// read or written.
+    #[error("{path}: {source}")]
+    Io {
+        /// The file or folder.
+        path: String,
+        /// The underlying error.
+        #[source]
+        source: std::io::Error,
+    },
     /// The command line was not understood.
     #[error("{0}")]
     Usage(String),
