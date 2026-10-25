@@ -312,36 +312,6 @@ impl Ledger {
         })
     }
 
-    /// Sets a claim's alignment: the verdict of an alignment review.
-    ///
-    /// No tool exposes it to a model: an alignment verdict comes from a
-    /// review, never from the model whose claim it is.
-    ///
-    /// # Errors
-    ///
-    /// [`Error::ClaimNotFound`] when the claim is missing, and the memory
-    /// errors.
-    pub async fn set_alignment(
-        &self,
-        ctx: &CallContext,
-        id: &str,
-        alignment: Alignment,
-    ) -> Result<Entry> {
-        let slug = ctx.project.slug();
-        let Some(old) = self.get(slug, id).await? else {
-            return Err(Error::ClaimNotFound(id.to_string()));
-        };
-        if old.alignment == alignment {
-            return Ok(old);
-        }
-        let mut entry = old.clone();
-        entry.revision += 1;
-        entry.supersedes = Some(format!("{}#{}", old.id, old.revision));
-        entry.alignment = alignment;
-        self.write(slug, &entry).await?;
-        Ok(entry)
-    }
-
     /// Records a bound on a named quantity if it improves on the best so far,
     /// and returns the best bound either way.
     ///

@@ -31,11 +31,9 @@ pub trait Tool: Send + Sync {
   never from arguments), the `call_id` for the call log, the caller's
   `evidence_origin` (`Collected` or `Supplied`), a `Budget`, and a
   `Cancellation` signal (a cloneable watch channel; `tokio` `sync` only).
-- `Kind::Agentic` names its backend (`Gemini` or `OpenHuman`), and an
+- `Kind::Agentic` names its backend (`Gemini`, the only one), and an
   agentic tool's description must begin "Runs a … turn"
-  ([kinds](../README.md#primitive-and-agentic-tools)). `OpenHuman` is the
-  backend of the removed `agent_*` tools; it stays in the contract, but no
-  tool declares it ([ADR 0010](../../../adr/0010-run-on-rsi-ralph.md)).
+  ([kinds](../README.md#primitive-and-agentic-tools)).
 - `Exposure` is informational: the MCP server publishes it in a tool's
   `_meta`, and nothing in this repository defers or ranks tools by it.
 
