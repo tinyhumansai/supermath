@@ -61,5 +61,5 @@
     "candidatesTokenCount": 45,
     "totalTokenCount": 165
   },
-  "modelVersion": "gemini-2.5-flash"
+  "modelVersion": "gemini-3.5-flash"
 }

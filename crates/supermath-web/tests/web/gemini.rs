@@ -11,7 +11,7 @@ async fn debug_output_redacts_the_key() {
     let stub = fixed_gemini("grounded.json").await;
     let client = GeminiClient::new(&config(&stub), Arc::new(SystemClock)).unwrap();
     assert!(client.has_api_key());
-    assert_eq!(client.model(), "gemini-2.5-flash");
+    assert_eq!(client.model(), supermath_web::DEFAULT_MODEL);
     let shown = format!("{client:?}");
     assert!(!shown.contains(KEY));
     assert!(shown.contains("<redacted>"));

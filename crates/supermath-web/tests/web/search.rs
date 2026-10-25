@@ -66,7 +66,7 @@ async fn a_grounded_answer_becomes_findings_with_resolved_sources() {
     assert_eq!(envelope.unknowns.len(), 0);
 
     let usage = envelope.usage.as_ref().unwrap();
-    assert_eq!(usage.model, "gemini-2.5-flash");
+    assert_eq!(usage.model, supermath_web::DEFAULT_MODEL);
     assert_eq!((usage.turns, usage.tool_calls), (1, 2));
     assert_eq!((usage.input_tokens, usage.output_tokens), (120, 45));
     assert_no_key(&envelope);
@@ -90,7 +90,10 @@ async fn the_request_asks_for_grounding_at_temperature_zero_and_sends_the_key_as
     assert_eq!(generate.method, "POST");
     assert_eq!(
         generate.path,
-        "/v1beta/models/gemini-2.5-flash:generateContent"
+        format!(
+            "/v1beta/models/{}:generateContent",
+            supermath_web::DEFAULT_MODEL
+        )
     );
     assert_eq!(generate.headers["x-goog-api-key"], KEY);
     assert!(!generate.path.contains(KEY) && !generate.body.contains(KEY));
