@@ -4,7 +4,7 @@
 - **Crate:** `supermath-calc`
 - **Parent:** [`../README.md`](../README.md)
 
-The two arithmetic tools the scaffold already ships, renamed and moved to
+The two arithmetic tools the first scaffold shipped, renamed and moved to
 their own crate. They answer in microseconds with no service behind them,
 so the agent has exact arithmetic even when the
 [Python service](../python/README.md) is down. Anything larger belongs in
@@ -18,7 +18,7 @@ so the agent has exact arithmetic even when the
 | Depends on | `supermath-tool` |
 | Public API | `factorize`, `gcd`, `FACTOR_LIMIT`, and the tools below |
 | Configuration | none |
-| Tests | answers and refusals for each tool, moved from `supermath-agent`'s toolkit tests |
+| Tests | answers and refusals for each tool |
 
 ## Tools
 

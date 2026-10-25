@@ -40,4 +40,4 @@ A JSON number past `u64` reaches the tool as a float that has already lost
 its digits, so that refusal suggests only the `file_write` and its message
 asks for `n` as a decimal string. Calc cannot see which other MCP servers
 the caller has connected, so it suggests none of them (such as Jacobian's
-`math.find`, [`crates.md`](../../crates.md#consuming-other-mcp-servers)).
+`math.find`).

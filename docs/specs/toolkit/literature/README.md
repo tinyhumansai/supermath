@@ -8,7 +8,7 @@ Before attacking a conjecture, find out what is known: who stated it, what
 is proved, what was tried and failed, and whether the gap has a name
 ([`strategies/01-intake.md`](../../../research/strategies/01-intake.md)). These
 tools find and read papers. They never summarize with a model; reading for
-meaning is [`agent_digest_paper`](../subagents/tools/agent_digest_paper.md)'s job.
+meaning is the calling agent's job.
 
 ## Sources
 

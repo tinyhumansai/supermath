@@ -52,8 +52,8 @@ One run:
     `toolpacks`), but `rsi-ralph-swarm` builds its own `AgentSpec` and never
     adds them.
   - tinyhumansai/rsi-ralph#75 attaches them through
-    `OpenHumanHost::with_tools`.
-  - Until it lands, a seat can reach the same commands only through the
+    `OpenHumanHost::with_tools`. It merged as `e40c7e3`.
+  - Before it, a seat could reach the same commands only through the
     `shell` tool.
 - **Package files are not runnable.** The swarm receives the package as a
   path → text map, and `load_package` keeps only root `*.json` and nested
@@ -62,7 +62,7 @@ One run:
   skipped.**
   - `.lake` is not among them at `8e44890`, so a Lean check's build output
     in a candidate counts as an edit outside the surface.
-  - tinyhumansai/rsi-ralph#76 adds it.
+  - tinyhumansai/rsi-ralph#76 adds it; it merged as `d03d3dd`.
   - The incumbent is copied into the run store and the loop folder is never
     written.
 - **Scorers.**

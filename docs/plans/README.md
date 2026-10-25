@@ -23,5 +23,3 @@ into the plan.
 
 - [`lean-toolkit.md`](lean-toolkit.md): the conjecture toolkit, one crate
   per tool domain, in six phases.
-- [`conjecture-duel.md`](conjecture-duel.md): `agent_settle`, a prover and
-  a refuter racing in parallel on one conjecture.

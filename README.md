@@ -1,56 +1,55 @@
 # supermath
 
-A scaffold for a math agent built on
-[OpenHuman](https://github.com/tinyhumansai/openhuman): the runtime, model
-routing, tool selection, a small toolkit, and durable memory, wired together.
-How the agent works on a problem is not designed yet.
+A toolkit for settling math conjectures, and the loops that use it. The
+agents run in [`rsi-ralph`](https://github.com/tinyhumansai/rsi-ralph):
+a hive of seats works on a frozen Lean statement over epochs, and a scorer
+promotes only what Lean checks. supermath supplies the tools (project files,
+Lean, Python, arXiv and web search, the claim ledger, exact arithmetic), the
+scorer, and the loop template.
 
 ```text
-supermath-agent ── OpenHuman runtime ── chat + embeddings ──▶ Surplus Intelligence (`deepseek-v4.1-flash`, medium effort)
-                     │  agent per project
-                     │  tools: toolkit (deferred ones via tool_search)
-                     │  tool_search ranked by Jev ──────────▶ OpenRouter
-                     └─ memory ─────────────────────────────▶ CortexDB (embeds + extracts via Surplus)
+rsi-ralph run loops/<slug> ── seats (prover, refuter, lead) ── models ──▶ Surplus Intelligence
+                     │  tools: `supermath-mcp call <tool>`, one process per call
+                     │           ├─ lean_* ─▶ Lean service   py_* ─▶ Python service
+                     │           └─ ledger_*, recall_memory ─▶ CortexDB (embeds + extracts via Surplus)
+                     └─ scorer: `supermath-mcp score proof` ─▶ Lean service
 ```
 
-## Run it
+## Settle a conjecture with an rsi-ralph loop
+
+`supermath-mcp` writes a loop folder for one conjecture:
+- the statement is frozen;
+- a prover and a refuter each work in their own checkout;
+- every toolkit tool is offered as an executable tool;
+- a scorer accepts a side only when Lean checks its theorem at exactly the
+  pinned type.
 
 ```sh
-git submodule update --init --recursive
-cp .env.example .env          # Surplus Intelligence and OpenRouter keys
-docker compose up --build     # CortexDB, then `supermath-agent check`
+cp .env.example .env          # the Surplus Intelligence key
+cargo install --path crates/supermath-mcp
+docker compose -f compose.yaml -f compose.rsi.yaml --profile host up -d lean python cortexdb
+supermath-mcp loop new gauss-sum loops/statements/gauss-sum.lean --env-file .env
+TINYRSI_UPSTREAM=https://api.surplusintelligence.ai/v1 rsi-ralph run loops/gauss-sum
 ```
 
-`compose.yaml` runs two services by default:
+It needs an `rsi-ralph` built from `e40c7e3` or later. Details:
+[`docs/specs/loops.md`](docs/specs/loops.md).
+
+`compose.yaml` runs three services by default:
 
 | Service | Image | Role |
 | --- | --- | --- |
 | `cortexdb` | `cortexdb/cortexdb:v0.10.4` | memory; extracts with `deepseek-v4.1-flash` and embeds with `venice-embed-1`, both on Surplus |
-| `agent` | built from `Dockerfile` | `supermath-agent check`: boots the runner and reports readiness |
+| `lean` | built from `docker/lean` | the pinned Lean toolchain and Mathlib, no egress |
+| `python` | built from `docker/python` | the pinned Python solvers, no egress |
 
-Every model call goes straight to Surplus Intelligence with concrete model
-names ([ADR 0008](docs/adr/0008-call-surplus-intelligence-directly.md)); Jev
-alone goes to OpenRouter. On the host, against a running CortexDB:
-
-```sh
-export SURPLUS_API_KEY=... OPENROUTER_API_KEY=... CORTEX_API_KEY=supermath-local
-cargo run -p supermath-agent -- check
-```
-
-Run the agent on a problem, for up to four turns of one session, with every
-tool call (the `agent_*` children's included) reported on stderr:
-
-```sh
-cargo run -p supermath-agent -- solve my-project problem.md 4
-```
-
-OpenHuman's logs go to `$SUPERMATH_WORKSPACE/logs/` (default `.supermath/`).
+The `host` profile publishes Lean and Python on loopback for tools running
+on the host, and `compose.rsi.yaml` mounts rsi-ralph's run store into both,
+so they can check a candidate checkout.
 
 ## Use the tools from Claude Code (MCP)
 
-`supermath-mcp` serves the whole toolkit (project files, Lean, Python, arXiv
-and web search, the claim ledger, exact arithmetic) over MCP on stdio. It does
-not build OpenHuman, so it installs in a minute rather than ten:
+`supermath-mcp` also serves the whole toolkit over MCP on stdio:
 
 ```sh
 cargo install --path crates/supermath-mcp
@@ -70,33 +69,15 @@ claude mcp add supermath -- docker compose --profile mcp run --rm -T mcp serve m
 
 Details: [`docs/specs/toolkit/mcp/README.md`](docs/specs/toolkit/mcp/README.md).
 
-## Settle a conjecture with an rsi-ralph loop
-
-[`rsi-ralph`](https://github.com/tinyhumansai/rsi-ralph) runs a hive of agents
-over epochs and promotes only a candidate that scores better. `supermath-mcp`
-writes a loop folder for one conjecture:
-- the statement is frozen;
-- a prover and a refuter each work in their own checkout;
-- every toolkit tool is offered as an executable tool;
-- a scorer accepts a side only when Lean checks its theorem at exactly the
-  pinned type.
-
-```sh
-docker compose -f compose.yaml -f compose.rsi.yaml --profile host up -d lean python cortexdb
-supermath-mcp loop new gauss-sum loops/statements/gauss-sum.lean --env-file .env
-TINYRSI_UPSTREAM=https://api.surplusintelligence.ai/v1 rsi-ralph run loops/gauss-sum
-```
-
-Details: [`docs/specs/loops.md`](docs/specs/loops.md).
-
 ## Layout
 
 ```text
-Cargo.toml                 # workspace, lints, OpenHuman's [patch] table
-crates/supermath-mcp/      # composes the tool domains; `supermath-mcp serve`
-crates/supermath-agent/    # config, memory, toolkit, runner, `check` binary
-vendor/openhuman/          # OpenHuman, a git submodule
-compose.yaml, Dockerfile   # the stack
+Cargo.toml                 # workspace and lints
+crates/supermath-mcp/      # composes the tool domains; serve, call, loop new, score proof
+crates/supermath-*/        # one crate per tool domain, and the tool contract
+loops/statements/          # conjecture statements to start loops from
+bench/formalize/           # the formalization benchmark cases
+compose.yaml, docker/      # CortexDB and the Lean, Python and MCP images
 docs/                      # specs, ADRs, and research
 ```
 
@@ -108,17 +89,19 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Tests never reach the network: memory and the binary run against loopback
-stubs. A cold build compiles all of OpenHuman, which takes a few minutes.
+Tests never reach the network: every backend runs against loopback stubs.
 
 ## Documentation
 
-- [`docs/specs/agent-runner.md`](docs/specs/agent-runner.md): what is wired,
-  the configuration, and the invariants
+- [`docs/specs/loops.md`](docs/specs/loops.md): a conjecture as an rsi-ralph
+  loop, its scorer, and the toolkit as executable tools
+- [`docs/specs/toolkit/`](docs/specs/toolkit/README.md): every tool, one
+  folder per crate
 - [`docs/adr/`](docs/adr/0001-record-architecture-decisions.md): decisions,
-  starting with why the agent embeds OpenHuman
-- [`docs/research/`](docs/research/README.md): REA and Jacobian, and the
-  math-superagent research notes
+  up to why the agents run in rsi-ralph
+  ([0010](docs/adr/0010-run-on-rsi-ralph.md))
+- [`docs/research/`](docs/research/README.md): rsi-ralph, REA and Jacobian,
+  and the math-superagent research notes
 - [`AGENTS.md`](AGENTS.md): guidelines for humans and agents
 
 ## License

@@ -13,9 +13,9 @@ whether it is a theorem, definition, structure, or instance.
 Names are looked up in Mathlib and in the project's package, so a
 declaration written with [`file_write`](../../files/tools/file_write.md) can be inspected
 too; for those, the answer adds the `path` and line of the file it lives
-in. The signature never includes the proof, which is what lets
-[`agent_review_alignment`](../../subagents/tools/agent_review_alignment.md) judge a statement
-without seeing how it was proved.
+in. The signature never includes the proof, so a reviewer can judge a
+statement's [alignment](../../ledger/README.md#alignment) without seeing how
+it was proved.
 
 `name` must be letters, digits, `_`, `'`, `.`, `!`, `?` only; anything else is
 `INVALID_INPUT`. `TIMEOUT` and `BACKEND_UNAVAILABLE` are as for

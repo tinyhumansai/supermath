@@ -93,7 +93,7 @@ on the declaration itself and records the status that check earns; given a
 A call id that is not in the log is `FORBIDDEN`, as is one that ran in
 another project, was a different tool, or did not end `ok`. A `lean` source
 whose `file_sha256` is not the digest Lean checked is `CONFLICT`. The rule
-holds for every caller, our runner included. This is the
+holds for every caller, a loop's seats included. This is the
 `evidence_origin` rule from
 [`strategies/04-trust.md`](../../../research/strategies/04-trust.md).
 
@@ -101,8 +101,10 @@ holds for every caller, our runner included. This is the
 
 Whether a Lean statement says what the informal statement says is not
 something a kernel checks. `alignment` is `not_reviewed` on every new Lean
-claim, and only [`agent_review_alignment`](../subagents/tools/agent_review_alignment.md)
-changes it, to `accepted` or `disputed`. A `formalised` claim with
+claim, and only `Ledger::set_alignment` changes it, to `accepted` or
+`disputed`. No tool exposes it, and since `agent_review_alignment` was
+removed ([ADR 0010](../../../adr/0010-run-on-rsi-ralph.md)) nothing in this
+repository calls it, so every Lean claim stays `not_reviewed`. A `formalised` claim with
 `disputed` alignment is a theorem about something else; the solving loop
 must treat it as unproved.
 
@@ -178,7 +180,7 @@ source: the finite range the result covered), and `bound`
 | --- | --- |
 | Name | `supermath-ledger` |
 | Depends on | `supermath-tool`, `reqwest`, `serde`, `serde_json`, `tokio`, `async-trait`, `thiserror` |
-| Public API | `Memory` (the CortexDB client, moved from `supermath-agent`; its project type is exported as `MemoryProject`), `Config`, `Entry`, `Kind`, `Status`, `Source`, `Ledger`, the evidence ports below, and `tools(&Memory, &Arc<Ledger>)`, which returns the five tools |
+| Public API | `Memory` (the CortexDB client; its project type is exported as `MemoryProject`), `Config`, `Entry`, `Kind`, `Status`, `Source`, `Ledger`, the evidence ports below, and `tools(&Memory, &Arc<Ledger>)`, which returns the five tools |
 | Feature `test-support` | exposes the CortexDB loopback stubs (`memory::stub::{stub, FakeCortex}`) and `FakeLeanEvidence` to other crates' tests |
 | Configuration | `CORTEX_API_URL`, `CORTEX_API_KEY`, `CORTEX_SCOPE_ROOT` |
 | Tests | the CortexDB loopback stub, and fake evidence ports; every status transition, allowed and refused |
