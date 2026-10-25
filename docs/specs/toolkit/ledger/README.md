@@ -101,12 +101,12 @@ holds for every caller, a loop's seats included. This is the
 
 Whether a Lean statement says what the informal statement says is not
 something a kernel checks. `alignment` is `not_reviewed` on every new Lean
-claim, and only `Ledger::set_alignment` changes it, to `accepted` or
-`disputed`. No tool exposes it, and since `agent_review_alignment` was
-removed ([ADR 0010](../../../adr/0010-run-on-rsi-ralph.md)) nothing in this
-repository calls it, so every Lean claim stays `not_reviewed`. A `formalised` claim with
-`disputed` alignment is a theorem about something else; the solving loop
-must treat it as unproved.
+claim, and nothing in this repository changes it: the reviewer that set
+`accepted` or `disputed` was removed with `agent_review_alignment`
+([ADR 0010](../../../adr/0010-run-on-rsi-ralph.md)), and no tool lets a model
+set it. A re-recorded claim keeps the alignment it had, so entries written
+before then keep theirs. A `formalised` claim with `disputed` alignment is a
+theorem about something else; the solving loop must treat it as unproved.
 
 ## Edges
 

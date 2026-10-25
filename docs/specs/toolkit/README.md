@@ -90,9 +90,7 @@ Every tool is one of two kinds, declared by the tool and shown in the
   times, and the tool returns what that turn produced. The one family is
   **`agentic (Gemini)`**, the `web_*` search tools: one or more Gemini
   turns with Google Search grounding, where Gemini chooses the queries
-  ([`web/`](web/README.md)). Lives in `supermath-web`. The contract still
-  has `Kind::Agentic(Backend::OpenHuman)`, the kind of the removed
-  `agent_*` tools; no tool declares it.
+  ([`web/`](web/README.md)). Lives in `supermath-web`.
 
 An agentic tool is a different thing to call, and the contract says so:
 
