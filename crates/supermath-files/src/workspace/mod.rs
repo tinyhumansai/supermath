@@ -8,7 +8,13 @@
 //! <root>/<slug>/lean/Supermath/…      Lean modules
 //! <root>/<slug>/python/work/…         Python modules
 //! <root>/<slug>/.log/writes.jsonl     the write log
+//! <root>/<slug>/.log/calls.jsonl      the call log
 //! ```
+//!
+//! A workspace made with [`Workspace::single`] is one project's directory
+//! instead: every slug resolves to the root itself. A host uses it when
+//! the project lives somewhere other than under a projects root, such as
+//! the candidate checkout an `rsi-ralph` seat edits.
 //!
 //! This is the one place that touches those files. The four `file_*` tools
 //! use it to write, and `supermath-lean` and `supermath-python` use it to
@@ -31,6 +37,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use sha2::{Digest, Sha256};
 
+use crate::call_log::FileCallLog;
 use crate::error::{Error, Result};
 use crate::imports;
 use crate::path::{Language, ProjectPath};
@@ -52,6 +59,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 #[derive(Debug)]
 pub struct Workspace {
     root: PathBuf,
+    single: bool,
     write_lock: Mutex<()>,
 }
 
@@ -61,17 +69,36 @@ impl Workspace {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
             root: root.into(),
+            single: false,
             write_lock: Mutex::new(()),
         }
     }
 
-    /// The projects root.
+    /// A workspace that is the one project directory `dir`, which need not
+    /// exist yet: every valid slug resolves to `dir` itself.
+    ///
+    /// ```
+    /// use supermath_files::Workspace;
+    ///
+    /// let workspace = Workspace::single("/work/candidate");
+    /// assert_eq!(workspace.project_dir("demo").unwrap(), workspace.root());
+    /// ```
+    #[must_use]
+    pub fn single(dir: impl Into<PathBuf>) -> Self {
+        Self {
+            single: true,
+            ..Self::new(dir)
+        }
+    }
+
+    /// The projects root, or for [`Workspace::single`] the project itself.
     #[must_use]
     pub fn root(&self) -> &Path {
         &self.root
     }
 
-    /// The directory of project `slug`: `<root>/<slug>`.
+    /// The directory of project `slug`: `<root>/<slug>`, or the root for
+    /// [`Workspace::single`].
     ///
     /// # Errors
     ///
@@ -81,11 +108,48 @@ impl Workspace {
             && slug
                 .bytes()
                 .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-');
-        if valid {
-            Ok(self.root.join(slug))
-        } else {
+        if !valid {
             Err(Error::InvalidSlug(slug.to_owned()))
+        } else if self.single {
+            Ok(self.root.clone())
+        } else {
+            Ok(self.root.join(slug))
         }
+    }
+
+    /// The absolute project directory to name to a remote service (the Lean
+    /// and Python services), for a [`Workspace::single`]: such a project is
+    /// not at `<projects>/<slug>` on the service's own mount. `None` for a
+    /// projects root, where a service finds the project by its slug.
+    ///
+    /// ```
+    /// use supermath_files::Workspace;
+    ///
+    /// assert_eq!(Workspace::new("/data/projects").service_root(), None);
+    /// assert_eq!(
+    ///     Workspace::single("/work/candidate").service_root().as_deref(),
+    ///     Some("/work/candidate")
+    /// );
+    /// ```
+    #[must_use]
+    pub fn service_root(&self) -> Option<String> {
+        self.single.then(|| {
+            std::path::absolute(&self.root)
+                .unwrap_or_else(|_| self.root.clone())
+                .display()
+                .to_string()
+        })
+    }
+
+    /// The call log of project `slug`, shared by every process that opens it.
+    ///
+    /// # Errors
+    ///
+    /// [`Error::InvalidSlug`] as for [`Workspace::project_dir`].
+    pub fn call_log(&self, slug: &str) -> Result<FileCallLog> {
+        Ok(FileCallLog::new(
+            self.project_dir(slug)?.join(".log").join("calls.jsonl"),
+        ))
     }
 
     /// The write log of project `slug`.

@@ -54,6 +54,10 @@ object (at most 64 KB), `seed` a non-negative integer (default 0), and
 `{project, path, predicate, frame, seed, timeout_s, max_frame}`; `frame` is as
 in [`py_search_counterexample`](tools/py_search_counterexample.md) and
 `max_frame` (default 10^8) is the most values the service will check.
+Either may also carry `root`, the project's absolute directory, for a project
+off the `projects` volume (an rsi-ralph candidate checkout); it must lie
+inside a directory `SUPERMATH_ROOTS` lists, or the request is a `400`
+`invalid_input`.
 
 A run that happened answers `200`, whatever came of it:
 

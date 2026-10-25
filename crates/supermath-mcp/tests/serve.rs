@@ -48,7 +48,12 @@ async fn the_binary_handshakes_lists_tools_and_serves_calls() {
     assert_eq!(factor.is_error, Some(false));
     let factored = envelope(&factor);
     assert_eq!(factored["outcome"], "ok");
-    assert_eq!(factored["call_id"], "call-1");
+    // `serve` keeps its call log on disk, so ids are unique across processes.
+    let call_id = factored["call_id"].as_str().unwrap();
+    assert!(
+        call_id.starts_with("call-") && call_id.ends_with("-1"),
+        "{call_id}"
+    );
     assert!(factored["data"].to_string().contains('5'), "{factored}");
 
     let written = client

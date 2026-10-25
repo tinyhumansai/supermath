@@ -224,6 +224,34 @@ async fn a_tool_source_is_checked_against_the_shared_call_log() {
 }
 
 #[tokio::test]
+async fn a_tool_source_from_another_process_is_found_in_the_call_log_on_disk() {
+    let env = Env::new()
+        .set("CORTEX_API_URL", cortex().await.url())
+        .set("CORTEX_API_KEY", "key");
+    // Two persistent toolkits stand in for two `supermath-mcp call` runs.
+    let first = supermath_mcp::Toolkit::compose_persistent(&env.config(), "demo").unwrap();
+    let ran = first.dispatch("calc_factor", json!({"n": 360})).await;
+    drop(first);
+    let second = supermath_mcp::Toolkit::compose_persistent(&env.config(), "demo").unwrap();
+    let earned = record(
+        &second,
+        json!({"kind": "result", "statement": "360 = 2^3 * 3^2 * 5", "frame": "n = 360",
+            "source": {"tool": {"tool": "calc_factor", "call_id": ran.call_id}}}),
+    )
+    .await;
+    assert_eq!(earned.data["status"], "checked", "{earned:?}");
+    // The in-memory log of a fresh process knows nothing of that call.
+    let forgetful = env.toolkit();
+    let refused = record(
+        &forgetful,
+        json!({"kind": "result", "statement": "360 = 2^3 * 3^2 * 5", "frame": "n = 360",
+            "source": {"tool": {"tool": "calc_factor", "call_id": ran.call_id}}}),
+    )
+    .await;
+    assert!(!refused.is_ok(), "{refused:?}");
+}
+
+#[tokio::test]
 async fn lean_blueprint_names_the_claim_recorded_for_a_declaration() {
     let (toolkit, _lean, _env, sha) = rig().await;
     let before = toolkit.dispatch("lean_blueprint", json!({})).await.envelope;
@@ -254,4 +282,33 @@ async fn every_dispatch_lands_in_one_call_log() {
         .map(|r| r.tool)
         .collect();
     assert!(tools.contains(&"lean_check".to_owned()) && tools.contains(&"calc_gcd_lcm".to_owned()));
+}
+
+#[tokio::test]
+async fn a_single_project_directory_is_named_to_the_lean_service() {
+    let lean = LeanService::start().await;
+    let candidate = tempfile::tempdir().unwrap();
+    let file = candidate.path().join(LEAN_PATH);
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    std::fs::write(&file, CLEAN_LEAN).unwrap();
+    let mut config = Env::new().set("LEAN_URL", &lean.stub.base).config();
+    config.files.project_dir = Some(candidate.path().to_path_buf());
+    let toolkit = supermath_mcp::Toolkit::compose_persistent(&config, "demo").unwrap();
+
+    let checked = toolkit
+        .dispatch("lean_check", json!({"path": LEAN_PATH}))
+        .await
+        .envelope;
+    assert_eq!(checked.outcome, Outcome::Ok, "{checked:?}");
+    let sent = lean.stub.bodies("/check");
+    assert_eq!(sent[0]["project"], "demo");
+    assert_eq!(sent[0]["root"], candidate.path().to_str().unwrap());
+
+    // A projects root names no directory: the service finds it by slug.
+    let env = Env::new().set("LEAN_URL", &lean.stub.base);
+    env.put(LEAN_PATH, CLEAN_LEAN);
+    env.toolkit()
+        .dispatch("lean_check", json!({"path": LEAN_PATH}))
+        .await;
+    assert_eq!(lean.stub.bodies("/check")[1].get("root"), None);
 }

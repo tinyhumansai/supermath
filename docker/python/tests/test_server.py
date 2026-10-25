@@ -249,6 +249,44 @@ class OutputLimitTests(ServiceCase):
         self.assertEqual((answer["result"], answer["limit"]), ("limit", "output"))
 
 
+class RootTests(ServiceCase):
+    """A request may name its project's directory when it is off the volume."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.allowed = tempfile.TemporaryDirectory()
+        cls.elsewhere = tempfile.TemporaryDirectory()
+        cls.config_overrides = {"SUPERMATH_ROOTS": "relative:" + cls.allowed.name}
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        cls.allowed.cleanup()
+        cls.elsewhere.cleanup()
+
+    def place(self, base, name, source):
+        path = os.path.join(base, "python", "work", name)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(source)
+        return "python/work/" + name
+
+    def test_a_root_inside_an_allowed_directory_is_the_project(self):
+        candidate = os.path.join(self.allowed.name, "candidates", "prover")
+        path = self.place(candidate, "seven.py", "def seven():\n    return 7\n")
+        status, answer = self.request("/run", {"project": "demo", "root": candidate, "path": path, "entry": "seven"})
+        self.assertEqual(status, 200, answer)
+        self.assertEqual(answer["value"], 7)
+
+    def test_a_root_elsewhere_or_relative_is_refused(self):
+        path = self.place(self.elsewhere.name, "seven.py", "def seven():\n    return 7\n")
+        for root, reason in [(self.elsewhere.name, "not inside an allowed"), ("relative", "absolute"), (7, "absolute")]:
+            status, answer = self.request("/run", {"project": "demo", "root": root, "path": path, "entry": "seven"})
+            self.assertEqual(status, 400, answer)
+            self.assertIn(reason, answer["error"]["message"])
+
+
 class SearchTests(ServiceCase):
     ODD = "def is_odd(n):\n    return n % 2 == 1\n"
 

@@ -24,7 +24,7 @@ let toolkit = Toolkit::compose(&config, project)?;
 | `FileObserver` (Python) | `supermath-files` | `supermath-python`'s run log |
 | `LeanEvidence` | `supermath-ledger` | `supermath-lean`'s checker |
 | `ClaimIndex` | `supermath-lean` | the ledger claims recorded through this toolkit ([below](#the-claim-index)) |
-| `CallLog` | `supermath-tool` | the process-wide call log every dispatch writes, and the ledger reads |
+| `CallLog` | `supermath-tool` | the call log every dispatch writes, and the ledger reads: in memory, or for `serve` and `call` the project's `.log/calls.jsonl`, shared by every process |
 
 A domain whose service is not configured (no `LEAN_URL`, no `PYTHON_URL`,
 no `GEMINI_API_KEY`) still registers its tools; they answer
@@ -67,8 +67,13 @@ caller, our runner included:
 ## The MCP server
 
 ```sh
-supermath-mcp serve [project]      # MCP over stdio
-supermath-mcp check [project]      # Lean, Python, CortexDB, Gemini, and arXiv reachable
+supermath-mcp serve [project]          # MCP over stdio
+supermath-mcp check [project]          # Lean, Python, CortexDB, Gemini, and arXiv reachable
+supermath-mcp call <tool> [project]    # one call: JSON args on stdin, the tools/call body on stdout
+supermath-mcp hive-tools [project]     # every tool as a tinyhivemind executable-tool declaration
+supermath-mcp loop new <slug> <statement.lean> [dir]   # an rsi-ralph loop folder (docs/specs/loops.md)
+supermath-mcp score proof <project>    # that loop's scorer, run by rsi-ralph
+# options: --project-dir <dir> (the project's directory), --env-file <file> (unset variables)
 ```
 
 - `tools/list` serves each tool's name, description, and schema. MCP has no
@@ -121,7 +126,7 @@ CortexDB refuses, so `recall_memory` and the `ledger_*` tools answer
 | --- | --- |
 | Name | `supermath-mcp` |
 | Depends on | `supermath-tool` and every primitive domain crate (`files`, `lean`, `python`, `literature`, `web`, `ledger`, `calc`), `rmcp` 3 (features `server` and `transport-io`) |
-| Public API | `Toolkit` (`compose`, `registry`, `dispatch`, `dispatch_with`, `call_log`), `Config`, `LeanBridge`, `RecordedClaims`, `McpServer`, `serve`, `serve_on`, and the `check` and `cli` modules |
+| Public API | `Toolkit` (`compose`, `compose_persistent`, `registry`, `dispatch`, `dispatch_with`, `call_log`), `Config`, `LeanBridge`, `RecordedClaims`, `McpServer`, `serve`, `serve_on`, and the `check` and `cli` modules |
 | Tests | composition with every backend stubbed; the ports wired to the right domains; `tests/serve.rs` performs the MCP handshake, lists tools, and calls `calc_factor` and `file_write` |
 
 ## Acceptance criteria

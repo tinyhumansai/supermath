@@ -28,7 +28,10 @@ projects/<slug>/
 ```
 
 The root is `SUPERMATH_PROJECTS` (default `./.supermath/projects`). The
-project slug comes from the host, never from an argument. In compose the
+project slug comes from the host, never from an argument. A host whose
+project lives elsewhere, such as an `rsi-ralph` candidate checkout, sets
+`SUPERMATH_PROJECT_DIR` (or calls `Workspace::single`): that directory is
+then the project, whatever the slug. In compose the
 `projects` volume is mounted by the agent, which writes, and by the `lean`
 and `python` services, which run what was written.
 
@@ -80,6 +83,12 @@ import check gives the caller an early, specific refusal.
   time. Agentic tools read this log (`Workspace::write_log(slug)?.for_call(id)`),
   not their child's reply, to learn what a turn wrote. A refused write
   leaves no line.
+- **Calls, on disk when asked.** `FileCallLog` (`Workspace::call_log(slug)`)
+  appends every call to `.log/calls.jsonl`, so a host that runs each tool
+  call as its own process keeps one log the ledger can check a `tool` source
+  against. It cannot fail a call: a record it cannot write is lost and a line
+  it cannot read is skipped, so the call is not found and a claim citing it
+  is refused.
 
 ## Observers
 
@@ -103,8 +112,8 @@ pub trait FileObserver: Send + Sync {
 | --- | --- |
 | Name | `supermath-files` |
 | Depends on | `supermath-tool`, `sha2`, `serde_json`, `tokio` |
-| Public API | `Workspace`, `ProjectPath`, `Language`, `WriteLog`, `FileObserver`, `LastResult`, `FilesConfig`, and the four tools (`file_tools`) |
-| Configuration | `SUPERMATH_PROJECTS` (`FilesConfig::from_env`) |
+| Public API | `Workspace`, `ProjectPath`, `Language`, `WriteLog`, `FileCallLog`, `FileObserver`, `LastResult`, `FilesConfig`, and the four tools (`file_tools`) |
+| Configuration | `SUPERMATH_PROJECTS`, `SUPERMATH_PROJECT_DIR` (`FilesConfig::from_env`) |
 
 ### What the language crates use
 

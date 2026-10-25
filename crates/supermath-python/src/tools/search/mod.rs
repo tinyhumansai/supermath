@@ -105,6 +105,7 @@ impl PySearchCounterexample {
         let prepared = shared.prepare(slug, &args.path)?;
         let request = SearchRequest {
             project: slug.to_owned(),
+            root: self.shared.workspace.service_root(),
             path: prepared.path.to_string(),
             predicate: args.predicate.clone(),
             frame: frame.to_wire(),

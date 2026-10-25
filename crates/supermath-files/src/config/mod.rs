@@ -2,8 +2,14 @@
 
 use std::path::PathBuf;
 
+use crate::workspace::Workspace;
+
 /// The environment variable that roots the projects directory.
 pub const PROJECTS_ENV: &str = "SUPERMATH_PROJECTS";
+
+/// The environment variable naming one project directory to work in instead
+/// of a projects root; see [`Workspace::single`].
+pub const PROJECT_DIR_ENV: &str = "SUPERMATH_PROJECT_DIR";
 
 /// The projects root when [`PROJECTS_ENV`] is unset.
 pub const DEFAULT_PROJECTS: &str = "./.supermath/projects";
@@ -14,18 +20,22 @@ pub struct FilesConfig {
     /// The directory holding `<slug>/lean` and `<slug>/python` for every
     /// project.
     pub projects: PathBuf,
+    /// One project directory to use in place of `projects`, when set.
+    pub project_dir: Option<PathBuf>,
 }
 
 impl Default for FilesConfig {
     fn default() -> Self {
         Self {
             projects: PathBuf::from(DEFAULT_PROJECTS),
+            project_dir: None,
         }
     }
 }
 
 impl FilesConfig {
-    /// Reads `SUPERMATH_PROJECTS` from the process environment.
+    /// Reads `SUPERMATH_PROJECTS` and `SUPERMATH_PROJECT_DIR` from the process
+    /// environment.
     #[must_use]
     pub fn from_env() -> Self {
         Self::from_lookup(|name| std::env::var(name).ok())
@@ -35,11 +45,22 @@ impl FilesConfig {
     /// empty value counts as unset.
     #[must_use]
     pub fn from_lookup(lookup: impl Fn(&str) -> Option<String>) -> Self {
-        lookup(PROJECTS_ENV)
-            .filter(|value| !value.trim().is_empty())
-            .map_or_else(Self::default, |value| Self {
-                projects: PathBuf::from(value),
-            })
+        let read = |name| lookup(name).filter(|value| !value.trim().is_empty());
+        Self {
+            projects: read(PROJECTS_ENV)
+                .map_or_else(|| PathBuf::from(DEFAULT_PROJECTS), From::from),
+            project_dir: read(PROJECT_DIR_ENV).map(PathBuf::from),
+        }
+    }
+
+    /// The workspace these settings describe: the single project directory
+    /// when one is set, the projects root otherwise.
+    #[must_use]
+    pub fn open(&self) -> Workspace {
+        match &self.project_dir {
+            Some(dir) => Workspace::single(dir),
+            None => Workspace::new(&self.projects),
+        }
     }
 }
 

@@ -3,6 +3,7 @@
     python3 -I -m unittest discover -s docker/lean
 """
 
+import os
 import unittest
 
 import normalize as N
@@ -167,3 +168,50 @@ class Crash(unittest.TestCase):
     def test_another_exit_names_its_code(self):
         self.assertIn("exit code 3", N.crash_reply(3)["messages"][0]["text"])
         self.assertIn("SIGSEGV", N.crash_reply(-11)["messages"][0]["text"])
+
+
+class Roots(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.allowed = os.path.join(self.tmp.name, "runs")
+        self.candidate = os.path.join(self.allowed, "demo", "candidates", "prover")
+        os.makedirs(self.candidate)
+        self.outside = os.path.join(self.tmp.name, "elsewhere")
+        os.makedirs(self.outside)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_allowed_roots_keep_only_absolute_entries(self):
+        self.assertEqual(N.allowed_roots(None), [])
+        self.assertEqual(N.allowed_roots(""), [])
+        self.assertEqual(N.allowed_roots(f"relative:{self.allowed}"), [os.path.realpath(self.allowed)])
+
+    def test_without_a_root_the_project_is_its_slug_on_the_volume(self):
+        self.assertEqual(N.project_dir({"project": "demo"}, "/projects", []), "/projects/demo")
+        for bad in [{}, {"project": "A"}, {"project": "../x"}, {"project": 3}]:
+            with self.assertRaisesRegex(ValueError, "bad project"):
+                N.project_dir(bad, "/projects", [])
+
+    def test_a_root_inside_an_allowed_directory_is_the_project(self):
+        roots = N.allowed_roots(self.allowed)
+        req = {"project": "demo", "root": self.candidate}
+        self.assertEqual(N.project_dir(req, "/projects", roots), os.path.realpath(self.candidate))
+        req = {"project": "demo", "root": self.allowed}
+        self.assertEqual(N.project_dir(req, "/projects", roots), os.path.realpath(self.allowed))
+
+    def test_a_root_elsewhere_or_relative_is_refused(self):
+        roots = N.allowed_roots(self.allowed)
+        sneaky = os.path.join(self.candidate, "..", "..", "..", "..", "elsewhere")
+        link = os.path.join(self.allowed, "link")
+        os.symlink(self.outside, link)
+        for root in [self.outside, sneaky, link, self.allowed + "-twin"]:
+            with self.assertRaisesRegex(ValueError, "not inside an allowed"):
+                N.project_dir({"project": "demo", "root": root}, "/projects", roots)
+        for root in ["relative/dir", 7]:
+            with self.assertRaisesRegex(ValueError, "absolute"):
+                N.project_dir({"project": "demo", "root": root}, "/projects", roots)
+        with self.assertRaisesRegex(ValueError, "not inside an allowed"):
+            N.project_dir({"project": "demo", "root": self.candidate}, "/projects", [])

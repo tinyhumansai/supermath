@@ -63,6 +63,7 @@ impl LeanGoals {
             .client
             .goals(&GoalsRequest {
                 project: slug.to_owned(),
+                root: self.shared.workspace.service_root(),
                 path: path.to_string(),
                 line: args.line,
                 column: args.column,

@@ -18,7 +18,9 @@
 //!   [`FileList`] can show each file's last result.
 //! - [`FileWrite`], [`FileEdit`], [`FileRead`], [`FileList`] are the tools;
 //!   [`file_tools`] builds all four.
-//! - [`FilesConfig`] reads `SUPERMATH_PROJECTS`.
+//! - [`FileCallLog`] (from [`Workspace::call_log`]) records calls on disk,
+//!   so a host running each call as its own process can still check one.
+//! - [`FilesConfig`] reads `SUPERMATH_PROJECTS` and `SUPERMATH_PROJECT_DIR`.
 //!
 //! # Example
 //!
@@ -45,6 +47,7 @@
 //! slug comes from the call context, never from a tool's arguments), and it
 //! has no network access.
 
+mod call_log;
 mod config;
 mod error;
 pub mod imports;
@@ -55,7 +58,8 @@ mod tools;
 mod workspace;
 mod write_log;
 
-pub use config::{DEFAULT_PROJECTS, FilesConfig, PROJECTS_ENV};
+pub use call_log::FileCallLog;
+pub use config::{DEFAULT_PROJECTS, FilesConfig, PROJECT_DIR_ENV, PROJECTS_ENV};
 pub use error::{Error, Result};
 pub use observer::{FileObserver, LastResult};
 pub use path::{Language, MAX_PATH_BYTES, ProjectPath};

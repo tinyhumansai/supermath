@@ -10,7 +10,7 @@
 //! | `FileObserver` (Python) | `supermath-files` | the Python run log |
 //! | `LeanEvidence` | `supermath-ledger` | [`LeanBridge`](crate::LeanBridge), over the Lean checker |
 //! | `ClaimIndex` | `supermath-lean` | [`RecordedClaims`](crate::RecordedClaims), fed by `ledger_record` |
-//! | `CallLog` | `supermath-tool` | one [`InMemoryCallLog`] every dispatch records into |
+//! | `CallLog` | `supermath-tool` | one log every dispatch records into: an [`InMemoryCallLog`], or the project's `FileCallLog` for [`Toolkit::compose_persistent`] |
 //!
 //! The registry holds the domain crates' tools, `web_search` and
 //! `web_research` (which call Gemini) among them; it holds no `agent_*` tool,
@@ -29,10 +29,11 @@ mod types;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::Value;
 use supermath_calc::{CalcFactor, CalcGcdLcm};
-use supermath_files::{FileObserver, Workspace, file_tools};
+use supermath_files::{FileObserver, file_tools};
 use supermath_lean::Lean;
 use supermath_ledger::{Ledger, Memory, slugify};
 use supermath_literature::Literature;
@@ -53,11 +54,11 @@ pub use types::Dispatched;
 const LEDGER_RECORD: &str = "ledger_record";
 
 /// Every primitive tool, composed for one project.
-#[derive(Debug)]
 pub struct Toolkit {
     project: Project,
     registry: ToolRegistry,
-    calls: Arc<InMemoryCallLog>,
+    calls: Arc<dyn CallLog>,
+    call_prefix: String,
     next_call: AtomicU64,
     lean: Lean,
     python: Python,
@@ -89,12 +90,58 @@ impl Toolkit {
     /// the domain errors if a domain cannot build its clients;
     /// [`Error::Tool`] if two domains register one tool name.
     pub fn compose(config: &Config, project: &str) -> Result<Self> {
+        Self::build(config, project, Persistence::Memory)
+    }
+
+    /// As [`Toolkit::compose`], with the call log on disk at the project's
+    /// `.log/calls.jsonl` instead of in memory, and call ids unique across
+    /// processes (`call-<session>-<n>`). Hosts that run each call as its own
+    /// process use this, so a `ledger_record` in one process can cite a call
+    /// another process made.
+    ///
+    /// ```
+    /// use supermath_mcp::{Config, Toolkit};
+    ///
+    /// # #[tokio::main(flavor = "current_thread")]
+    /// # async fn main() -> supermath_mcp::Result<()> {
+    /// let dir = tempfile::tempdir().unwrap();
+    /// let mut config = Config::from_lookup(|_| None)?;
+    /// config.files.projects = dir.path().to_path_buf();
+    /// let first = Toolkit::compose_persistent(&config, "demo")?;
+    /// let done = first.dispatch("calc_factor", serde_json::json!({"n": 12})).await;
+    ///
+    /// // A toolkit composed later, as by another process, finds the call.
+    /// let second = Toolkit::compose_persistent(&config, "demo")?;
+    /// assert!(second.call_log().get(&done.call_id).is_some());
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// As [`Toolkit::compose`].
+    pub fn compose_persistent(config: &Config, project: &str) -> Result<Self> {
+        Self::build(config, project, Persistence::Disk)
+    }
+
+    fn build(config: &Config, project: &str, persistence: Persistence) -> Result<Self> {
         let slug = slugify(project).ok_or_else(|| Error::InvalidProject(project.to_owned()))?;
         let scope = format!("{}/project:{slug}", config.ledger.scope_root);
         let project = Project::new(slug, scope)?;
 
-        let workspace = Arc::new(Workspace::new(config.files.projects.clone()));
-        let calls = Arc::new(InMemoryCallLog::new());
+        let workspace = Arc::new(config.files.open());
+        let (calls, call_prefix): (Arc<dyn CallLog>, String) = match persistence {
+            Persistence::Memory => (Arc::new(InMemoryCallLog::new()), "call-".to_owned()),
+            Persistence::Disk => (
+                // The slug was just validated, and that is the only way this
+                // can fail.
+                Arc::new(
+                    workspace
+                        .call_log(project.slug())
+                        .map_err(|_| Error::InvalidProject(project.slug().to_owned()))?,
+                ),
+                format!("call-{}-", session()),
+            ),
+        };
         let claims = Arc::new(RecordedClaims::new());
 
         let lean = Lean::with_claim_index(config.lean.clone(), workspace.clone(), claims.clone())?;
@@ -107,11 +154,7 @@ impl Toolkit {
             project.slug(),
             config.lean.check_timeout_ms,
         ));
-        let ledger = Arc::new(Ledger::new(
-            memory.clone(),
-            evidence,
-            calls.clone() as Arc<dyn CallLog>,
-        ));
+        let ledger = Arc::new(Ledger::new(memory.clone(), evidence, calls.clone()));
 
         let literature = Literature::new(&config.literature)?;
         let web = WebToolkit::new(config.web.clone())?;
@@ -143,6 +186,7 @@ impl Toolkit {
             project,
             registry,
             calls,
+            call_prefix,
             next_call: AtomicU64::new(1),
             lean,
             python,
@@ -174,7 +218,8 @@ impl Toolkit {
 
     /// The id the next call will have.
     fn next_call_id(&self) -> String {
-        format!("call-{}", self.next_call.fetch_add(1, Ordering::Relaxed))
+        let n = self.next_call.fetch_add(1, Ordering::Relaxed);
+        format!("{}{n}", self.call_prefix)
     }
 
     /// A context for a call to this project with the given id: collected
@@ -232,6 +277,37 @@ impl Toolkit {
     pub fn has_gemini_key(&self) -> bool {
         self.web_has_key
     }
+}
+
+impl std::fmt::Debug for Toolkit {
+    // The call log is a trait object without `Debug`; the rest says which
+    // toolkit this is.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Toolkit")
+            .field("project", &self.project)
+            .field("registry", &self.registry)
+            .field("call_prefix", &self.call_prefix)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Where a toolkit's call log lives.
+#[derive(Debug, Clone, Copy)]
+enum Persistence {
+    /// In this process only.
+    Memory,
+    /// In the project's `.log/calls.jsonl`.
+    Disk,
+}
+
+/// A token telling this process's calls apart from every other process's:
+/// the start time in milliseconds and the process id, in hex. Two processes
+/// would have to share both to collide.
+fn session() -> String {
+    let millis = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_millis());
+    format!("{millis:x}{:x}", std::process::id())
 }
 
 #[cfg(test)]

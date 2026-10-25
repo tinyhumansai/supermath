@@ -8,6 +8,9 @@ link back here.
 
 ## Index
 
+- **[`rsi-ralph.md`](rsi-ralph.md)**: what supermath's conjecture loops rely on
+  in [tinyhumansai/rsi-ralph](https://github.com/tinyhumansai/rsi-ralph): how a
+  seat's tools run, what a scorer sees, and the upstream changes they needed.
 - **[`rea-and-jacobian/`](rea-and-jacobian/README.md)**: how the author of
   [morluto/rea](https://github.com/morluto/rea) (a reverse-engineering MCP
   server) and [morluto/jacobian](https://github.com/morluto/jacobian) (a
