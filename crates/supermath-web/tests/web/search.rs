@@ -66,7 +66,7 @@ async fn a_grounded_answer_becomes_findings_with_resolved_sources() {
     assert_eq!(envelope.unknowns.len(), 0);
 
     let usage = envelope.usage.as_ref().unwrap();
-    assert_eq!(usage.model, "gemini-2.5-flash");
+    assert_eq!(usage.model, supermath_web::DEFAULT_MODEL);
     assert_eq!((usage.turns, usage.tool_calls), (1, 2));
     assert_eq!((usage.input_tokens, usage.output_tokens), (120, 45));
     assert_no_key(&envelope);
@@ -90,7 +90,10 @@ async fn the_request_asks_for_grounding_at_temperature_zero_and_sends_the_key_as
     assert_eq!(generate.method, "POST");
     assert_eq!(
         generate.path,
-        "/v1beta/models/gemini-2.5-flash:generateContent"
+        format!(
+            "/v1beta/models/{}:generateContent",
+            supermath_web::DEFAULT_MODEL
+        )
     );
     assert_eq!(generate.headers["x-goog-api-key"], KEY);
     assert!(!generate.path.contains(KEY) && !generate.body.contains(KEY));
@@ -243,6 +246,21 @@ async fn a_server_error_or_garbage_body_is_backend_unavailable() {
         assert_eq!(envelope.code(), Some(ErrorCode::BackendUnavailable));
         assert_no_key(&envelope);
     }
+}
+
+#[tokio::test]
+async fn a_404_for_the_model_is_backend_unavailable_and_names_the_model_and_override() {
+    let stub = gemini_stub(|_| Response::status(404)).await;
+    let envelope = toolkit(config(&stub))
+        .search()
+        .call(&ctx(), json!({"question": "q"}))
+        .await;
+    assert_eq!(envelope.code(), Some(ErrorCode::BackendUnavailable));
+    let message = envelope.error.as_ref().unwrap().message.clone();
+    assert!(message.contains(supermath_web::DEFAULT_MODEL), "{message}");
+    assert!(message.contains("may be retired"), "{message}");
+    assert!(message.contains("SUPERMATH_WEB_MODEL"), "{message}");
+    assert_no_key(&envelope);
 }
 
 #[tokio::test]

@@ -101,6 +101,7 @@ impl GeminiClient {
     ///
     /// - [`Error::MissingApiKey`] without `GEMINI_API_KEY`.
     /// - [`Error::RateLimited`] on a 429, with the `Retry-After` it sent.
+    /// - [`Error::ModelNotFound`] on a 404: the model name is likely retired.
     /// - [`Error::Unavailable`] on any other failure status or a failed
     ///   request.
     /// - [`Error::Timeout`] if the request itself times out.
@@ -146,6 +147,11 @@ impl GeminiClient {
                 .and_then(|v| v.trim().parse::<u64>().ok())
                 .map_or(DEFAULT_RETRY_AFTER_MS, |secs| secs.saturating_mul(1000));
             return Err(Error::RateLimited { retry_after_ms });
+        }
+        if status.as_u16() == 404 {
+            return Err(Error::ModelNotFound {
+                model: self.model.clone(),
+            });
         }
         if !status.is_success() {
             return Err(Error::Unavailable(format!(

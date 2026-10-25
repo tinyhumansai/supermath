@@ -43,7 +43,10 @@ response's `candidates[0].groundingMetadata` carries what we keep:
 | `searchEntryPoint.renderedContent` | Google's search-suggestions widget, passed through in `data.search_entry_point` (see [terms](#terms)) |
 
 The model is `SUPERMATH_WEB_MODEL` (default: the current Gemini Flash
-model, pinned by name in config, never an alias that moves). The key is
+model, pinned by name in config, never an alias that moves). Google
+retires model names; a 404 from Gemini is reported as `BACKEND_UNAVAILABLE`
+with a message that names the model, says it may be retired, and points at
+`SUPERMATH_WEB_MODEL`. The key is
 `GEMINI_API_KEY`; without it, `web_search` and `web_research` return
 `BACKEND_UNAVAILABLE`, and no other engine stands in. `web_read` is a plain
 fetch and needs no key.

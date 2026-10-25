@@ -15,8 +15,10 @@ use std::time::Duration;
 use crate::error::{Error, Result};
 
 /// The Gemini model used when `SUPERMATH_WEB_MODEL` is unset. A pinned name,
-/// never an alias that moves.
-pub const DEFAULT_MODEL: &str = "gemini-2.5-flash";
+/// never an alias that moves. Google retires names: when Gemini answers 404
+/// for this one, the tools report [`Error::ModelNotFound`] and this pin must
+/// move to a current model.
+pub const DEFAULT_MODEL: &str = "gemini-3.5-flash";
 
 /// The Gemini API root.
 pub const DEFAULT_BASE_URL: &str = "https://generativelanguage.googleapis.com";

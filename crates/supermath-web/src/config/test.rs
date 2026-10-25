@@ -29,6 +29,12 @@ fn defaults_apply_when_nothing_is_set() {
 }
 
 #[test]
+fn the_default_model_is_pinned_to_gemini_3_5_flash() {
+    // Google retires model names; changing this pin must be a deliberate edit.
+    assert_eq!(DEFAULT_MODEL, "gemini-3.5-flash");
+}
+
+#[test]
 fn reads_every_variable() {
     let config = from(&[
         ("GEMINI_API_KEY", "k"),

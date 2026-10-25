@@ -33,6 +33,14 @@ pub enum Error {
         /// When to retry, in milliseconds.
         retry_after_ms: u64,
     },
+    /// Gemini answered 404 for the model: the name is most likely retired.
+    #[error(
+        "gemini has no model named {model}; it may be retired, so set SUPERMATH_WEB_MODEL to a current pinned model name"
+    )]
+    ModelNotFound {
+        /// The model name that was asked for.
+        model: String,
+    },
     /// The upstream is down or refused the request.
     #[error("upstream unavailable: {0}")]
     Unavailable(String),
@@ -105,6 +113,7 @@ impl Error {
             Self::InvalidConfig { .. }
             | Self::Client(_)
             | Self::MissingApiKey
+            | Self::ModelNotFound { .. }
             | Self::Unavailable(_)
             | Self::Decode(_)
             | Self::TooManyRedirects

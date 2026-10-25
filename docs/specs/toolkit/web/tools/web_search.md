@@ -96,7 +96,7 @@ any instruction a page carried, is dropped.
 | Code | When |
 | --- | --- |
 | `INVALID_INPUT` | an empty or over-long question, an unknown class, a malformed date |
-| `BACKEND_UNAVAILABLE` | no `GEMINI_API_KEY`, or the Gemini API is down |
+| `BACKEND_UNAVAILABLE` | no `GEMINI_API_KEY`, the Gemini API is down, or it answered 404 for the model (the message says the name may be retired and to set `SUPERMATH_WEB_MODEL`) |
 | `RATE_LIMITED` | Gemini returned 429; `retry_after_ms` is set |
 | `BUDGET_EXCEEDED` | the project's daily web cap is spent |
 | `TIMEOUT` | no answer in 30 s; an `error` envelope, not `unknown` |
