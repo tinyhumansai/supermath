@@ -1,8 +1,11 @@
 # Formalization benchmark
 
 Thirty informal statements, each a Mathlib theorem with a known
-formalization, and twelve labelled results from arXiv papers, for comparing
-Surplus models on `agent_formalize`.
+formalization, and twelve labelled results from arXiv papers. They were
+written for comparing Surplus models on `agent_formalize`, which was removed
+with `supermath-subagents` ([ADR 0010](../../docs/adr/0010-run-on-rsi-ralph.md)),
+and are kept for a later rsi-ralph meta-loop that tunes the loop template
+across problems.
 `statements.json` is an array of `{id, area, statement, expected}`:
 
 - `id` is a unique slug; the benchmark writes `lean/Supermath/Bench/<Id>.lean`.
@@ -27,9 +30,6 @@ Legendre's formula, which Mathlib already has, to spectral and homomorphism
 inequalities, which it does not. There is no `expected` name: most have no
 Mathlib counterpart.
 
-Run it against a real stack with
-`cargo test -p supermath-agent --test live live_subagents_formalize_bench`
-(see the variables in that test's header); without them it is skipped.
-`SUPERMATH_BENCH_SET` picks `statements` (the default), `arxiv`, or `all`;
-`SUPERMATH_BENCH_CASES` runs only the listed ids. Each case that is not
-checked is printed with the tool's `unknowns`, which say why.
+Nothing in the workspace runs them at the moment. The live runner that did
+(`cargo test -p supermath-agent --test live live_subagents_formalize_bench`)
+is in the git history before ADR 0010.
