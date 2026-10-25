@@ -246,6 +246,21 @@ async fn a_server_error_or_garbage_body_is_backend_unavailable() {
 }
 
 #[tokio::test]
+async fn a_404_for_the_model_is_backend_unavailable_and_names_the_model_and_override() {
+    let stub = gemini_stub(|_| Response::status(404)).await;
+    let envelope = toolkit(config(&stub))
+        .search()
+        .call(&ctx(), json!({"question": "q"}))
+        .await;
+    assert_eq!(envelope.code(), Some(ErrorCode::BackendUnavailable));
+    let message = envelope.error.as_ref().unwrap().message.clone();
+    assert!(message.contains(supermath_web::DEFAULT_MODEL), "{message}");
+    assert!(message.contains("may be retired"), "{message}");
+    assert!(message.contains("SUPERMATH_WEB_MODEL"), "{message}");
+    assert_no_key(&envelope);
+}
+
+#[tokio::test]
 async fn an_unreachable_gemini_is_backend_unavailable() {
     let stub = fixed_gemini("grounded.json").await;
     let mut config = config(&stub);
