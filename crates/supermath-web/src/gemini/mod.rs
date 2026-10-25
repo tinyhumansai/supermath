@@ -101,6 +101,7 @@ impl GeminiClient {
     ///
     /// - [`Error::MissingApiKey`] without `GEMINI_API_KEY`.
     /// - [`Error::RateLimited`] on a 429, with the `Retry-After` it sent.
+    /// - [`Error::ModelNotFound`] on a 404: the model name is likely retired.
     /// - [`Error::Unavailable`] on any other failure status or a failed
     ///   request.
     /// - [`Error::Timeout`] if the request itself times out.
