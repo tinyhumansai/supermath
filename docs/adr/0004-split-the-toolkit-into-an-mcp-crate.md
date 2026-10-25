@@ -1,6 +1,8 @@
 # 4. Split the toolkit into an MCP crate, separate from the runner
 
-- **Status:** Proposed; amended by 6 (tools move to domain crates)
+- **Status:** Proposed; amended by 6 (tools move to domain crates) and by
+  [10](0010-run-on-rsi-ralph.md) (there is no runner; `supermath-mcp` is the
+  only composition)
 - **Date:** 2026-10-22
 
 ## Context

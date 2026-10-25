@@ -1,8 +1,11 @@
 # 9. Settle conjectures by a prover–refuter duel
 
-- **Status:** Proposed
+- **Status:** Proposed; amended by [10](0010-run-on-rsi-ralph.md) (prover
+  and refuter are rsi-ralph seats and the scorer decides; `agent_settle`, its
+  spec and its plan were removed with `supermath-subagents`)
 - **Date:** 2026-10-22
-- **Spec:** [`agent_settle`](../specs/toolkit/subagents/tools/agent_settle.md)
+- **Spec:** `agent_settle` (`docs/specs/toolkit/subagents/tools/agent_settle.md`,
+  removed by ADR 0010; it is in the git history)
 
 ## Context
 

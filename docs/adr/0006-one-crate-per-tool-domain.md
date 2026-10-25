@@ -1,6 +1,7 @@
 # 6. One crate per tool domain
 
-- **Status:** Proposed
+- **Status:** Proposed; amended by [10](0010-run-on-rsi-ralph.md)
+  (`supermath-subagents` and `supermath-agent` are removed)
 - **Date:** 2026-10-22
 
 ## Context

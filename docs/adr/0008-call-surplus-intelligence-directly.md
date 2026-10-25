@@ -1,6 +1,7 @@
 # 8. Call Surplus Intelligence directly
 
-- **Status:** Proposed
+- **Status:** Proposed; amended by [10](0010-run-on-rsi-ralph.md) (a loop's
+  `rsi.json` names the agents' models, and Jev and OpenRouter are gone)
 - **Date:** 2026-10-22
 - **Supersedes:** the ladder routing in [ADR 0002](0002-build-on-openhuman.md)
 
