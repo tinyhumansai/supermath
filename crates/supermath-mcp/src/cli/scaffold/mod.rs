@@ -165,13 +165,9 @@ pub fn create(
             .replace("{{statement}}", statement.trim_end())
     };
     for (path, text) in TEMPLATE {
-        let text = if path == "hive/hive.json" {
-            hive_manifest(&render(text), program, registry)?
-        } else {
-            render(text)
-        };
-        write(&dir.join(path), &text)?;
+        write(&dir.join(path), &render(text))?;
     }
+    write(&dir.join(TOOLS_PATH), &tool_manifest(program, registry)?)?;
     write(&dir.join(STATEMENT_PATH), statement)
 }
 
@@ -183,10 +179,9 @@ fn declares_conjecture(statement: &str) -> bool {
             .any(|line| line.trim_start().starts_with("def Conjecture"))
 }
 
-/// The template's `hive.json` with the toolkit's tools and toolpacks added.
-fn hive_manifest(text: &str, program: &Program, registry: &ToolRegistry) -> Result<String> {
-    let mut manifest: Map<String, Value> =
-        serde_json::from_str(text).map_err(|error| Error::Template(error.to_string()))?;
+/// The hive's `tools.json`: the toolkit's tools and its domain toolpacks.
+fn tool_manifest(program: &Program, registry: &ToolRegistry) -> Result<String> {
+    let mut manifest = Map::new();
     let tools: Vec<Value> = match declarations(registry, program) {
         Value::Array(tools) => tools
             .into_iter()
