@@ -31,6 +31,18 @@ async fn generating_without_a_key_fails_before_any_request() {
 }
 
 #[tokio::test]
+async fn a_404_says_the_model_may_be_retired_and_names_the_override() {
+    let stub = gemini_stub(|_| Response::status(404)).await;
+    let mut config = config(&stub);
+    config.model = "gemini-0-retired".to_owned();
+    let client = GeminiClient::new(&config, Arc::new(SystemClock)).unwrap();
+    let message = client.generate("hi").await.unwrap_err().to_string();
+    assert!(message.contains("gemini-0-retired"), "{message}");
+    assert!(message.contains("retired"), "{message}");
+    assert!(message.contains("SUPERMATH_WEB_MODEL"), "{message}");
+}
+
+#[tokio::test]
 async fn generate_returns_the_decoded_response() {
     let stub = fixed_gemini("grounded.json").await;
     let client = GeminiClient::new(&config(&stub), Arc::new(SystemClock)).unwrap();
