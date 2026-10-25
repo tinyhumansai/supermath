@@ -526,11 +526,11 @@ async fn re_recording_keeps_alignment_and_merges_new_uses() {
     let b = h.ledger.record(&ctx(), supplied("b")).await.unwrap().entry;
     let mut claim = supplied("c");
     claim.uses = vec![a.id.clone()];
-    let c = h.ledger.record(&ctx(), claim.clone()).await.unwrap().entry;
-    h.ledger
-        .set_alignment(&ctx(), &c.id, Alignment::Accepted)
-        .await
-        .unwrap();
+    let mut c = h.ledger.record(&ctx(), claim.clone()).await.unwrap().entry;
+    // No API changes an alignment; a stored entry may still carry one.
+    c.revision += 1;
+    c.alignment = Alignment::Accepted;
+    h.ledger.write(SLUG, &c).await.unwrap();
 
     claim.uses = vec![b.id.clone()];
     let merged = h.ledger.record(&ctx(), claim).await.unwrap();
@@ -750,39 +750,6 @@ async fn link_records_an_edge_once_and_refuses_cycles_and_unknown_claims() {
         1,
         "all asserted: nothing limits a below"
     );
-}
-
-#[tokio::test]
-async fn alignment_changes_only_through_set_alignment() {
-    let h = harness().await;
-    teach(&h, clean("aa"));
-    let entry = h
-        .ledger
-        .record(&ctx(), lean_claim("thm", "aa"))
-        .await
-        .unwrap()
-        .entry;
-    assert_eq!(entry.alignment, Alignment::NotReviewed);
-    let accepted = h
-        .ledger
-        .set_alignment(&ctx(), &entry.id, Alignment::Disputed)
-        .await
-        .unwrap();
-    assert_eq!(accepted.alignment, Alignment::Disputed);
-    assert_eq!(accepted.revision, 2);
-    let same = h
-        .ledger
-        .set_alignment(&ctx(), &entry.id, Alignment::Disputed)
-        .await
-        .unwrap();
-    assert_eq!(same.revision, 2, "no new revision for no change");
-    assert!(matches!(
-        h.ledger
-            .set_alignment(&ctx(), "clm_x", Alignment::Accepted)
-            .await
-            .unwrap_err(),
-        Error::ClaimNotFound(_)
-    ));
 }
 
 fn offer(direction: Direction, value: i64, text: &str) -> BoundRequest {

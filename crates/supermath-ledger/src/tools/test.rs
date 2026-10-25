@@ -650,29 +650,27 @@ async fn ledger_claims_says_when_the_window_may_hide_entries() {
 #[tokio::test]
 async fn a_full_window_warns_even_when_revisions_collapse_to_fewer_claims() {
     let w = world().await;
-    let narrow = Arc::new(Ledger::clone(&w.ledger).with_window(2));
-    let id = seed(&w, "one").await;
-    w.ledger
-        .set_alignment(&ctx(), &id, crate::types::Alignment::Accepted)
-        .await
-        .unwrap();
-    // Two notes (a claim and its revision) fit a window of two exactly: a
-    // listing knows nothing was left out.
+    let narrow = Arc::new(Ledger::clone(&w.ledger).with_window(3));
+    let one = seed(&w, "one").await;
+    let two = seed(&w, "two").await;
+    w.ledger.link(&ctx(), &two, &one).await.unwrap();
+    // Three notes (two claims and a revision of one) fit a window of three
+    // exactly: a listing knows nothing was left out.
     let listed = call(&LedgerClaims::new(narrow.clone()), json!({})).await;
-    assert_eq!(listed.data["claims"].as_array().unwrap().len(), 1);
+    assert_eq!(listed.data["claims"].as_array().unwrap().len(), 2);
     assert!(listed.unknowns.is_empty(), "{:?}", listed.unknowns);
 
-    // A third note does not fit, and the read says so even though the two
-    // it did read collapse to a single claim.
-    seed(&w, "two").await;
+    // A fourth note does not fit, and the read says so even though the three
+    // it did read collapse to fewer claims.
+    seed(&w, "three").await;
     let listed = call(&LedgerClaims::new(narrow), json!({})).await;
     assert!(
         listed.unknowns.iter().any(|u| u.contains("window")),
-        "three notes overflow a window of two: {:?}",
+        "four notes overflow a window of three: {:?}",
         listed.unknowns
     );
 
-    let roomy = Arc::new(Ledger::clone(&w.ledger).with_window(3));
+    let roomy = Arc::new(Ledger::clone(&w.ledger).with_window(4));
     let listed = call(&LedgerClaims::new(roomy), json!({})).await;
     assert!(listed.unknowns.is_empty(), "{:?}", listed.unknowns);
 }
