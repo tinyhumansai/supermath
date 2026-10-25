@@ -54,9 +54,11 @@ rsi.json        dir subject; editable lean/Supermath/, python/work/, notes/, .lo
                 decided by seeds [1, 2], maximize, target 1.0;
                 models on Surplus (keys.openrouter = SURPLUS_API_KEY, provider "*")
 brief.md        the statement, and rsi-ralph's {{incumbent}} {{history}} {{failures}}
-hive/           seats lead (incumbent, read-only), prover and refuter (each
-                its own candidate); `tools` = every toolkit tool but file_*
-                and web_search, as
+hive/           the manifest split four ways: hive.json (identity, context,
+                policies, coordinator), agents.json (roles and seats),
+                desks.json, tools.json; seats lead (incumbent, read-only),
+                prover and refuter (each its own candidate); tools.json
+                `tools` = every toolkit tool but file_* and web_search, as
                 `supermath-mcp call <tool> <slug> --project-dir . [--env-file F]`;
                 toolpacks lean, python, literature, ledger, ledger-read
 subject/lean/Supermath/{Statement,Prove,Refute}.lean, lakefile.toml, lean-toolchain
@@ -100,9 +102,11 @@ run without them.
 
 ### Running a loop
 
-A loop needs an `rsi-ralph` built from `e40c7e3` (tinyhumansai/rsi-ralph#75,
-which attaches a hive's executable tools to its seats) or later; there is no
-tagged release yet.
+A loop needs an `rsi-ralph` that reads a split hive manifest:
+tinyhumansai/rsi-ralph#82, which pins tinyhivemind `a5ed63fc`
+(tinyhumansai/tinyhivemind#134), or later. An older binary refuses the
+folder with `missing field seats` in `hive.json`. There is no tagged release
+yet.
 
 ```sh
 docker compose -f compose.yaml -f compose.rsi.yaml --profile host up -d lean python cortexdb
