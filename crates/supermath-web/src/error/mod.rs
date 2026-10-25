@@ -113,6 +113,7 @@ impl Error {
             Self::InvalidConfig { .. }
             | Self::Client(_)
             | Self::MissingApiKey
+            | Self::ModelNotFound { .. }
             | Self::Unavailable(_)
             | Self::Decode(_)
             | Self::TooManyRedirects
