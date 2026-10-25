@@ -6,14 +6,15 @@ the same instructions.
 
 ## Project Structure
 
-supermath is a math agent built on [OpenHuman](https://github.com/tinyhumansai/openhuman).
+supermath is a toolkit for settling math conjectures, and the loops that use
+it; the agents run in [`rsi-ralph`](https://github.com/tinyhumansai/rsi-ralph).
 It is a Rust 2024 cargo workspace rooted at a virtual `Cargo.toml`. Every crate
 lives under `crates/`, one directory per package, each directory named for the
 package it holds.
 
 ```text
 Cargo.toml              # virtual workspace: members, [workspace.package],
-                        # [workspace.lints], and OpenHuman's [patch] table
+                        # [workspace.lints], [workspace.dependencies]
 crates/                 # one directory per package, named for the package
 ├── supermath-tool/         # the contract: Tool, Envelope, ErrorCode, Budget, Project
 ├── supermath-files/        # project workspaces: Lean and Python files
@@ -23,20 +24,22 @@ crates/                 # one directory per package, named for the package
 ├── supermath-web/          # Gemini grounded search: the web_* tools
 ├── supermath-ledger/       # CortexDB memory, claims: the ledger_* tools
 ├── supermath-calc/         # exact arithmetic: calc_factor, calc_gcd_lcm
-├── supermath-subagents/    # the agentic agent_* tools, on OpenHuman
-├── supermath-mcp/          # composes the domains into a Toolkit; MCP server
-└── supermath-agent/        # the OpenHuman runner: host tools, agents, `check`
+└── supermath-mcp/          # composes the domains into a Toolkit; the binary
     ├── src/
     │   ├── lib.rs      # crate docs + the entire public re-export surface
-    │   ├── main.rs     # `supermath-agent check`
+    │   ├── main.rs     # `supermath-mcp` serve, call, hive-tools, loop new, score proof, check
     │   ├── error/mod.rs        # crate-wide `Error` and `Result<T>`
-    │   └── <feature>/          # config, host, runner
+    │   └── <feature>/          # cli, toolkit, server, config, ...
     │       ├── mod.rs          # module docs, wiring, smallest useful public API
     │       ├── types.rs        # substantial type definitions
     │       └── test.rs         # module-local unit tests
+    ├── template/       # the rsi-ralph loop folder `loop new` writes
     └── tests/          # the binary end to end, against loopback stubs
-vendor/openhuman/       # OpenHuman, a git submodule (openhuman-embed)
-compose.yaml            # CortexDB, the agent, and the Lean and Python services
+loops/statements/       # conjecture statements to start loops from
+bench/formalize/        # formalization benchmark cases, for a later meta-loop
+compose.yaml            # CortexDB and the Lean and Python services
+compose.rsi.yaml        # mounts rsi-ralph's run store into Lean and Python
+docker/                 # the Lean, Python and MCP images
 scripts/                # check-crate-deps.sh: the crate dependency rules
 docs/
 ├── specs/              # behavior and architecture specifications
@@ -45,16 +48,17 @@ docs/
 └── research/           # pinned notes on outside work that informs design
 ```
 
-The agent's runtime pieces and why they are arranged this way are in
-`docs/specs/agent-runner.md`, `docs/specs/toolkit/crates.md`, and
-`docs/adr/0002-build-on-openhuman.md`. In short: each tool domain is its own
-crate and depends only on `supermath-tool`; `supermath-mcp` composes them into
-a toolkit and serves it over MCP; OpenHuman owns the agent loop, tools
-runtime, and sessions; `supermath-subagents` and `supermath-agent` are the
-only crates that depend on it. Surplus Intelligence serves every model call,
-called directly with concrete model names
-(`docs/adr/0008-call-surplus-intelligence-directly.md`); OpenRouter serves
-Jev, the decision model that ranks `tool_search`; CortexDB holds memory. `scripts/check-crate-deps.sh` enforces the dependency rules.
+How the pieces fit and why are in `docs/specs/loops.md`,
+`docs/specs/toolkit/crates.md`, and `docs/adr/0010-run-on-rsi-ralph.md`. In
+short: each tool domain is its own crate and depends only on
+`supermath-tool`; `supermath-mcp` composes them into a toolkit, serves it over
+MCP, runs one tool per process for rsi-ralph seats (`call`), writes loop
+folders (`loop new`) and scores candidates (`score proof`). The agents, their
+sessions and their models live in the `rsi-ralph` binary, so no crate here
+depends on OpenHuman. Surplus Intelligence serves every model call, called
+directly with concrete model names
+(`docs/adr/0008-call-surplus-intelligence-directly.md`); CortexDB holds
+memory. `scripts/check-crate-deps.sh` enforces the dependency rules.
 
 Add a crate by creating `crates/<name>/` — `members = ["crates/*"]` picks it up
 by existing. Inherit `version`, `edition`, `rust-version`, `license`, and
@@ -89,8 +93,7 @@ fallible public APIs.
 ## Build And Test
 
 Run every command from the repository root. These are the contract; CI runs
-exactly them, so a green local run should mean a green CI run. A cold build
-compiles all of OpenHuman and takes minutes.
+exactly them, so a green local run should mean a green CI run.
 
 ```sh
 cargo fmt --all -- --check
@@ -104,9 +107,10 @@ Supporting commands:
 - `cargo fmt --all` — format before committing.
 - `cargo test <filter>` — run a focused subset while iterating.
 - `scripts/check-crate-deps.sh` — the crate dependency rules CI also runs.
-- `cargo run -p supermath-agent -- check` — boot the runner against a live
-  Surplus and CortexDB (see `README.md` for the environment).
-- `docker compose up --build` — the whole stack.
+- `cargo run -p supermath-mcp -- check` — report whether Lean, Python,
+  CortexDB, the Gemini key and arXiv answer (see `README.md` for the
+  environment).
+- `docker compose up --build` — CortexDB and the Lean and Python services.
 - `cargo doc --no-deps --workspace` — build the rustdoc CI also builds
   with `RUSTDOCFLAGS="-D warnings"`.
 - `cargo test --doc` — run doctests alone when editing documentation examples.
@@ -157,8 +161,6 @@ add one:
 - gate anything optional behind a Cargo feature, documented in `Cargo.toml`;
 - declare it once in the root `[workspace.dependencies]` when more than one
   crate needs it, and take it with `{ workspace = true }`;
-- take a crate OpenHuman already vendors from the same vendored path, so the
-  graph holds one copy and its traits unify;
 - leave a comment above the entry explaining *why* the crate is needed and what
   uses it — see the existing entries for the expected tone;
 - prefer well-maintained crates with a compatible license.
@@ -166,21 +168,12 @@ add one:
 Keep `Cargo.lock` committed; this workspace ships a single lockfile so CI and
 releases are reproducible.
 
-### Vendored dependencies
+### rsi-ralph
 
-OpenHuman is the `vendor/openhuman` git submodule, tracking `main` and pinned
-by its gitlink; it carries its own nested submodules. Initialize them after
-cloning with:
-
-```sh
-git submodule update --init --recursive
-```
-
-Do not edit vendored code from this repository. Make OpenHuman changes in its
-own repository, push them there, then update this repository's gitlink in a
-separate commit. When the gitlink moves, keep the root `[patch]` table in step
-with `vendor/openhuman/Cargo.toml`; Cargo warns on an unused patch and fails on
-a missing one.
+`rsi-ralph` is a separate binary, not a dependency: the workspace neither
+vendors nor links it, and no crate may depend on an `openhuman*` crate. Make
+rsi-ralph changes in its own repository; when a loop needs a newer one, say
+which commit in `docs/specs/loops.md`.
 
 ## Testing
 

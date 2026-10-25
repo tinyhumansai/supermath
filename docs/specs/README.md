@@ -25,10 +25,8 @@ A specification that outgrows 500 lines becomes a directory with a
 
 ## Index
 
-- [`agent-runner.md`](agent-runner.md): the OpenHuman runner, Surplus, Jev,
-  and CortexDB wiring.
 - [`loops.md`](loops.md): one conjecture as an rsi-ralph loop folder, its
   scorer, and the toolkit as executable tools.
 - [`toolkit/`](toolkit/README.md): the conjecture toolkit, one folder per
-  crate (files, Lean, Python, literature, web, ledger, calc, sub-agents,
-  and the MCP composition), each with one spec per tool.
+  crate (files, Lean, Python, literature, web, ledger, calc, and the MCP
+  composition), each with one spec per tool.

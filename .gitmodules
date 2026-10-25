@@ -1,4 +1,0 @@
-[submodule "vendor/openhuman"]
-	path = vendor/openhuman
-	url = https://github.com/tinyhumansai/openhuman
-	branch = main

@@ -1,0 +1,8 @@
+[package]
+name = "supermath-mcp"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+supermath-tool = { path = "../supermath-tool" }

@@ -5,16 +5,18 @@
 Related:
 - [`docs/research/rsi-ralph.md`](../research/rsi-ralph.md): what the design relies on.
 - [`toolkit/mcp/`](toolkit/mcp/README.md): `supermath-mcp`.
-- [`agent-runner.md`](agent-runner.md): the in-process runner this replaces.
+- [ADR 0010](../adr/0010-run-on-rsi-ralph.md): why the agents run in
+  rsi-ralph.
 
 ## Problem
 
 supermath's runner (`supermath-agent`) and its agentic tools
-(`supermath-subagents`) embed OpenHuman. They carry its submodule, its
-`[patch]` table, a Node/TinyBus Docker stage, and a Ralph-style loop of their
-own: send a turn, send `CONTINUE_PROMPT`, stop at `STATUS: DONE`.
+(`supermath-subagents`), both now removed, embedded OpenHuman. They carried
+its submodule, its `[patch]` table, a Node/TinyBus Docker stage, and a
+Ralph-style loop of their own: send a turn, send a continue prompt, stop at
+`STATUS: DONE`.
 
-That loop never measures progress. A turn can end "done" with nothing
+That loop never measured progress. A turn can end "done" with nothing
 checked, and nothing compares one attempt with the next.
 
 [`rsi-ralph`](https://github.com/tinyhumansai/rsi-ralph) already runs hives of
@@ -33,8 +35,8 @@ loop folder names, and promotes only a measured improvement.
 - **Non-goal: improving supermath's own prompts or hive across problems** (a
   meta-loop over the formalize bench). It can be built on the same pieces
   later.
-- **Non-goal: removing OpenHuman from this repository.** That is a later
-  change, once the loop has replaced the runner.
+- **Goal: no OpenHuman in this repository.** No crate may depend on an
+  `openhuman*` crate (`scripts/check-crate-deps.sh`).
 
 ## Behavior
 
@@ -98,6 +100,10 @@ run without them.
 
 ### Running a loop
 
+A loop needs an `rsi-ralph` built from `e40c7e3` (tinyhumansai/rsi-ralph#75,
+which attaches a hive's executable tools to its seats) or later; there is no
+tagged release yet.
+
 ```sh
 docker compose -f compose.yaml -f compose.rsi.yaml --profile host up -d lean python cortexdb
 supermath-mcp loop new gauss-sum loops/statements/gauss-sum.lean --env-file .env
@@ -137,7 +143,7 @@ checked ([`toolkit/lean/`](toolkit/lean/README.md#the-http-api)).
 ## Open questions
 
 - Whether a meta-loop should tune the template's seats and brief on the
-  formalize bench (`crates/supermath-subagents/bench/formalize/`).
+  formalize bench (`bench/formalize/`).
 - Whether the MCP server (`supermath-mcp serve`), declared in the package's
   `mcp` section, should replace per-call processes once rsi-ralph attaches
   MCP servers to seats.

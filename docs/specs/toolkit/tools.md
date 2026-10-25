@@ -9,8 +9,8 @@ status rules, and the `## Crate` section.
 
 Every tool file follows the same shape:
 
-1. A header table: crate, area, kind (`primitive`, `agentic (Gemini)`, or
-   `agentic (OpenHuman)`), exposure, permission, phase.
+1. A header table: crate, area, kind (`primitive` or `agentic (Gemini)`),
+   exposure, permission, phase.
 2. **Given → returns**, the one postcondition, matching the tool's
    description.
 3. An example of its arguments.

@@ -13,8 +13,7 @@
 //! | `CallLog` | `supermath-tool` | one log every dispatch records into: an [`InMemoryCallLog`], or the project's `FileCallLog` for [`Toolkit::compose_persistent`] |
 //!
 //! The registry holds the domain crates' tools, `web_search` and
-//! `web_research` (which call Gemini) among them; it holds no `agent_*` tool,
-//! because those need `OpenHuman` and live in `supermath-subagents`.
+//! `web_research` (which call Gemini) among them.
 //!
 //! A domain whose service is not configured still registers its tools, so
 //! the catalogue never changes shape with the environment; they answer
@@ -202,8 +201,8 @@ impl Toolkit {
         &self.project
     }
 
-    /// The tools, for `supermath-subagents` and for the MCP server. Cheap to
-    /// clone: it shares the tools.
+    /// The tools, for the MCP server and the loop scaffold. Cheap to clone:
+    /// it shares the tools.
     #[must_use]
     pub fn registry(&self) -> ToolRegistry {
         self.registry.clone()

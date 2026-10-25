@@ -12,26 +12,24 @@
 
 ## Problem
 
-The [agent runner](../agent-runner.md) is wired, but its toolkit has three
-tools: memory recall, factorization, and gcd. An agent working on a
-conjecture needs to find what is known, read it, state it precisely, check
-what it claims, look for counterexamples, and remember all of it across
-turns. Each of those needs a tool the agent can find, call cheaply, and
+An agent working on a conjecture needs to find what is known, read it,
+state it precisely, check what it claims, look for counterexamples, and
+remember all of it across turns. Each of those needs a tool the agent can find, call cheaply, and
 trust no further than the evidence behind its answer.
 
 ## Goals
 
-- A toolkit an OpenHuman agent can use to work on a conjecture end to end:
+- A toolkit an agent can use to work on a conjecture end to end:
   literature, web research, Lean formalization and checking, computation
-  with Python solvers, a claim ledger in CortexDB, and sub-agents for the
-  long tasks.
+  with Python solvers, and a claim ledger in CortexDB.
 - Lean is the arbiter. A claim is `formalised` only when this process ran the
   Lean kernel on it and saw no `sorry` and no axiom outside the allowlist.
 - One crate per tool domain, each specified and tested on its own
   ([`crates.md`](crates.md)): files, Lean, Python, literature, web, ledger,
-  calc, and sub-agents, over a small core contract crate.
-  `supermath-mcp` composes them and serves them to any MCP client;
-  `supermath-agent`, the OpenHuman runner, links the same composition.
+  and calc, over a small core contract crate. `supermath-mcp` composes
+  them, serves them to any MCP client, and runs one call per process
+  (`supermath-mcp call`) for the seats of an rsi-ralph
+  [loop](../loops.md).
 - The project workspace holds Lean and Python side by side, and every tool
   that runs code runs a file in it ([`files/`](files/README.md)).
 - Every tool follows the [contract](#tool-contract) below.
@@ -39,7 +37,7 @@ trust no further than the evidence behind its answer.
 ## Non-goals
 
 - The solving loop: how the top-level agent sequences these tools, its
-  prompt, and its final report. That is a separate spec.
+  prompt, and its final report. That is [`../loops.md`](../loops.md).
 - A proof search engine of our own. Search is Lean tactics, Mathlib search,
   and models on Surplus Intelligence.
 - Accepting a result as published mathematics. A checked proof is evidence
@@ -50,7 +48,7 @@ trust no further than the evidence behind its answer.
 
 | Spec | Crate | Covers |
 | --- | --- | --- |
-| [`crates.md`](crates.md) | all | the crate layout, dependency rules, per-crate testing, the runner, compose |
+| [`crates.md`](crates.md) | all | the crate layout, dependency rules, per-crate testing, compose |
 | [`tools.md`](tools.md) | all | the shape of a tool spec file |
 | [`tool/`](tool/README.md) | `supermath-tool` | the `Tool` trait, envelope, budgets, and contract tests |
 | [`files/`](files/README.md) | `supermath-files` | the project workspace: Lean and Python files, path rules, the write log |
@@ -60,7 +58,6 @@ trust no further than the evidence behind its answer.
 | [`web/`](web/README.md) | `supermath-web` | Gemini with Google Search grounding: the `web_*` tools |
 | [`ledger/`](ledger/README.md) | `supermath-ledger` | claims, facts, and edges in CortexDB: the `ledger_*` tools |
 | [`calc/`](calc/README.md) | `supermath-calc` | small exact arithmetic |
-| [`subagents/`](subagents/README.md) | `supermath-subagents` | the agentic `agent_*` tools |
 | [`mcp/`](mcp/README.md) | `supermath-mcp` | composition, ports, and the MCP server |
 
 ## Tool contract
@@ -73,11 +70,12 @@ what makes a tool cheap for an agent to choose, call, and believe.
 
 A tool is named `<area>_<verb>_<object>` for the question it answers, not the
 engine behind it: `lean_check`, `lit_search_arxiv`, `ledger_record`. Areas are
-`file`, `lean`, `py`, `lit`, `web`, `ledger`, `calc`, and `agent`, one per
-crate. A tool establishes exactly one
-postcondition, stated in its description as "given X, returns Y such that P".
-Workflows are composed by the agent or by an `agent_*` tool, never hidden in
-a primitive.
+`file`, `lean`, `py`, `lit`, `web`, `ledger`, and `calc`, one per crate.
+The contract checker also still accepts `agent`, the area of the removed
+agentic tools ([ADR 0010](../../adr/0010-run-on-rsi-ralph.md)). A tool
+establishes exactly one postcondition, stated in its description as "given
+X, returns Y such that P". Workflows are composed by the calling agent,
+never hidden in a primitive.
 
 ### Primitive and agentic tools
 
@@ -89,15 +87,12 @@ Every tool is one of two kinds, declared by the tool and shown in the
   backend state give the same answer, in roughly bounded time and cost.
 - **Agentic.** It looks like a tool call, but behind it **a model takes a
   turn**: it decides what to search or which tools to call, possibly many
-  times, and the tool returns what that turn produced. There are two
-  families:
-  - **`agentic (Gemini)`**, the `web_*` search tools: one or more Gemini
-    turns with Google Search grounding, where Gemini chooses the queries
-    ([`web/`](web/README.md)). Lives in `supermath-web`.
-  - **`agentic (OpenHuman)`**, the `agent_*` tools: a full OpenHuman agent
-    turn, on its own Surplus model, with its own prompt and its own subset
-    of primitives, running up to dozens of tool calls
-    ([`subagents/`](subagents/README.md)). Lives in `supermath-subagents`.
+  times, and the tool returns what that turn produced. The one family is
+  **`agentic (Gemini)`**, the `web_*` search tools: one or more Gemini
+  turns with Google Search grounding, where Gemini chooses the queries
+  ([`web/`](web/README.md)). Lives in `supermath-web`. The contract still
+  has `Kind::Agentic(Backend::OpenHuman)`, the kind of the removed
+  `agent_*` tools; no tool declares it.
 
 An agentic tool is a different thing to call, and the contract says so:
 
@@ -115,27 +110,28 @@ Rules for agentic tools:
 
 - **Never the source of a verdict.** What a model turn says it did is a
   claim. An agentic tool reports verdicts and statuses only from
-  primitives it ran *after* the turn ended: `agent_formalize` re-runs
-  [`lean_check`](lean/tools/lean_check.md) on the files the child wrote; `web_*`
-  tools keep only sentences that a grounding source supports.
+  primitives it ran *after* the turn ended: `web_*` tools keep only
+  sentences that a grounding source supports.
 - **Usage is part of the answer.** The envelope carries
   `usage: {model, turns, tool_calls, input_tokens, output_tokens,
   elapsed_ms}`, so the calling agent can account for what it spent.
 - **No nesting.** A turn inside an agentic tool sees primitives only, so a
   call is one level of delegation, never a tree.
-- **Progress is visible.** OpenHuman agentic tools forward their child's
-  tool events to the caller's progress stream; Gemini tools report the
-  queries Google ran in `coverage`.
+- **Progress is visible.** Gemini tools report the queries Google ran in
+  `coverage`.
 - **Each tool file has a "Turn" section**: the model, the tools the turn
   may call, its budget, what is returned, and what is discarded.
 
 ### Progressive disclosure
 
-Six tools are **direct**, always in the model's catalogue: `recall_memory`,
-`lit_search_arxiv`, `web_search`, `lean_check`, `py_run`, and
-`ledger_record`. Every other tool is
-**deferred** and found through `tool_search`, which Jev ranks. A description's
-first sentence is what Jev ranks on, so it names the question.
+Six tools are **direct**: `recall_memory`, `lit_search_arxiv`, `web_search`,
+`lean_check`, `py_run`, and `ledger_record`. Every other tool is
+**deferred**. Exposure is now informational only: the MCP server lists
+every tool and publishes exposure in `_meta.supermath`, and `hive-tools`
+declares every tool without it ([`mcp/`](mcp/README.md)). Nothing ranks
+deferred tools since `tool_search` left with OpenHuman
+([ADR 0010](../../adr/0010-run-on-rsi-ralph.md)). A description's first
+sentence is still what a caller chooses by, so it names the question.
 
 ### One envelope
 
@@ -199,12 +195,10 @@ Tests assert codes, never message text.
 
 ### Permissions
 
-Every tool declares `Read` or `Write` honestly; the runner maps it to
-OpenHuman's permission levels and the MCP server to `readOnlyHint`
-([`crates.md`](crates.md)). `file_write`, `file_edit`, and the ledger
+Every tool declares `Read` or `Write` honestly; the MCP server maps it to
+`readOnlyHint` and `hive-tools` to a declaration's `side_effects`
+([`mcp/`](mcp/README.md)). `file_write`, `file_edit`, and the ledger
 writes are `Write`.
-`agent_*` tools are `Read` themselves, because the writing happens inside
-the child agent, which has its own scope ([`subagents/`](subagents/README.md#scopes)).
 
 ## Claim status
 
@@ -227,8 +221,9 @@ is a separate field: `not_reviewed`, `accepted`, or `disputed`
 
 ## Catalogue
 
-Every tool, by crate. MCP clients get every tool except the `agent_*`
-tools, which need OpenHuman ([`mcp/`](mcp/README.md)).
+Every tool, by crate. MCP clients and `hive-tools` get every tool
+([`mcp/`](mcp/README.md)); a loop's hive leaves out the `file_*` tools and
+`web_search` ([`../loops.md`](../loops.md)).
 
 | Tool | Crate | Kind | Exposure | Permission | Phase | Given → returns |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -262,15 +257,11 @@ tools, which need OpenHuman ([`mcp/`](mcp/README.md)).
 | [`web_read`](web/tools/web_read.md) | `supermath-web` | primitive | deferred | read | P3 | a URL → the page's main text, paged |
 | [`web_research`](web/tools/web_research.md) | `supermath-web` | agentic (Gemini) | deferred | read | P3 | a research question → a sourced brief across several searches |
 | [`web_search`](web/tools/web_search.md) | `supermath-web` | agentic (Gemini) | direct | read | P3 | a question → grounded findings with their sources |
-| [`agent_digest_paper`](subagents/tools/agent_digest_paper.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | an arXiv id → facts recorded from it |
-| [`agent_formalize`](subagents/tools/agent_formalize.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | a statement or paper locator → Lean files and their verdicts |
-| [`agent_refute`](subagents/tools/agent_refute.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P6 | a statement → a counterexample, or a repaired statement |
-| [`agent_review_alignment`](subagents/tools/agent_review_alignment.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P5 | a declaration and its informal statement → alignment |
-| [`agent_settle`](subagents/tools/agent_settle.md) | `supermath-subagents` | agentic (OpenHuman) | deferred | read | P7 | an aligned Lean conjecture → `proved`, `refuted`, or `unknown`, from a prover and a refuter racing in parallel |
 
-`factor_integer` and `gcd_lcm` move to `supermath-calc` as `calc_factor`
-and `calc_gcd_lcm` in P1. Jacobian's ~1,400 operations are reached over MCP, not
-reimplemented ([`crates.md`](crates.md#consuming-other-mcp-servers)).
+`factor_integer` and `gcd_lcm` moved to `supermath-calc` as `calc_factor`
+and `calc_gcd_lcm` in P1. Jacobian's ~1,400 operations are not
+reimplemented; it is importable from the
+[Python solver environment](python/README.md#the-solver-environment).
 
 ## Invariants
 
@@ -278,16 +269,18 @@ reimplemented ([`crates.md`](crates.md#consuming-other-mcp-servers)).
   outside its coverage or budget; it reports `unknown`.
 - Only the ledger sets `formalised`, and only `collected` evidence counts,
   from a call this process executed itself, whoever the caller is.
-- A sub-agent's own account of its work is never a verdict. An `agent_*` tool
-  re-runs `lean_check` on what the child produced and reports that.
-- No memory scope comes from model output ([`agent-runner.md`](../agent-runner.md#memory-scopes)).
-- Tool names, argument schemas, and error codes are the same over OpenHuman
-  and over MCP.
-- Only `supermath-subagents` and `supermath-agent` depend on OpenHuman, and
-  no domain crate depends on another except through `supermath-files`
+- A seat's own account of its work is never a verdict. A loop's scorer
+  accepts a side only through a theorem Lean checks
+  ([`../loops.md`](../loops.md)).
+- No memory scope comes from model output: the project comes from the
+  command line ([`mcp/`](mcp/README.md#the-mcp-server)).
+- Tool names, argument schemas, and error codes are the same over MCP and
+  through `supermath-mcp call`.
+- No crate depends on OpenHuman, and no domain crate depends on another
+  except through `supermath-files`
   ([`crates.md`](crates.md#dependency-rules)).
-- Only `supermath-web` calls a model outside the sub-agents: Gemini, as
-  its search backend ([ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)).
+- Only `supermath-web` calls a model: Gemini, as its search backend
+  ([ADR 0005](../../adr/0005-search-the-web-with-gemini-grounding.md)).
 - A Python result can make a claim `checked` on a stated frame, never
   `formalised` ([`python/`](python/README.md#status-rules)).
 - No web source raises a claim above `asserted`.
@@ -297,20 +290,18 @@ reimplemented ([`crates.md`](crates.md#consuming-other-mcp-servers)).
 - Every domain crate passes the [contract checker](tool/README.md#contract-tests)
   over its tools, and its own tests run with `cargo test -p <crate>`.
 - A test asserts the direct/deferred split and that every description's first
-  sentence names a question: over the composed toolkit
-  (`supermath-mcp`, `toolkit/test.rs`) and over the runner's catalogue with
-  the `agent_*` tools (`supermath-agent`, `host/test.rs`).
-- An end-to-end test drives `supermath-mcp`'s server (the code `serve` runs,
-  over an in-memory pipe) and gets the same envelope as the runner's host
-  tool for the same arguments, an error included
-  (`supermath-agent/tests/parity.rs`).
+  sentence names a question, over the composed toolkit (`supermath-mcp`,
+  `toolkit/test.rs`).
+- `serve` and `call` render the envelope and its `call_id` through the same
+  function. `tests/serve.rs` drives the `serve` binary over MCP, and
+  `tests/cli.rs` runs `call`, including an error envelope
+  ([`mcp/`](mcp/README.md#acceptance-criteria)).
 - `live_*` tests, gated by environment variables, exercise the real Lean
   service, the Python service, arXiv, Gemini, and CortexDB.
 
 ## Open questions
 
-1. Should Jev rank by description only, or also by tags per area?
-2. Does `ledger_record` belong among the direct tools, or only inside
-   `agent_*` tools, so the top-level agent never writes claims itself?
-3. Which tactic set is the default for `lean_try_tactics`, and is it per
+1. Does `ledger_record` belong among the direct tools, or should only
+   some seats write claims?
+2. Which tactic set is the default for `lean_try_tactics`, and is it per
    project?

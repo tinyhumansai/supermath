@@ -33,7 +33,11 @@ pub trait Tool: Send + Sync {
   `Cancellation` signal (a cloneable watch channel; `tokio` `sync` only).
 - `Kind::Agentic` names its backend (`Gemini` or `OpenHuman`), and an
   agentic tool's description must begin "Runs a … turn"
-  ([kinds](../README.md#primitive-and-agentic-tools)).
+  ([kinds](../README.md#primitive-and-agentic-tools)). `OpenHuman` is the
+  backend of the removed `agent_*` tools; it stays in the contract, but no
+  tool declares it ([ADR 0010](../../../adr/0010-run-on-rsi-ralph.md)).
+- `Exposure` is informational: the MCP server publishes it in a tool's
+  `_meta`, and nothing in this repository defers or ranks tools by it.
 
 ## Types
 
@@ -47,14 +51,15 @@ pub trait Tool: Send + Sync {
 | `Usage` | `model`, `turns`, `tool_calls`, `input_tokens`, `output_tokens`, `elapsed_ms`; required on agentic tools |
 | `Budget` | `wall_time_ms`, `rows`, `bytes`, and for agentic tools `iterations` and `tokens`; `admit(&Demand)` returns a `Refusal`, which converts to a `BUDGET_EXCEEDED` envelope |
 | `Project` | slug (`[a-z0-9-]+`) and scope root; constructed only by a host |
-| `ToolRegistry` | tools by name; what the composition hands to `supermath-subagents` |
+| `ToolRegistry` | tools by name; what the composition hands to the MCP server, `hive-tools`, and `loop new` |
 | `CallLog` | a port recording one `CallRecord` per call, by `call_id`; `InMemoryCallLog` keeps them for the process; `ToolRegistry::dispatch` logs each call |
 
 ## Contract tests
 
 `supermath_tool::contract::check(&dyn Tool, domain, &[Fixture])` is run by
 every domain crate over each of its tools; `domain` is the crate's prefix
-(`file`, `lean`, `py`, `lit`, `web`, `ledger`, `calc`, or `agent`). A
+(`file`, `lean`, `py`, `lit`, `web`, `ledger`, `calc`, or `agent`, which
+no crate uses now). A
 `Fixture` is a `CallContext` and arguments (`Fixture::new(args)` uses a
 scratch project). `check` returns `Error::Contract` listing every
 `Violation`; `violations` returns the list itself. It asserts:
@@ -91,4 +96,4 @@ Lists share `clamp_limit`: default 10, at most 50.
 ## Open questions
 
 1. Should `Envelope::data` be typed per tool (a generic parameter) and
-   erased only at the MCP and OpenHuman boundaries?
+   erased only at the MCP and `call` boundaries?

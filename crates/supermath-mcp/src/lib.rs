@@ -33,9 +33,8 @@
 //!
 //! - **Tools.** Each lives in its domain crate. This crate only composes
 //!   them.
-//! - **The `agent_*` tools.** They need `OpenHuman` and live in
-//!   `supermath-subagents`, which this crate does not depend on, so the MCP
-//!   server never lists them.
+//! - **Agents.** No tool runs a model turn of its own; the seats of an
+//!   `rsi-ralph` loop are the agents, and they call these tools.
 //! - **A claim's status.** Only the ledger sets one; [`LeanBridge`] hands it
 //!   a verdict and nothing more.
 //! - **The project.** It is fixed at composition, from the command line.

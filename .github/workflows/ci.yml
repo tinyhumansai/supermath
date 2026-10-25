@@ -26,14 +26,6 @@ jobs:
           # This job executes repository code (cargo build/test); don't persist
           # the token in git config.
           persist-credentials: false
-          submodules: recursive
-
-      # OpenHuman links these even in a headless build.
-      - name: Install OpenHuman build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake pkg-config \
-            libssl-dev libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev clang
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -49,8 +41,8 @@ jobs:
         run: cargo fmt --all -- --check
 
       # Domain crates depend only on supermath-tool (lean and python also on
-      # supermath-files); only subagents and agent reach OpenHuman. The test
-      # runs the checker over fixture workspaces that break each rule.
+      # supermath-files); no crate reaches OpenHuman. The test runs the
+      # checker over fixture workspaces that break each rule.
       - name: Test the crate dependency checker
         run: scripts/test-check-crate-deps.sh
 
@@ -81,13 +73,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
-          submodules: recursive
-
-      - name: Install OpenHuman build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake pkg-config \
-            libssl-dev libasound2-dev libxdo-dev libxtst-dev libx11-dev libevdev-dev clang
 
       - uses: dtolnay/rust-toolchain@stable
 

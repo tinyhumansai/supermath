@@ -1,10 +1,8 @@
-# The image builds `crates/supermath-agent` from `vendor/openhuman`; nothing
-# else in the repository is read, and build output must never be sent.
+# The images copy only the workspace manifest, the lockfile and `crates/`
+# (docker/mcp/Dockerfile); build output must never be sent.
 **/target/
 worktrees/
 .git/
 **/.git
-**/node_modules/
-vendor/openhuman/app/
 .env
 .env.local

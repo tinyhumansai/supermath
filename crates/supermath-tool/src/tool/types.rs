@@ -2,18 +2,20 @@
 
 use serde::{Deserialize, Serialize};
 
-/// Whether a tool is in the model's catalogue from the start.
+/// Whether a tool belongs in a model's catalogue from the start, or only
+/// once it is looked for. The MCP server publishes it in each tool's
+/// `_meta`; every consumer still lists every tool.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Exposure {
-    /// Always listed to the model.
+    /// For the catalogue from the start.
     Direct,
-    /// Found through `tool_search`.
+    /// For a model to find when it needs it.
     Deferred,
 }
 
-/// Whether a tool changes state. Declared honestly: the runner maps it to
-/// `OpenHuman`'s permission levels and the MCP server to `readOnlyHint`.
+/// Whether a tool changes state. Declared honestly: the MCP server maps it
+/// to `readOnlyHint` and `hive-tools` to a tool's `side_effects`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Permission {

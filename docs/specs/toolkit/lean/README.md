@@ -38,8 +38,7 @@ A `lean` service in `compose.yaml`, built from `docker/lean/Dockerfile`:
 opt-in `lean-gateway`). **With `LEAN_URL` unset there is no service, and every
 tool that needs it answers `BACKEND_UNAVAILABLE`**; nothing is checked and
 nothing is guessed. The service's `GET /health` reports the toolchain and
-Mathlib revision; `supermath-mcp check` and `supermath-agent check` report
-both.
+Mathlib revision; `supermath-mcp check` reports both.
 
 ### Isolation
 

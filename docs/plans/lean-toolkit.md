@@ -9,6 +9,13 @@
   [ADR 0007](../adr/0007-run-python-solvers-as-a-pinned-service.md)
 - **Status:** Implemented; the live tests (Lean image, Gemini, formalize bench) are not yet run
 
+> **Note.** This plan is kept as written. `supermath-agent`, `supermath-subagents`
+> (the `agent_*` tools), the formalize bench test, and the OpenHuman MCP
+> connection of P6 were later removed by
+> [ADR 0010](../adr/0010-run-on-rsi-ralph.md); the agents now run in
+> rsi-ralph ([`loops.md`](../specs/loops.md)). The specs it names for them
+> (`agent-runner.md`, `toolkit/subagents/`) no longer exist.
+
 ## Goal
 
 Build the toolkit as one crate per tool domain
@@ -147,9 +154,9 @@ crate, once added, is complete for the tools its phase lists.
    and `usage`; a test that every child's list holds primitives only.
    Tests run against a scripted provider (`Provider::custom`) and fake
    primitives.
-3. [`agent_digest_paper`](../specs/toolkit/subagents/tools/agent_digest_paper.md),
-   [`agent_formalize`](../specs/toolkit/subagents/tools/agent_formalize.md),
-   [`agent_review_alignment`](../specs/toolkit/subagents/tools/agent_review_alignment.md).
+3. `agent_digest_paper`,
+   `agent_formalize`,
+   `agent_review_alignment`.
    Each has a test where the scripted child claims success and the fake
    `lean_check` says otherwise; the tool must report the fake's verdict.
 4. `supermath-agent` registers the sub-agents. `bench/formalize/` with 30
@@ -158,7 +165,7 @@ crate, once added, is complete for the tools its phase lists.
 ## P6: refutation, blueprint, and outside servers
 
 1. [`lean_search_counterexample`](../specs/toolkit/lean/tools/lean_search_counterexample.md),
-   then [`agent_refute`](../specs/toolkit/subagents/tools/agent_refute.md)
+   then `agent_refute`
    over the Python and Lean searches.
 2. [`ledger_bound`](../specs/toolkit/ledger/tools/ledger_bound.md),
    [`lit_citations`](../specs/toolkit/literature/tools/lit_citations.md).

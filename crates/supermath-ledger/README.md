@@ -1,7 +1,7 @@
 # supermath-ledger
 
 The claim ledger: what the project knows and how well it knows it, kept in
-`CortexDB`. It owns the `CortexDB` client (moved from `supermath-agent`), the
+`CortexDB`. It owns the `CortexDB` client, the
 trust rules that decide a claim's status, and five tools: `recall_memory`,
 `ledger_record`, `ledger_claims`, `ledger_link`, and `ledger_bound`. The spec
 is [`docs/specs/toolkit/ledger/`](../../docs/specs/toolkit/ledger/README.md).

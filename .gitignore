@@ -1,6 +1,5 @@
 # Build output
 /target/
-/crates/supermath-agent/target/
 **/*.rs.bk
 *.pdb
 
@@ -25,8 +24,7 @@ worktrees/*
 .vscode/
 *.swp
 
-# OpenHuman state: the local RPC token and the default harness workspace
-core.token
+# Local state: the projects, caches and logs a host run of the toolkit keeps
 .supermath/
 
 # Loop folders `supermath-mcp loop new` writes: they name this machine's

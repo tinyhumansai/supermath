@@ -12,9 +12,8 @@ categories = ["science"]
 publish = false
 
 [features]
-# Exposes the CortexDB loopback stubs (`memory::stub`) so `supermath-mcp` and
-# `supermath-agent` tests can run against a fake server. Never enabled in a
-# release build.
+# Exposes the CortexDB loopback stubs (`memory::stub`) so `supermath-mcp`
+# tests can run against a fake server. Never enabled in a release build.
 test-support = ["tokio/net", "tokio/io-util", "tokio/rt", "tokio/sync"]
 
 [dependencies]

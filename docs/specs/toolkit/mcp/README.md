@@ -8,7 +8,8 @@
 
 `supermath-mcp` owns no tools. It composes the domain crates into one
 `Toolkit` for a project, wires each domain's ports to the others, and
-serves the result over MCP. The runner links the same composition.
+serves the result over MCP, or one call per process (`call`) for the seats
+of an rsi-ralph [loop](../../loops.md).
 
 ## Composition
 
@@ -30,8 +31,8 @@ A domain whose service is not configured (no `LEAN_URL`, no `PYTHON_URL`,
 no `GEMINI_API_KEY`) still registers its tools; they answer
 `BACKEND_UNAVAILABLE`, so the catalogue does not change shape with the
 environment. `Toolkit::registry()` returns every domain tool (the primitives
-and `web_search` and `web_research`, which call Gemini) as a `ToolRegistry`
-for `supermath-subagents`; it holds no `agent_*` tool. `Toolkit::dispatch`
+and `web_search` and `web_research`, which call Gemini) as a `ToolRegistry`,
+for the server, `hive-tools`, and `loop new`. `Toolkit::dispatch`
 runs a call in a context built from the composed project, records it in the
 call log, and returns the envelope with its `call_id`.
 
@@ -55,7 +56,7 @@ recorded again, which is idempotent.
 ### The trust boundary
 
 The trust rules ([`../README.md`](../README.md#claim-status)) hold for every
-caller, our runner included:
+caller, a loop's seats included:
 
 - A status above `cited` is never taken from arguments. `ledger_record`
   with a `lean` source runs `lean_check` through the `LeanEvidence` port,
@@ -88,8 +89,14 @@ supermath-mcp score proof <project>    # that loop's scorer, run by rsi-ralph
 - The project comes from the command line, never from a tool argument.
 - Read-only tools are annotated `readOnlyHint: true`; `file_write`,
   `file_edit`, and the `ledger_*` writes are not.
-- The `agent_*` tools are not served: they need OpenHuman and live in
-  `supermath-subagents`, which this crate does not depend on.
+- `call` prints the same body as `tools/call` (the envelope with its
+  `call_id`, from one function), and exits 0 for every envelope, an
+  `error` one included. It exits non-zero only on a host failure, with
+  nothing on stdout.
+- `hive-tools` writes one declaration per tool: name, description, schema,
+  a `call` command fixed to the project with `--project-dir .`, and
+  `side_effects` from the tool's permission (`read` or `write`). Exposure
+  is not part of a declaration.
 
 `check` reports the Lean toolchain and Mathlib revision, the Python version
 and lock digest, whether CortexDB is ready, whether `GEMINI_API_KEY` is set
@@ -127,7 +134,7 @@ CortexDB refuses, so `recall_memory` and the `ledger_*` tools answer
 | Name | `supermath-mcp` |
 | Depends on | `supermath-tool` and every primitive domain crate (`files`, `lean`, `python`, `literature`, `web`, `ledger`, `calc`), `rmcp` 3 (features `server` and `transport-io`) |
 | Public API | `Toolkit` (`compose`, `compose_persistent`, `registry`, `dispatch`, `dispatch_with`, `call_log`), `Config`, `LeanBridge`, `RecordedClaims`, `McpServer`, `serve`, `serve_on`, and the `check` and `cli` modules |
-| Tests | composition with every backend stubbed; the ports wired to the right domains; `tests/serve.rs` performs the MCP handshake, lists tools, and calls `calc_factor` and `file_write` |
+| Tests | composition with every backend stubbed; the ports wired to the right domains (`tests/ports.rs`); `tests/mcp.rs` drives the server over an in-memory pipe; `tests/serve.rs` performs the MCP handshake with the binary, lists tools, and calls `calc_factor` and `file_write`; `tests/cli.rs` runs `call`, `hive-tools`, `loop new`, and `score proof` |
 
 ## Acceptance criteria
 
@@ -140,9 +147,10 @@ CortexDB refuses, so `recall_memory` and the `ledger_*` tools answer
 - Exactly six tools are `direct` (`recall_memory`, `lit_search_arxiv`,
   `web_search`, `lean_check`, `py_run`, `ledger_record`) and every
   description passes the contract's description rule.
-- The same arguments give the same envelope, `call_id` included, over this
-  server and through the runner's host tool
-  (`supermath-agent/tests/parity.rs`).
+- `call` prints the envelope and appends it to `.log/calls.jsonl`, with a
+  `call_id` unique across processes, and answers an error envelope with
+  exit 0 (`tests/cli.rs`). No test compares a `serve` answer with a `call`
+  answer directly; both render it through the same function.
 
 ## Open questions
 

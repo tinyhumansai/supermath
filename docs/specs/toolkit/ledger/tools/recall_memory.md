@@ -6,9 +6,8 @@
 
 **Given → returns:** a query → this project's notes.
 
-The one memory tool that exists today, in `supermath-agent`'s toolkit. It
-moves to `supermath-ledger` with the CortexDB client in P1
-([`crates.md`](../../crates.md)) and answers in the
+Memory recall over CortexDB, in `supermath-ledger` with the CortexDB
+client ([`crates.md`](../../crates.md)). It answers in the
 [envelope](../../README.md#one-envelope).
 
 ```json

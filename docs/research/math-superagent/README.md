@@ -40,9 +40,9 @@ only useful if it matches its source.
 
 ## What supermath takes from it
 
-These notes are inputs, not decisions. The agent scaffold
-(`crates/supermath-agent`, [`../../specs/agent-runner.md`](../../specs/agent-runner.md))
-takes one thing from them so far: memory is scoped per project and the scope
-is never built from model arguments (`proofatlas/06-trust-model.md` and
-math-superagent's CortexDB notes). How the agent works on a problem is still
-to be designed, with these notes as input.
+These notes are inputs, not decisions. The toolkit takes one thing from them
+so far: memory is scoped per project and the scope is never built from model
+arguments (`proofatlas/06-trust-model.md` and math-superagent's CortexDB
+notes). How the agents work on a problem is now an rsi-ralph loop
+([`../../specs/loops.md`](../../specs/loops.md)); these notes remain input to
+its seats and brief.

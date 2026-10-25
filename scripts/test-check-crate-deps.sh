@@ -19,7 +19,7 @@ expected() {
     calc-depends-on-files) echo "supermath-calc must not depend on supermath-files" ;;
     domain-depends-on-openhuman) echo "supermath-calc must not depend on openhuman-embed" ;;
     mcp-depends-on-openhuman) echo "supermath-mcp must not depend on openhuman-embed" ;;
-    domain-depends-on-agent) echo "supermath-web must not depend on supermath-agent" ;;
+    domain-depends-on-mcp) echo "supermath-web must not depend on supermath-mcp" ;;
     *) echo "" ;;
   esac
 }

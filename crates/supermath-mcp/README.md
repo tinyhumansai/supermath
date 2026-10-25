@@ -6,8 +6,8 @@ their ports to each other, and serves the result over MCP. Spec:
 
 The crate owns no tools. It depends on `supermath-tool` and the primitive
 domains (`files`, `lean`, `python`, `literature`, `web`, `ledger`, `calc`),
-never on OpenHuman, so `cargo test -p supermath-mcp` and the
-`docker/mcp/Dockerfile` image do not compile it.
+and on no agent runtime: the agents that call its tools run in the
+`rsi-ralph` binary ([`docs/specs/loops.md`](../../docs/specs/loops.md)).
 
 ## Public surface
 

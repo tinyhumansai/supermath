@@ -1,20 +1,21 @@
-# supermath: the agent runner, its models, and its memory.
+# supermath: the services the toolkit calls, and its memory.
 #
-#   cp .env.example .env            # Surplus Intelligence and OpenRouter keys
-#   git submodule update --init --recursive
-#   docker compose up --build       # CortexDB, then `supermath-agent check`
+#   cp .env.example .env            # the Surplus Intelligence key
+#   docker compose up -d            # CortexDB, Lean and Python
 #
-# Two services by default:
+# By default:
 #
 #   cortexdb   the memory server, one per deployment, data in a named volume
-#   agent      `crates/supermath-agent`, embedding OpenHuman; `check` boots it
-#              and reports whether the stack is ready
+#   lean       the pinned Lean service, no egress
+#   python     the pinned Python solver service, no egress
 #
-# Every chat completion and embedding, the agent's and CortexDB's, goes
-# straight to Surplus Intelligence (`SURPLUS_API_KEY`) with a concrete model
-# name; there is no router in between. The agent also calls OpenRouter
-# directly, for Jev only: the decision model `tool_search` ranks deferred
-# tools with, which OpenHuman reaches no other way.
+# Opt-in profiles add `mcp` (the toolkit over MCP on stdio) and `host` (the
+# lean-gateway and python-gateway, which publish both services on loopback for
+# `supermath-mcp` on the host). The agents themselves run in the rsi-ralph
+# binary (docs/specs/loops.md); compose.rsi.yaml mounts its run store.
+#
+# CortexDB's every chat completion and embedding goes straight to Surplus
+# Intelligence (`SURPLUS_API_KEY`) with a concrete model name.
 
 x-surplus-url: &surplus-url ${SURPLUS_URL:-https://api.surplusintelligence.ai/v1}
 x-surplus-key: &surplus-key ${SURPLUS_API_KEY:?set SURPLUS_API_KEY in .env}
@@ -27,8 +28,8 @@ services:
     platform: linux/amd64
     restart: unless-stopped
     environment:
-      # The operator key every request carries as a bearer token. The agent
-      # reads the same variable, so the two cannot drift.
+      # The operator key every request carries as a bearer token. The
+      # toolkit reads the same variable, so the two cannot drift.
       CORTEX_API_KEY: ${CORTEX_API_KEY:-supermath-local}
       CORTEX_V1_API_ADDR: 0.0.0.0:3141
       # Everything that thinks goes to Surplus Intelligence. The server
@@ -70,87 +71,21 @@ services:
       retries: 60
       start_period: 20s
     mem_limit: ${CORTEX_MEM_LIMIT:-4g}
-    # Loopback only, for inspecting memory from the host. The agent reaches
-    # the server by name on the compose network.
+    # Loopback only: `supermath-mcp` on the host (and an rsi-ralph loop's
+    # tools) reach memory here; the `mcp` service reaches it by name.
     ports:
       - "127.0.0.1:${CORTEX_PORT:-3141}:3141"
     volumes:
       - cortexdb-venice-embed-1:/data
 
-  agent:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: supermath-agent:local
-    depends_on:
-      cortexdb:
-        condition: service_healthy
-    environment:
-      SURPLUS_URL: *surplus-url
-      SURPLUS_API_KEY: *surplus-key
-      # A fast Surplus model, thinking at medium depth.
-      SUPERMATH_MODEL: ${SUPERMATH_MODEL:-deepseek-v4.1-flash}
-      SUPERMATH_REASONING_EFFORT: ${SUPERMATH_REASONING_EFFORT:-medium}
-      SUPERMATH_EMBEDDING_MODEL: ${SUPERMATH_EMBEDDING_MODEL:-venice-embed-1}
-      SUPERMATH_EMBEDDING_DIMS: ${SUPERMATH_EMBEDDING_DIMS:-1024}
-      # Another embedding endpoint for Jev's retriever; empty means Surplus.
-      SUPERMATH_EMBEDDING_URL: ${SUPERMATH_EMBEDDING_URL:-}
-      SUPERMATH_EMBEDDING_API_KEY: ${SUPERMATH_EMBEDDING_API_KEY:-}
-      # The Surplus model each `agent_*` child runs on.
-      SUPERMATH_READER_MODEL: ${SUPERMATH_READER_MODEL:-deepseek-v4.1-flash}
-      SUPERMATH_FORMALIZER_MODEL: ${SUPERMATH_FORMALIZER_MODEL:-deepseek-v4-pro}
-      SUPERMATH_REVIEWER_MODEL: ${SUPERMATH_REVIEWER_MODEL:-glm-5.3}
-      # agent_settle: the one model both duel sides run on, and its pacing.
-      # Unset, the crate's defaults apply (see .env.example).
-      SUPERMATH_DUEL_MODEL: ${SUPERMATH_DUEL_MODEL:-deepseek-v4-pro}
-      SUPERMATH_DUEL_DRIFT_CALLS: ${SUPERMATH_DUEL_DRIFT_CALLS:-12}
-      SUPERMATH_DUEL_MAX_ROUNDS: ${SUPERMATH_DUEL_MAX_ROUNDS:-4}
-      SUPERMATH_DUEL_DIGEST_EVERY: ${SUPERMATH_DUEL_DIGEST_EVERY:-8}
-      # The lit_* and web_* tools, as the `mcp` service passes them.
-      SUPERMATH_CONTACT: ${SUPERMATH_CONTACT:-}
-      SEMANTIC_SCHOLAR_API_KEY: ${SEMANTIC_SCHOLAR_API_KEY:-}
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      # The Gemini model the web_* tools ground with, and their daily call cap;
-      # unset keeps the crate's defaults.
-      SUPERMATH_WEB_MODEL: ${SUPERMATH_WEB_MODEL:-}
-      SUPERMATH_WEB_DAILY_CAP: ${SUPERMATH_WEB_DAILY_CAP:-}
-      # Jev's decision calls, and nothing else.
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-      CORTEX_API_URL: http://cortexdb:3141
-      CORTEX_API_KEY: ${CORTEX_API_KEY:-supermath-local}
-      CORTEX_SCOPE_ROOT: ${CORTEX_SCOPE_ROOT:-ws:supermath}
-      SUPERMATH_WORKSPACE: /data/openhuman
-      # The toolkit's project workspaces, and the Lean and Python services
-      # that run what the agent writes there. Those two sit on `internal`
-      # only, so the agent joins `internal` as well as `default` (which it
-      # needs to reach Surplus, CortexDB and the internet).
-      SUPERMATH_PROJECTS: /projects
-      LEAN_URL: http://lean:3150
-      PYTHON_URL: http://python:3160
-      RUST_LOG: ${RUST_LOG:-warn}
-    command: ["check", "${PROJECT:-scratch}"]
-    read_only: true
-    tmpfs:
-      - /tmp:rw,nosuid,nodev,size=256m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-    volumes:
-      - agent-data:/data
-      - projects:/projects
-    networks:
-      - default
-      - internal
-
   mcp:
-    # The toolkit over MCP, without the agent: `supermath-mcp serve` on
-    # stdio, for Claude Code and other MCP clients. Opt-in
-    # (`--profile mcp`); it is run on demand, not kept up:
+    # The toolkit over MCP: `supermath-mcp serve` on stdio, for Claude Code
+    # and other MCP clients. Opt-in (`--profile mcp`); it is run on demand,
+    # not kept up:
     #
     #   claude mcp add supermath -- docker compose --profile mcp run --rm -T mcp serve my-project
     #
-    # Built from docker/mcp/Dockerfile, which never compiles OpenHuman.
+    # Built from docker/mcp/Dockerfile.
     profiles: ["mcp"]
     build:
       context: .
@@ -299,7 +234,6 @@ volumes:
   # mixing spaces in one index; the ladder-era `cortexdb-data` volume (BGE-M3)
   # is left untouched for `docker volume rm`.
   cortexdb-venice-embed-1:
-  agent-data:
   projects:
 
 networks:
