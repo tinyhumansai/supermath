@@ -102,15 +102,6 @@ fn an_agentic_kind_names_its_backend() {
         json!({"type": "object"}),
     ));
     assert_eq!(gemini.meta.unwrap().0[META_KEY]["kind"], "agentic:gemini");
-    let openhuman = describe(&Odd(
-        Permission::Read,
-        Kind::Agentic(Backend::OpenHuman),
-        json!({"type": "object"}),
-    ));
-    assert_eq!(
-        openhuman.meta.unwrap().0[META_KEY]["kind"],
-        "agentic:openhuman"
-    );
 }
 
 #[test]

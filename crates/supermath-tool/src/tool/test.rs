@@ -36,12 +36,10 @@ fn kind_serialises_primitive_and_agentic_backends() {
         serde_json::to_value(Kind::Agentic(Backend::Gemini)).unwrap(),
         json!({"agentic": "gemini"})
     );
-    assert_eq!(
-        serde_json::to_value(Kind::Agentic(Backend::OpenHuman)).unwrap(),
-        json!({"agentic": "openhuman"})
-    );
-    let back: Kind = serde_json::from_value(json!({"agentic": "openhuman"})).unwrap();
-    assert_eq!(back, Kind::Agentic(Backend::OpenHuman));
+    let back: Kind = serde_json::from_value(json!({"agentic": "gemini"})).unwrap();
+    assert_eq!(back, Kind::Agentic(Backend::Gemini));
+    // The agents run in rsi-ralph now; no tool here runs an OpenHuman turn.
+    assert!(serde_json::from_value::<Kind>(json!({"agentic": "openhuman"})).is_err());
 }
 
 #[test]

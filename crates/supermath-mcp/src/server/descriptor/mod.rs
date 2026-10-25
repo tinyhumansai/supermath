@@ -14,7 +14,6 @@ fn kind_name(kind: Kind) -> String {
     match kind {
         Kind::Primitive => "primitive".to_owned(),
         Kind::Agentic(Backend::Gemini) => "agentic:gemini".to_owned(),
-        Kind::Agentic(Backend::OpenHuman) => "agentic:openhuman".to_owned(),
     }
 }
 

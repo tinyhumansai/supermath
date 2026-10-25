@@ -112,7 +112,7 @@ async fn recall_memory_belongs_to_the_ledger_only() {
 async fn agentic_descriptions_must_begin_runs_a() {
     let tool = FakeTool {
         name: "agent_echo",
-        kind: Kind::Agentic(Backend::OpenHuman),
+        kind: Kind::Agentic(Backend::Gemini),
         reply: |args| {
             let mut envelope = (FakeTool::passing().reply)(args);
             envelope.usage = Some(Usage::default());

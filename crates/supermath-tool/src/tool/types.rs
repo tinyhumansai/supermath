@@ -31,9 +31,6 @@ pub enum Backend {
     /// Gemini with Google Search grounding.
     #[serde(rename = "gemini")]
     Gemini,
-    /// A full `OpenHuman` agent turn.
-    #[serde(rename = "openhuman")]
-    OpenHuman,
 }
 
 /// Whether a tool is deterministic or delegates to a model turn.
