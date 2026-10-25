@@ -32,12 +32,20 @@ use super::hive::{Program, declarations};
 use crate::error::{Error, Result};
 
 /// The template, as (path in the loop folder, text) pairs.
-const TEMPLATE: [(&str, &str); 17] = [
+const TEMPLATE: [(&str, &str); 19] = [
     ("rsi.json", include_str!("../../../template/rsi.json")),
     ("brief.md", include_str!("../../../template/brief.md")),
     (
         "hive/hive.json",
         include_str!("../../../template/hive/hive.json"),
+    ),
+    (
+        "hive/agents.json",
+        include_str!("../../../template/hive/agents.json"),
+    ),
+    (
+        "hive/desks.json",
+        include_str!("../../../template/hive/desks.json"),
     ),
     (
         "hive/constitution.json",
