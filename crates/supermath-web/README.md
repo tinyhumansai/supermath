@@ -33,6 +33,9 @@ the three, `register(&mut registry)` adds them to a `ToolRegistry`.
 - **No fallback.** Without `GEMINI_API_KEY` the Gemini tools answer
   `BACKEND_UNAVAILABLE`. The key is read once into a redacted field, sent only
   in the `x-goog-api-key` header, and never logged or returned.
+- **Retired models.** Google retires model names. A 404 from Gemini is
+  reported as `BACKEND_UNAVAILABLE` with a message naming the model and saying
+  it may be retired; set `SUPERMATH_WEB_MODEL` to a current pinned name.
 - **Cache and cap.** Responses are cached 24 h under `$SUPERMATH_CACHE/web`,
   keyed by model and prompt. `SUPERMATH_WEB_DAILY_CAP` calls per project per
   UTC day, counted in memory.
@@ -47,7 +50,7 @@ the three, `register(&mut registry)` adds them to a `ToolRegistry`.
 | Variable | Default |
 | --- | --- |
 | `GEMINI_API_KEY` | unset |
-| `SUPERMATH_WEB_MODEL` | `gemini-2.5-flash` |
+| `SUPERMATH_WEB_MODEL` | `gemini-3.5-flash` |
 | `SUPERMATH_WEB_DAILY_CAP` | `200` |
 | `SUPERMATH_CACHE` | no cache |
 | `SUPERMATH_CONTACT` | none (goes in the `User-Agent`) |
