@@ -8,14 +8,19 @@
 //! ```text
 //! <loop>/rsi.json                       the subject, hive, scorer, models, budget
 //! <loop>/brief.md                       the conjecture and the epoch's task
-//! <loop>/hive/                          lead, prover, refuter; the toolkit as tools
+//! <loop>/hive/hive.json                 identity, context, policies, coordinator
+//! <loop>/hive/agents.json               roles and seats: lead, prover, refuter
+//! <loop>/hive/desks.json                the desk the seats share
+//! <loop>/hive/tools.json                the toolkit as tools and toolpacks
 //! <loop>/subject/lean/Supermath/Statement.lean   the conjecture, frozen
 //! <loop>/subject/lean/Supermath/Prove.lean       `theorem proof : Conjecture`
 //! <loop>/subject/lean/Supermath/Refute.lean      `theorem refute : ¬ Conjecture`
 //! ```
 //!
 //! The statement file must declare `Supermath.Conjecture : Prop`; it is
-//! copied in verbatim. `hive.json` gets one executable tool per toolkit tool
+//! copied in verbatim. The hive's manifest is split the way tinyhivemind
+//! allows, so no one file grows large. `tools.json` gets one executable tool
+//! per toolkit tool
 //! (see [`declarations`]), less the `file_*` tools,
 //! whose work the seats' own file tools do in their checkout, and
 //! `web_search`, whose name `OpenHuman`'s own search tool has; and one toolpack per
@@ -104,6 +109,10 @@ const TEMPLATE: [(&str, &str); 19] = [
         include_str!("../../../template/subject/notes/README.md"),
     ),
 ];
+
+/// Where the hive's tools and toolpacks go in the loop folder: written from
+/// the toolkit, not the template.
+const TOOLS_PATH: &str = "hive/tools.json";
 
 /// Where the conjecture goes in the loop folder.
 pub const STATEMENT_PATH: &str = "subject/lean/Supermath/Statement.lean";
