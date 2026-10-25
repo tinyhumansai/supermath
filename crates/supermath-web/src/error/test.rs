@@ -11,6 +11,10 @@ fn maps_every_variant_to_its_documented_code() {
     let cases = [
         (Error::MissingApiKey, ErrorCode::BackendUnavailable),
         (
+            Error::ModelNotFound { model: "m".into() },
+            ErrorCode::BackendUnavailable,
+        ),
+        (
             Error::Unavailable("x".into()),
             ErrorCode::BackendUnavailable,
         ),
