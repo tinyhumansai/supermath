@@ -79,10 +79,40 @@ fn the_manifest_runs_this_binary_as_its_scorer_and_freezes_the_statement() {
 }
 
 #[test]
-fn the_hive_holds_the_toolkit_less_the_file_tools_in_domain_toolpacks() {
+fn the_hive_manifest_is_split_into_agents_desks_and_tools() {
     let (_root, dir) = scaffold();
+    let section = |file: &str| -> Vec<String> {
+        let mut keys: Vec<String> = json(&dir, file)
+            .as_object()
+            .unwrap()
+            .keys()
+            .cloned()
+            .collect();
+        keys.sort();
+        keys
+    };
     let hive = json(&dir, "hive/hive.json");
     assert_eq!(hive["id"], "demo");
+    for moved in ["roles", "seats", "desks", "tools", "toolpacks"] {
+        assert!(hive.get(moved).is_none(), "hive.json still holds {moved}");
+    }
+    assert_eq!(section("hive/agents.json"), ["roles", "seats"]);
+    assert_eq!(section("hive/desks.json"), ["desks"]);
+    assert_eq!(section("hive/tools.json"), ["toolpacks", "tools"]);
+    let seats = json(&dir, "hive/agents.json")["seats"].clone();
+    let ids: Vec<&str> = seats
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|seat| seat["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(ids, ["lead", "prover", "refuter"]);
+}
+
+#[test]
+fn the_hive_holds_the_toolkit_less_the_file_tools_in_domain_toolpacks() {
+    let (_root, dir) = scaffold();
+    let hive = json(&dir, "hive/tools.json");
     let ids: Vec<&str> = hive["tools"]
         .as_array()
         .unwrap()
@@ -110,7 +140,7 @@ fn the_hive_holds_the_toolkit_less_the_file_tools_in_domain_toolpacks() {
     assert!(pack("ledger").contains(&"recall_memory".to_owned()));
     assert_eq!(pack("ledger-read"), ["ledger_claims", "recall_memory"]);
     // Every toolpack a seat names exists.
-    for seat in hive["seats"].as_array().unwrap() {
+    for seat in json(&dir, "hive/agents.json")["seats"].as_array().unwrap() {
         for name in seat["toolpacks"].as_array().unwrap() {
             pack(name.as_str().unwrap());
         }

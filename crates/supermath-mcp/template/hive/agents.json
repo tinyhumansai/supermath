@@ -1,0 +1,123 @@
+{
+  "roles": [
+    {
+      "id": "lead",
+      "charter": "roles/lead.md"
+    },
+    {
+      "id": "prover",
+      "charter": "roles/prover.md"
+    },
+    {
+      "id": "refuter",
+      "charter": "roles/refuter.md"
+    }
+  ],
+  "seats": [
+    {
+      "id": "lead",
+      "role": "lead",
+      "prompt": "seats/lead.md",
+      "template": "openhuman",
+      "config": {
+        "action_dir": "{incumbent}",
+        "max_iterations": 30
+      },
+      "tools": {
+        "allow": [
+          "file_read",
+          "grep",
+          "glob",
+          "list",
+          "read_diff"
+        ],
+        "deny": [
+          "wait",
+          "wait_loop",
+          "spawn_subagent",
+          "spawn_async_subagent",
+          "spawn_parallel_agents",
+          "web_fetch",
+          "shell"
+        ]
+      },
+      "toolpacks": [
+        "literature",
+        "ledger-read"
+      ]
+    },
+    {
+      "id": "prover",
+      "role": "prover",
+      "prompt": "seats/prover.md",
+      "template": "openhuman",
+      "config": {
+        "action_dir": "{candidate}",
+        "max_iterations": 60
+      },
+      "tools": {
+        "allow": [
+          "file_read",
+          "grep",
+          "glob",
+          "list",
+          "read_diff",
+          "file_write",
+          "edit",
+          "apply_patch"
+        ],
+        "deny": [
+          "wait",
+          "wait_loop",
+          "spawn_subagent",
+          "spawn_async_subagent",
+          "spawn_parallel_agents",
+          "web_fetch",
+          "shell"
+        ]
+      },
+      "toolpacks": [
+        "lean",
+        "literature",
+        "ledger"
+      ]
+    },
+    {
+      "id": "refuter",
+      "role": "refuter",
+      "prompt": "seats/refuter.md",
+      "template": "openhuman",
+      "config": {
+        "action_dir": "{candidate}",
+        "max_iterations": 60
+      },
+      "tools": {
+        "allow": [
+          "file_read",
+          "grep",
+          "glob",
+          "list",
+          "read_diff",
+          "file_write",
+          "edit",
+          "apply_patch"
+        ],
+        "deny": [
+          "wait",
+          "wait_loop",
+          "spawn_subagent",
+          "spawn_async_subagent",
+          "spawn_parallel_agents",
+          "web_fetch",
+          "shell"
+        ]
+      },
+      "toolpacks": [
+        "lean",
+        "python",
+        "literature",
+        "ledger"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "desks": [
+    {
+      "id": "lab",
+      "name": "Settling lab",
+      "description": "settle one pinned conjecture in Lean",
+      "members": [
+        "lead",
+        "prover",
+        "refuter"
+      ],
+      "responder_mode": "auto"
+    }
+  ]
+}

@@ -8,14 +8,19 @@
 //! ```text
 //! <loop>/rsi.json                       the subject, hive, scorer, models, budget
 //! <loop>/brief.md                       the conjecture and the epoch's task
-//! <loop>/hive/                          lead, prover, refuter; the toolkit as tools
+//! <loop>/hive/hive.json                 identity, context, policies, coordinator
+//! <loop>/hive/agents.json               roles and seats: lead, prover, refuter
+//! <loop>/hive/desks.json                the desk the seats share
+//! <loop>/hive/tools.json                the toolkit as tools and toolpacks
 //! <loop>/subject/lean/Supermath/Statement.lean   the conjecture, frozen
 //! <loop>/subject/lean/Supermath/Prove.lean       `theorem proof : Conjecture`
 //! <loop>/subject/lean/Supermath/Refute.lean      `theorem refute : ¬ Conjecture`
 //! ```
 //!
 //! The statement file must declare `Supermath.Conjecture : Prop`; it is
-//! copied in verbatim. `hive.json` gets one executable tool per toolkit tool
+//! copied in verbatim. The hive's manifest is split the way tinyhivemind
+//! allows, so no one file grows large. `tools.json` gets one executable tool
+//! per toolkit tool
 //! (see [`declarations`]), less the `file_*` tools,
 //! whose work the seats' own file tools do in their checkout, and
 //! `web_search`, whose name `OpenHuman`'s own search tool has; and one toolpack per
@@ -32,12 +37,20 @@ use super::hive::{Program, declarations};
 use crate::error::{Error, Result};
 
 /// The template, as (path in the loop folder, text) pairs.
-const TEMPLATE: [(&str, &str); 17] = [
+const TEMPLATE: [(&str, &str); 19] = [
     ("rsi.json", include_str!("../../../template/rsi.json")),
     ("brief.md", include_str!("../../../template/brief.md")),
     (
         "hive/hive.json",
         include_str!("../../../template/hive/hive.json"),
+    ),
+    (
+        "hive/agents.json",
+        include_str!("../../../template/hive/agents.json"),
+    ),
+    (
+        "hive/desks.json",
+        include_str!("../../../template/hive/desks.json"),
     ),
     (
         "hive/constitution.json",
@@ -96,6 +109,10 @@ const TEMPLATE: [(&str, &str); 17] = [
         include_str!("../../../template/subject/notes/README.md"),
     ),
 ];
+
+/// Where the hive's tools and toolpacks go in the loop folder: written from
+/// the toolkit, not the template.
+const TOOLS_PATH: &str = "hive/tools.json";
 
 /// Where the conjecture goes in the loop folder.
 pub const STATEMENT_PATH: &str = "subject/lean/Supermath/Statement.lean";
@@ -157,13 +174,9 @@ pub fn create(
             .replace("{{statement}}", statement.trim_end())
     };
     for (path, text) in TEMPLATE {
-        let text = if path == "hive/hive.json" {
-            hive_manifest(&render(text), program, registry)?
-        } else {
-            render(text)
-        };
-        write(&dir.join(path), &text)?;
+        write(&dir.join(path), &render(text))?;
     }
+    write(&dir.join(TOOLS_PATH), &tool_manifest(program, registry)?)?;
     write(&dir.join(STATEMENT_PATH), statement)
 }
 
@@ -175,10 +188,9 @@ fn declares_conjecture(statement: &str) -> bool {
             .any(|line| line.trim_start().starts_with("def Conjecture"))
 }
 
-/// The template's `hive.json` with the toolkit's tools and toolpacks added.
-fn hive_manifest(text: &str, program: &Program, registry: &ToolRegistry) -> Result<String> {
-    let mut manifest: Map<String, Value> =
-        serde_json::from_str(text).map_err(|error| Error::Template(error.to_string()))?;
+/// The hive's `tools.json`: the toolkit's tools and its domain toolpacks.
+fn tool_manifest(program: &Program, registry: &ToolRegistry) -> Result<String> {
+    let mut manifest = Map::new();
     let tools: Vec<Value> = match declarations(registry, program) {
         Value::Array(tools) => tools
             .into_iter()
