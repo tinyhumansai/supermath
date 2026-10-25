@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use supermath_web::{Error, GeminiClient, SystemClock};
 
-use crate::support::{KEY, config, fixed_gemini};
+use crate::support::{KEY, Response, config, fixed_gemini, gemini_stub};
 
 #[tokio::test]
 async fn debug_output_redacts_the_key() {
