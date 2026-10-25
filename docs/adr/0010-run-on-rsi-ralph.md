@@ -73,9 +73,10 @@ tools their `hive.json` declares.
   therefore persisted per checkout (`.log/calls.jsonl`), so `ledger_record`
   can still cite earlier calls. The Lean verdict cache and the web daily cap
   stay per process.
-- **Unused pieces left in the contract.** `Backend::OpenHuman` and
-  `Ledger::set_alignment` have no caller in this repository now. They stay
-  until a change to the contract removes them deliberately.
+- **Unused pieces removed.** `Backend::OpenHuman` and
+  `Ledger::set_alignment` lost their callers with the crates and are removed
+  as well. An entry's `alignment` field stays: it is `not_reviewed` on every
+  new claim, and a stored entry keeps the alignment it was given.
 - **Ledger writes are not rolled back.** A candidate rsi-ralph rejects may
   still have written to the ledger. Claims are earned only on evidence, so
   such an entry cannot claim more than its sources support.
