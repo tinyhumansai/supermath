@@ -1,7 +1,7 @@
 //! `supermath-mcp hive-tools`: the toolkit as tinyhivemind executable tools.
 //!
 //! An `rsi-ralph` hive package declares the programs its seats may call in
-//! the `tools` array of `hive.json` (tinyhivemind's
+//! the `tools` array of its manifest (`tools.json` in a loop `loop new` writes; tinyhivemind's
 //! `docs/specs/executable-tools.md`). This module writes one declaration per
 //! registered tool, straight from the tool's own name, description, schema,
 //! and permission, so the package cannot drift from the code:
