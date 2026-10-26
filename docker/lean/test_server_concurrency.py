@@ -17,6 +17,11 @@ import build as B
 import server as S
 
 
+def read(path):
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
 def write(path, text):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8") as f:
@@ -99,9 +104,9 @@ class ConcurrentBuilds(unittest.TestCase):
         seen = []
 
         def run(argv, **kw):
-            before = open(argv[-1], encoding="utf-8").read()
+            before = read(argv[-1])
             time.sleep(0.15)
-            seen.append(before == open(argv[-1], encoding="utf-8").read())
+            seen.append(before == read(argv[-1]))
             return Probe(0)(argv, **kw)
 
         def edit_then_build():

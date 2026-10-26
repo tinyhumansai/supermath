@@ -181,7 +181,8 @@ def build_modules(lean_dir, modules, packages, timeout, run=subprocess.run):
             if done.returncode != 0:
                 raise BuildError(f"{module} does not compile:\n{(done.stdout + done.stderr)[-1500:]}")
             for temporary, final in outputs:
-                os.replace(temporary, final)
+                if os.path.exists(temporary):
+                    os.replace(temporary, final)
         finally:
             for temporary, _ in outputs:
                 if os.path.exists(temporary):
