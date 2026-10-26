@@ -109,9 +109,10 @@ class ConcurrentBuilds(unittest.TestCase):
         stage = B.stage
 
         def watched_stage(*args, **kw):
+            staged = stage(*args, **kw)
             if compiling.is_set():
                 restaged.set()
-            return stage(*args, **kw)
+            return staged
 
         def run(argv, **kw):
             before = read(argv[-1])
