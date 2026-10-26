@@ -99,25 +99,53 @@ class ConcurrentBuilds(unittest.TestCase):
         self.assertEqual(len(probe.compiles), 2, "the later requests reuse what the first built")
 
     def test_a_restage_waits_for_the_build_in_progress(self):
+        # Ordered by events, not sleeps: the edit lands and the second request
+        # is on its way before the first compile reads its source back, and
+        # the compile gives the restage a generous window to run under it.
         project = self.project("p", volume=False)
         source = os.path.join(project, "lean", "Supermath", "Shared.lean")
+        compiling, requested, restaged = threading.Event(), threading.Event(), threading.Event()
         seen = []
+        stage = B.stage
+
+        def watched_stage(*args, **kw):
+            if compiling.is_set():
+                restaged.set()
+            return stage(*args, **kw)
 
         def run(argv, **kw):
             before = read(argv[-1])
-            time.sleep(0.15)
+            if not compiling.is_set():
+                compiling.set()
+                requested.wait(5)
+                restaged.wait(0.5)  # times out unless the restage runs under this compile
             seen.append(before == read(argv[-1]))
             return Probe(0)(argv, **kw)
 
         def edit_then_build():
-            time.sleep(0.05)
+            compiling.wait(5)
             write(source, "import Mathlib\n-- edited\n")
             os.utime(source, (2_000_000_000, 2_000_000_000))
+            requested.set()
             S.build_package(project, ["Supermath.Top"], 10, run)
 
-        errors = in_threads([lambda: S.build_package(project, ["Supermath.Top"], 10, run), edit_then_build])
+        B.stage = watched_stage
+        try:
+            errors = in_threads([lambda: S.build_package(project, ["Supermath.Top"], 10, run), edit_then_build])
+        finally:
+            B.stage = stage
         self.assertEqual(errors, [])
         self.assertTrue(seen and all(seen), "a source changed under a compile")
+
+    def test_a_request_waiting_for_the_lock_gives_up_at_its_timeout(self):
+        project = self.project("p", volume=True)
+        lock = B.project_lock(os.path.join(project, "lean"))
+        with lock:
+            started = time.monotonic()
+            with self.assertRaises(subprocess.TimeoutExpired):
+                S.build_package(project, ["Supermath.Top"], 0.3, Probe(0))
+            waited = time.monotonic() - started
+        self.assertLess(waited, 2.0, "the wait for the lock ignored the request's timeout")
 
     def test_checks_of_different_projects_build_at_the_same_time(self):
         first, second = self.project("a", True), self.project("b", False)
