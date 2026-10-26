@@ -106,6 +106,12 @@ def ensure_package(project):
     return lean_dir
 
 
+def build_package(project, mods, timeout, run=subprocess.run):
+    """Stages and builds `project`'s package; returns (lean_dir, LEAN_PATH)."""
+    lean_dir = ensure_package(project)
+    return lean_dir, build.build_modules(lean_dir, mods, PACKAGES, timeout, run)
+
+
 def run_guarded(operation):
     """Runs `operation()`; maps REPL failures to a service status."""
     started = time.monotonic()
@@ -142,9 +148,8 @@ def elaborate(project, source, timeout, with_tactics=False):
             release()
             raise
         return repl, answer, release
-    lean_dir = ensure_package(project)
     try:
-        path = build.build_modules(lean_dir, mods, PACKAGES, timeout)
+        lean_dir, path = build_package(project, mods, timeout)
     except build.BuildError as failed:
         fail = {"messages": [{"severity": "error", "pos": {"line": 1, "column": 0},
                               "data": "an imported project module failed to build:\n" + failed.text}]}
