@@ -139,13 +139,23 @@ class ConcurrentBuilds(unittest.TestCase):
 
     def test_a_request_waiting_for_the_lock_gives_up_at_its_timeout(self):
         project = self.project("p", volume=True)
-        lock = B.project_lock(os.path.join(project, "lean"))
-        with lock:
-            started = time.monotonic()
-            with self.assertRaises(subprocess.TimeoutExpired):
+        outcome = []
+
+        def request():
+            try:
                 S.build_package(project, ["Supermath.Top"], 0.3, Probe(0))
-            waited = time.monotonic() - started
-        self.assertLess(waited, 2.0, "the wait for the lock ignored the request's timeout")
+                outcome.append("built")
+            except subprocess.TimeoutExpired:
+                outcome.append("timeout")
+
+        with B.project_lock(os.path.join(project, "lean")):
+            waiter = threading.Thread(target=request)
+            waiter.start()
+            waiter.join(3)
+            gave_up = not waiter.is_alive()
+        waiter.join(5)
+        self.assertTrue(gave_up, "the wait for the lock ignored the request's timeout")
+        self.assertEqual(outcome, ["timeout"])
 
     def test_checks_of_different_projects_build_at_the_same_time(self):
         first, second = self.project("a", True), self.project("b", False)
