@@ -6,6 +6,14 @@ its lock inside the baked Mathlib package, and the container has no network to
 resolve Mathlib's dependencies. The packages are already built, so all a
 project needs is `lean -o` on its own modules, in dependency order, against a
 `LEAN_PATH` that lists the baked packages and the project's build directory.
+
+Concurrency: a project's build directory is not safe for two writers, so
+callers hold `project_lock(...)` across staging and `build_modules` for one
+project (the server does, in `build_package`). Under that lock requests for one
+project build one at a time and requests for different projects run in
+parallel. `build_modules` also writes each olean atomically, to a temporary
+file renamed into place once Lean succeeds, so a failed or timed-out compile
+never leaves a half-written olean that `stale` would take for fresh.
 """
 
 import glob
@@ -13,6 +21,7 @@ import hashlib
 import os
 import shutil
 import subprocess
+import threading
 
 import normalize as N
 
@@ -25,6 +34,23 @@ class BuildError(Exception):
     def __init__(self, text):
         super().__init__(text)
         self.text = text
+
+
+_LOCKS = {}
+_LOCKS_GUARD = threading.Lock()
+
+
+def project_lock(source_dir):
+    """The lock that serialises staging and building the package at
+    `source_dir`, one per real path, created on first use.
+
+    Hold it from `stage` through `build_modules`: `stage` rewrites sources and
+    `build_modules` writes oleans in the same directory, and neither may run
+    while the other, or a second copy of itself, does for the same project.
+    """
+    key = os.path.realpath(source_dir)
+    with _LOCKS_GUARD:
+        return _LOCKS.setdefault(key, threading.Lock())
 
 
 def stage(source_dir, builds_root):
@@ -144,15 +170,22 @@ def build_modules(lean_dir, modules, packages, timeout, run=subprocess.run):
             deps = N.project_imports(f.read())
         if not stale(lean_dir, module, deps):
             continue
-        olean = module_olean(lean_dir, module)
+        olean, ilean = module_olean(lean_dir, module), module_olean(lean_dir, module, "ilean")
         os.makedirs(os.path.dirname(olean), exist_ok=True)
-        done = run(
-            ["lean", "-o", olean, "-i", module_olean(lean_dir, module, "ilean"),
-             module_source(lean_dir, module)],
-            cwd=lean_dir, env=env, capture_output=True, text=True, timeout=timeout,
-        )
-        if done.returncode != 0:
-            raise BuildError(f"{module} does not compile:\n{(done.stdout + done.stderr)[-1500:]}")
+        outputs = [(olean + ".tmp", olean), (ilean + ".tmp", ilean)]
+        try:
+            done = run(
+                ["lean", "-o", outputs[0][0], "-i", outputs[1][0], module_source(lean_dir, module)],
+                cwd=lean_dir, env=env, capture_output=True, text=True, timeout=timeout,
+            )
+            if done.returncode != 0:
+                raise BuildError(f"{module} does not compile:\n{(done.stdout + done.stderr)[-1500:]}")
+            for temporary, final in outputs:
+                os.replace(temporary, final)
+        finally:
+            for temporary, _ in outputs:
+                if os.path.exists(temporary):
+                    os.remove(temporary)
     return lean_path(paths)
 
 
