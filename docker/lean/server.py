@@ -120,10 +120,21 @@ def build_package(project, mods, timeout, run=subprocess.run):
     staging cannot rewrite sources under a compile. Requests for other
     projects take other locks and build in parallel. The lock is released
     before the caller elaborates: that only reads the finished oleans.
+
+    Waiting for the lock counts against `timeout`: a request that cannot get
+    it in time raises `subprocess.TimeoutExpired`, and the build gets only
+    what is left.
     """
-    with build.project_lock(os.path.join(project, "lean")):
+    lock = build.project_lock(os.path.join(project, "lean"))
+    started = time.monotonic()
+    if not lock.acquire(timeout=max(timeout, 0)):
+        raise subprocess.TimeoutExpired("build " + project, timeout)
+    try:
+        remaining = max(timeout - (time.monotonic() - started), 0.001)
         lean_dir = ensure_package(project)
-        return lean_dir, build.build_modules(lean_dir, mods, PACKAGES, timeout, run)
+        return lean_dir, build.build_modules(lean_dir, mods, PACKAGES, remaining, run)
+    finally:
+        lock.release()
 
 
 def run_guarded(operation):
