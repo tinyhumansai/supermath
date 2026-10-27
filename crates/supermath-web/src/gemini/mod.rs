@@ -153,6 +153,9 @@ impl GeminiClient {
                 model: self.model.clone(),
             });
         }
+        if status.as_u16() == 402 {
+            return Err(Error::BillingExhausted);
+        }
         if !status.is_success() {
             return Err(Error::Unavailable(format!(
                 "gemini answered with status {}",
