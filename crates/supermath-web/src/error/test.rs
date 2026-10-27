@@ -32,6 +32,7 @@ fn maps_every_variant_to_its_documented_code() {
         ),
         (Error::Timeout, ErrorCode::Timeout),
         (Error::DailyCapSpent { limit: 1 }, ErrorCode::BudgetExceeded),
+        (Error::BillingExhausted, ErrorCode::BudgetExceeded),
         (Error::InvalidUrl("x".into()), ErrorCode::InvalidInput),
         (Error::PrivateAddress("x".into()), ErrorCode::InvalidInput),
         (
