@@ -43,6 +43,16 @@ impl WebToolkit {
         })
     }
 
+    /// Sends Gemini the cheapest request that meets billing, to learn
+    /// whether the key and model answer. `check` uses it.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`GeminiClient::probe`](crate::GeminiClient::probe).
+    pub async fn probe(&self) -> Result<()> {
+        self.engine.probe().await
+    }
+
     /// The `web_search` tool.
     #[must_use]
     pub fn search(&self) -> WebSearch {

@@ -117,6 +117,10 @@ impl Engine {
 
     /// One grounded Gemini turn: ask, read the grounding, resolve each used
     /// source, and keep the sentences that still have a source.
+    pub(crate) async fn probe(&self) -> Result<()> {
+        self.gemini.probe().await
+    }
+
     pub(crate) async fn grounded_turn(&self, prompt: &str) -> Result<Turn> {
         let generation = self.gemini.generate(prompt).await?;
         let usage = generation.response.usage_metadata.unwrap_or_default();

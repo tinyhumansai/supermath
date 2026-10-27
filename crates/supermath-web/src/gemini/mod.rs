@@ -139,30 +139,7 @@ impl GeminiClient {
             .await
             .map_err(request_error)?;
 
-        let status = reply.status();
-        if status.as_u16() == 429 {
-            let retry_after_ms = reply
-                .headers()
-                .get(reqwest::header::RETRY_AFTER)
-                .and_then(|v| v.to_str().ok())
-                .and_then(|v| v.trim().parse::<u64>().ok())
-                .map_or(DEFAULT_RETRY_AFTER_MS, |secs| secs.saturating_mul(1000));
-            return Err(Error::RateLimited { retry_after_ms });
-        }
-        if status.as_u16() == 404 {
-            return Err(Error::ModelNotFound {
-                model: self.model.clone(),
-            });
-        }
-        if status.as_u16() == 402 {
-            return Err(Error::BillingExhausted);
-        }
-        if !status.is_success() {
-            return Err(Error::Unavailable(format!(
-                "gemini answered with status {}",
-                status.as_u16()
-            )));
-        }
+        let reply = self.success(reply)?;
         let raw: Value = reply.json().await.map_err(|e| {
             if e.is_timeout() {
                 Error::Timeout
@@ -179,6 +156,62 @@ impl GeminiClient {
             response,
             cached_age: None,
         })
+    }
+
+    /// Asks Gemini for one token, with no search grounding and no cache, to
+    /// learn whether the key and model answer: the cheapest request that
+    /// still meets billing.
+    ///
+    /// # Errors
+    ///
+    /// The errors of [`generate`](Self::generate) for a failure status or a
+    /// failed request; [`Error::BillingExhausted`] when the key is out of
+    /// credit.
+    pub async fn probe(&self) -> Result<()> {
+        let key = self.api_key.as_deref().ok_or(Error::MissingApiKey)?;
+        let url = format!(
+            "{}/v1beta/models/{}:generateContent",
+            self.base_url, self.model
+        );
+        let body = json!({
+            "contents": [{"role": "user", "parts": [{"text": "ping"}]}],
+            "generationConfig": {"temperature": 0, "maxOutputTokens": 1},
+        });
+        let reply = self
+            .http
+            .post(url)
+            .header("x-goog-api-key", key)
+            .json(&body)
+            .send()
+            .await
+            .map_err(request_error)?;
+        self.success(reply).map(|_| ())
+    }
+
+    /// `reply` itself when its status is a success, or the error its status
+    /// stands for.
+    fn success(&self, reply: reqwest::Response) -> Result<reqwest::Response> {
+        let status = reply.status();
+        match status.as_u16() {
+            429 => {
+                let retry_after_ms = reply
+                    .headers()
+                    .get(reqwest::header::RETRY_AFTER)
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|v| v.trim().parse::<u64>().ok())
+                    .map_or(DEFAULT_RETRY_AFTER_MS, |secs| secs.saturating_mul(1000));
+                Err(Error::RateLimited { retry_after_ms })
+            }
+            404 => Err(Error::ModelNotFound {
+                model: self.model.clone(),
+            }),
+            402 => Err(Error::BillingExhausted),
+            _ if !status.is_success() => Err(Error::Unavailable(format!(
+                "gemini answered with status {}",
+                status.as_u16()
+            ))),
+            _ => Ok(reply),
+        }
     }
 }
 
