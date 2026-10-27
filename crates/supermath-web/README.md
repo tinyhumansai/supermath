@@ -36,6 +36,11 @@ the three, `register(&mut registry)` adds them to a `ToolRegistry`.
 - **Retired models.** Google retires model names. A 404 from Gemini is
   reported as `BACKEND_UNAVAILABLE` with a message naming the model and saying
   it may be retired; set `SUPERMATH_WEB_MODEL` to a current pinned name.
+- **Out of credit.** A 402 from Gemini means the key's billing or credit is
+  exhausted. It is reported as `BUDGET_EXCEEDED`, not `BACKEND_UNAVAILABLE`,
+  so a caller does not mistake it for a transient outage and retry.
+  `supermath-mcp check` probes the key with one ungrounded, one-token request
+  (`WebToolkit::probe`), so a set but unfunded key fails the check.
 - **Cache and cap.** Responses are cached 24 h under `$SUPERMATH_CACHE/web`,
   keyed by model and prompt. `SUPERMATH_WEB_DAILY_CAP` calls per project per
   UTC day, counted in memory.
