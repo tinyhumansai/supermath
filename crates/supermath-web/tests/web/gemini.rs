@@ -43,6 +43,16 @@ async fn a_404_says_the_model_may_be_retired_and_names_the_override() {
 }
 
 #[tokio::test]
+async fn a_402_says_the_key_is_out_of_credit_and_is_not_a_transient_outage() {
+    let stub = gemini_stub(|_| Response::status(402)).await;
+    let client = GeminiClient::new(&config(&stub), Arc::new(SystemClock)).unwrap();
+    let error = client.generate("hi").await.unwrap_err();
+    assert_eq!(error, Error::BillingExhausted);
+    assert_eq!(error.code(), supermath_tool::ErrorCode::BudgetExceeded);
+    assert!(error.to_string().contains("credit"), "{error}");
+}
+
+#[tokio::test]
 async fn generate_returns_the_decoded_response() {
     let stub = fixed_gemini("grounded.json").await;
     let client = GeminiClient::new(&config(&stub), Arc::new(SystemClock)).unwrap();
