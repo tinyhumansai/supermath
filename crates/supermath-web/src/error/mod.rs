@@ -41,6 +41,13 @@ pub enum Error {
         /// The model name that was asked for.
         model: String,
     },
+    /// Gemini answered 402: the key's billing or credit is exhausted. Not a
+    /// transient outage, so it reports as a spent budget, which a caller
+    /// does not retry.
+    #[error(
+        "gemini refused the request with 402: the key's billing or credit is exhausted, so web search is off until it is topped up"
+    )]
+    BillingExhausted,
     /// The upstream is down or refused the request.
     #[error("upstream unavailable: {0}")]
     Unavailable(String),
@@ -109,7 +116,7 @@ impl Error {
             Self::Forbidden(_) => ErrorCode::Forbidden,
             Self::RateLimited { .. } => ErrorCode::RateLimited,
             Self::Timeout => ErrorCode::Timeout,
-            Self::DailyCapSpent { .. } => ErrorCode::BudgetExceeded,
+            Self::DailyCapSpent { .. } | Self::BillingExhausted => ErrorCode::BudgetExceeded,
             Self::InvalidConfig { .. }
             | Self::Client(_)
             | Self::MissingApiKey

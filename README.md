@@ -54,7 +54,7 @@ so they can check a candidate checkout.
 ```sh
 cargo install --path crates/supermath-mcp
 claude mcp add supermath -- supermath-mcp serve my-project
-supermath-mcp check            # Lean, Python, CortexDB, Gemini key, arXiv
+supermath-mcp check            # Lean, Python, CortexDB, Gemini (one-token probe), arXiv
 ```
 
 The project comes from the command line, never from a tool argument. A

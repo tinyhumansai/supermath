@@ -1,14 +1,16 @@
 //! `supermath-mcp check`: is each backend the toolkit needs reachable?
 //!
 //! [`run`] probes the Lean toolchain and Mathlib, the Python version and
-//! lock, `CortexDB`, the Gemini key, and arXiv, and returns a [`Report`].
+//! lock, `CortexDB`, Gemini, and arXiv, and returns a [`Report`].
 //! A backend whose variable is unset is [`Status::Skipped`], not failed: the
 //! toolkit runs without it and its tools answer `BACKEND_UNAVAILABLE`. A
 //! configured backend that does not answer is [`Status::Failed`], and
 //! [`Report::passed`] is then `false`.
 //!
-//! The Gemini key is reported as present or absent. Its value is never read
-//! into the report, and nothing here prints a secret.
+//! A Gemini key is probed with one ungrounded, one-token request, so a key
+//! that is set but out of credit (402) or names a retired model (404) fails
+//! the check. The key's value is never read into the report, and nothing
+//! here prints a secret.
 
 use std::fmt;
 
@@ -121,7 +123,9 @@ pub async fn run(toolkit: &Toolkit, config: &Config) -> Report {
         Line::new("cortexdb", Status::Skipped, "CORTEX_API_KEY is not set")
     };
     let gemini = if toolkit.has_gemini_key() {
-        Line::new("gemini", Status::Ok, "GEMINI_API_KEY is set")
+        Line::from_result("gemini", toolkit.web().probe().await, |()| {
+            format!("{} answered", config.web.model)
+        })
     } else {
         Line::new(
             "gemini",

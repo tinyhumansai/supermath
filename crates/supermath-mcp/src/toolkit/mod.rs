@@ -63,6 +63,7 @@ pub struct Toolkit {
     python: Python,
     literature: Literature,
     memory: Memory,
+    web: WebToolkit,
     web_has_key: bool,
 }
 
@@ -191,6 +192,7 @@ impl Toolkit {
             python,
             literature,
             memory,
+            web,
             web_has_key: config.web.has_api_key(),
         })
     }
@@ -269,6 +271,12 @@ impl Toolkit {
     #[must_use]
     pub fn memory(&self) -> &Memory {
         &self.memory
+    }
+
+    /// The web toolkit, whose Gemini client `check` probes.
+    #[must_use]
+    pub fn web(&self) -> &WebToolkit {
+        &self.web
     }
 
     /// Whether a Gemini key is configured (never the key itself).

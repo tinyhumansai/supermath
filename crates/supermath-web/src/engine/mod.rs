@@ -115,6 +115,11 @@ impl Engine {
         }
     }
 
+    /// One ungrounded one-token Gemini request: does the key answer?
+    pub(crate) async fn probe(&self) -> Result<()> {
+        self.gemini.probe().await
+    }
+
     /// One grounded Gemini turn: ask, read the grounding, resolve each used
     /// source, and keep the sentences that still have a source.
     pub(crate) async fn grounded_turn(&self, prompt: &str) -> Result<Turn> {

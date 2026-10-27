@@ -18,6 +18,21 @@ async fn arxiv() -> Stub {
     Stub::start(|_| Reply::atom(EMPTY_FEED)).await
 }
 
+/// A Gemini stub answering every `generateContent` with `status`, or with a
+/// one-token reply when it is 200.
+async fn gemini(status: u16) -> Stub {
+    Stub::start(move |_| {
+        if status == 200 {
+            Reply::json(&serde_json::json!({
+                "candidates": [{"content": {"parts": [{"text": "ok"}]}, "finishReason": "MAX_TOKENS"}]
+            }))
+        } else {
+            Reply::status(status)
+        }
+    })
+    .await
+}
+
 async fn python() -> Stub {
     Stub::start(|r| match r.path.as_str() {
         "/health" => Reply::json(
@@ -41,13 +56,15 @@ async fn every_reachable_backend_is_reported_with_what_it_found() {
     let python = python().await;
     let arxiv = arxiv().await;
     let cortex = cortex().await;
+    let gemini = gemini(200).await;
     let env = Env::new()
         .set("LEAN_URL", &lean.stub.base)
         .set("PYTHON_URL", &python.base)
         .set("SUPERMATH_ARXIV_API_URL", &arxiv.base)
         .set("CORTEX_API_URL", cortex.url())
         .set("CORTEX_API_KEY", "c-secret")
-        .set("GEMINI_API_KEY", "g-secret");
+        .set("GEMINI_API_KEY", "g-secret")
+        .set("SUPERMATH_WEB_BASE_URL", &gemini.base);
     let config = env.config();
     let report = run(&env.toolkit(), &config).await;
     assert!(report.passed(), "{report}");
@@ -97,4 +114,20 @@ async fn a_configured_backend_that_does_not_answer_fails_the_check() {
             "{name}: {report}"
         );
     }
+}
+
+#[tokio::test]
+async fn a_gemini_key_out_of_credit_fails_the_check() {
+    let arxiv = arxiv().await;
+    let gemini = gemini(402).await;
+    let env = Env::new()
+        .set("SUPERMATH_ARXIV_API_URL", &arxiv.base)
+        .set("GEMINI_API_KEY", "g-secret")
+        .set("SUPERMATH_WEB_BASE_URL", &gemini.base);
+    let report = run(&env.toolkit(), &env.config()).await;
+    assert!(!report.passed(), "{report}");
+    let gemini_line = line(&report, "gemini");
+    assert_eq!(gemini_line.status, Status::Failed);
+    assert!(gemini_line.detail.contains("credit"), "{report}");
+    assert!(!report.to_string().contains("g-secret"));
 }
