@@ -50,11 +50,18 @@ fn a_bad_configuration_fails_on_stderr() {
 async fn check_reports_each_backend_and_exits_zero_when_none_failed() {
     let lean = LeanService::start().await;
     let arxiv = Stub::start(|_| Reply::atom(EMPTY_FEED)).await;
+    let gemini = Stub::start(|_| {
+        Reply::json(&serde_json::json!({
+            "candidates": [{"content": {"parts": [{"text": "ok"}]}, "finishReason": "MAX_TOKENS"}]
+        }))
+    })
+    .await;
     let out = binary()
         .args(["check", "demo"])
         .env("LEAN_URL", &lean.stub.base)
         .env("SUPERMATH_ARXIV_API_URL", &arxiv.base)
         .env("GEMINI_API_KEY", "g-secret")
+        .env("SUPERMATH_WEB_BASE_URL", &gemini.base)
         .output()
         .unwrap();
     let shown = String::from_utf8_lossy(&out.stdout);
