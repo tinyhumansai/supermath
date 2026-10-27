@@ -116,7 +116,7 @@ impl Error {
             Self::Forbidden(_) => ErrorCode::Forbidden,
             Self::RateLimited { .. } => ErrorCode::RateLimited,
             Self::Timeout => ErrorCode::Timeout,
-            Self::DailyCapSpent { .. } => ErrorCode::BudgetExceeded,
+            Self::DailyCapSpent { .. } | Self::BillingExhausted => ErrorCode::BudgetExceeded,
             Self::InvalidConfig { .. }
             | Self::Client(_)
             | Self::MissingApiKey
