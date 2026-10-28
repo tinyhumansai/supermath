@@ -36,7 +36,7 @@ hex = { workspace = true }
 url = { workspace = true }
 # Parses fetched HTML so `web_read` can keep headings, paragraphs, code, and
 # math sources while dropping scripts, navigation, and hidden elements.
-scraper = "0.23"
+scraper = "0.29"
 
 [dev-dependencies]
 # Stub servers and the async test runtime; one runtime across the workspace.
