@@ -18,7 +18,7 @@ async-trait = { workspace = true }
 # `.tex` file); only this crate reads e-prints, so it is not a workspace dep.
 flate2 = "1"
 # Parses arXiv's Atom feed. Its pull reader is enough; no DOM is built.
-quick-xml = "0.38"
+quick-xml = "0.42"
 # HTTP client for arXiv, Semantic Scholar and OEIS; rustls, no system OpenSSL.
 reqwest = { workspace = true }
 # Typed tool arguments and the OEIS and Semantic Scholar response shapes.
