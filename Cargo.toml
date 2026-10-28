@@ -65,7 +65,7 @@ tokio = "1"
 # system OpenSSL dependency.
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 # File digests: the `if_sha256` write guard and the Lean provenance digest.
-sha2 = "0.10"
+sha2 = "0.11"
 # Hex-encodes those digests for the wire.
 hex = "0.4"
 # Scratch project workspaces in tests of the file, Lean, and Python crates.
